@@ -8,6 +8,14 @@ import org.json.JSONObject
 class QuizRepository(val db: QuizDatabase) {
     val dao = db.dao()
 
+    suspend fun reindexCategories() =
+        db.withTransaction {
+            dao.categoryRows().forEach {
+                dao.setNormalizedCategory(it.id, CategoryMap.normalize(it.category))
+            }
+            dao.refreshAttemptCategories()
+        }
+
     suspend fun record(
         q: Question,
         response: String,
@@ -17,7 +25,8 @@ class QuizRepository(val db: QuizDatabase) {
         assessment: Assessment? = null,
     ) {
         require(q.daily) { "编程题不进入日常复习" }
-        val automatic = Grader.grade(q, selected)
+        val personal = dao.personalAnswer(q.id)?.takeIf { it.validFor(q) }
+        val automatic = Grader.grade(q, selected, personal)
         val manual = if (automatic == null) assessment else null
         require(automatic != null || manual != null) { "本题需要选择正确、错误或不会" }
         val correct = automatic ?: (manual == Assessment.CORRECT)
@@ -48,6 +57,11 @@ class QuizRepository(val db: QuizDatabase) {
                     mode = mode,
                     wasNew = old.seen == 0,
                     assessment = manual?.name ?: "",
+                    answerSource =
+                        if (manual != null) "MANUAL"
+                        else if (personal != null) "PERSONAL" else "ORIGINAL",
+                    normalizedCategory = CategoryMap.normalize(q.category),
+                    questionHash = q.contentHash,
                 )
             )
         }
@@ -82,8 +96,8 @@ class QuizRepository(val db: QuizDatabase) {
     }
 
     // Upgrade bundled questions by stable ID; never replace progress, history or personal content.
-    suspend fun upgradeBundledBank(text: String) {
-        val rows = BankCodec.parseBank(text)
+    suspend fun upgradeBundledBank(text: String, onProgress: (Int, Int) -> Unit = { _, _ -> }) {
+        val rows = BankCodec.parseBank(text, onProgress)
         db.withTransaction {
             val old = dao.allQuestions().associateBy { it.id }
             dao.addQuestions(rows)
@@ -101,78 +115,87 @@ class QuizRepository(val db: QuizDatabase) {
 
     suspend fun backup(): String =
         db.withTransaction {
-            JSONObject()
-                .put("schemaVersion", 1)
-                .put("backupVersion", 2)
-                .put(
-                    "stickyNotes",
-                    JSONArray(
-                        dao.allStickyNotes().map { n ->
-                            JSONObject()
-                                .put("id", n.id)
-                                .put("title", n.title)
-                                .put("content", n.content)
-                                .put("created", n.created)
-                                .put("updated", n.updated)
-                        }
-                    ),
-                )
-                .put("questions", JSONArray(dao.allQuestions().map { JSONObject(it.json) }))
-                .put(
-                    "progress",
-                    JSONArray(
-                        dao.allProgress().map { p ->
-                            JSONObject()
-                                .put("questionId", p.questionId)
-                                .put("seen", p.seen)
-                                .put("correctCount", p.correctCount)
-                                .put("repetitions", p.repetitions)
-                                .put("interval", p.interval)
-                                .put("ease", p.ease)
-                                .put("due", p.due)
-                                .put("lapses", p.lapses)
-                                .put("wrong", p.wrong)
-                                .put("favorite", p.favorite)
-                                .put("flagged", p.flagged)
-                                .put("code", p.code)
-                                .put("notes", p.notes)
-                        }
-                    ),
-                )
-                .put(
-                    "attempts",
-                    JSONArray(
-                        dao.allAttempts().map { a ->
-                            JSONObject()
-                                .put("questionId", a.questionId)
-                                .put("timestamp", a.timestamp)
-                                .put("day", a.day)
-                                .put("response", a.response)
-                                .put("correct", a.correct ?: JSONObject.NULL)
-                                .put("feedback", a.feedback)
-                                .put("mode", a.mode)
-                                .put("wasNew", a.wasNew)
-                                .put("assessment", a.assessment)
-                        }
-                    ),
-                )
-                .put(
-                    "ai",
-                    JSONArray(
-                        dao.allAi().map { a ->
-                            JSONObject()
-                                .put("cacheKey", a.cacheKey)
-                                .put("questionId", a.questionId)
-                                .put("model", a.model)
-                                .put("prompt", a.prompt)
-                                .put("response", a.response)
-                                .put("inputTokens", a.inputTokens)
-                                .put("outputTokens", a.outputTokens)
-                                .put("hitTokens", a.hitTokens)
-                                .put("estimatedUsd", a.estimatedUsd)
-                                .put("created", a.created)
-                        }
-                    ),
+            LearningCodec.append(
+                    JSONObject()
+                        .put("schemaVersion", 1)
+                        .put("backupVersion", 3)
+                        .put(
+                            "stickyNotes",
+                            JSONArray(
+                                dao.allStickyNotes().map { n ->
+                                    JSONObject()
+                                        .put("id", n.id)
+                                        .put("title", n.title)
+                                        .put("content", n.content)
+                                        .put("created", n.created)
+                                        .put("updated", n.updated)
+                                }
+                            ),
+                        )
+                        .put("questions", JSONArray(dao.allQuestions().map { JSONObject(it.json) }))
+                        .put(
+                            "progress",
+                            JSONArray(
+                                dao.allProgress().map { p ->
+                                    JSONObject()
+                                        .put("questionId", p.questionId)
+                                        .put("seen", p.seen)
+                                        .put("correctCount", p.correctCount)
+                                        .put("repetitions", p.repetitions)
+                                        .put("interval", p.interval)
+                                        .put("ease", p.ease)
+                                        .put("due", p.due)
+                                        .put("lapses", p.lapses)
+                                        .put("wrong", p.wrong)
+                                        .put("favorite", p.favorite)
+                                        .put("flagged", p.flagged)
+                                        .put("code", p.code)
+                                        .put("notes", p.notes)
+                                }
+                            ),
+                        )
+                        .put(
+                            "attempts",
+                            JSONArray(
+                                dao.allAttempts().map { a ->
+                                    JSONObject()
+                                        .put("questionId", a.questionId)
+                                        .put("timestamp", a.timestamp)
+                                        .put("day", a.day)
+                                        .put("response", a.response)
+                                        .put("correct", a.correct ?: JSONObject.NULL)
+                                        .put("feedback", a.feedback)
+                                        .put("mode", a.mode)
+                                        .put("wasNew", a.wasNew)
+                                        .put("assessment", a.assessment)
+                                        .put("answerSource", a.answerSource)
+                                        .put("normalizedCategory", a.normalizedCategory)
+                                        .put("questionHash", a.questionHash)
+                                }
+                            ),
+                        )
+                        .put(
+                            "ai",
+                            JSONArray(
+                                dao.allAi().map { a ->
+                                    JSONObject()
+                                        .put("cacheKey", a.cacheKey)
+                                        .put("questionId", a.questionId)
+                                        .put("model", a.model)
+                                        .put("prompt", a.prompt)
+                                        .put("response", a.response)
+                                        .put("inputTokens", a.inputTokens)
+                                        .put("outputTokens", a.outputTokens)
+                                        .put("hitTokens", a.hitTokens)
+                                        .put("estimatedUsd", a.estimatedUsd)
+                                        .put("created", a.created)
+                                        .put("contentHash", a.contentHash)
+                                        .put("requestType", a.requestType)
+                                        .put("day", a.day)
+                                }
+                            ),
+                        ),
+                    dao,
                 )
                 .toString()
         }
@@ -180,9 +203,12 @@ class QuizRepository(val db: QuizDatabase) {
     suspend fun restore(text: String) {
         val root = JSONObject(text)
         val version = root.getInt("backupVersion")
-        require(version in 1..2) { "不是有效备份" }
+        require(version in 1..3) { "不是有效备份" }
         val rows = BankCodec.parseBank(text)
         val ids = rows.map { it.id }.toSet()
+        val categories = rows.associate { it.id to it.normalizedCategory }
+        val kinds = rows.associate { it.id to it.kind }
+        val learning = if (version >= 3) LearningCodec.parse(root) else null
         fun objects(name: String): List<JSONObject> {
             val arr = root.getJSONArray(name)
             return (0 until arr.length()).map { arr.getJSONObject(it) }
@@ -255,6 +281,24 @@ class QuizRepository(val db: QuizDatabase) {
                     mode = a.getString("mode"),
                     wasNew = a.getBoolean("wasNew"),
                     assessment = a.optString("assessment", ""),
+                    answerSource =
+                        a.optString(
+                            "answerSource",
+                            if (
+                                a.optString("assessment").isNotEmpty() ||
+                                    (!a.isNull("correct") &&
+                                        kinds[a.getString("questionId")] !in
+                                            setOf("SINGLE", "MULTIPLE", "TRUE_FALSE"))
+                            )
+                                "MANUAL"
+                            else if (a.isNull("correct")) "UNSCORED" else "ORIGINAL",
+                        ),
+                    normalizedCategory =
+                        a.optString(
+                            "normalizedCategory",
+                            categories[a.getString("questionId")].orEmpty(),
+                        ),
+                    questionHash = a.optString("questionHash"),
                 )
             }
         require(
@@ -281,6 +325,16 @@ class QuizRepository(val db: QuizDatabase) {
                     a.getInt("hitTokens"),
                     a.getDouble("estimatedUsd"),
                     a.getLong("created"),
+                    contentHash = a.optString("contentHash"),
+                    requestType = a.optString("requestType", "FOLLOW_UP"),
+                    day =
+                        a.optLong(
+                            "day",
+                            java.time.Instant.ofEpochMilli(a.getLong("created"))
+                                .atZone(java.time.ZoneId.systemDefault())
+                                .toLocalDate()
+                                .toEpochDay(),
+                        ),
                 )
             }
         require(
@@ -295,6 +349,19 @@ class QuizRepository(val db: QuizDatabase) {
         )
         // Validate everything before touching the database; the replacement is atomic.
         db.withTransaction {
+            if (learning != null) {
+                val asked = dao.getSettings()?.notificationPermissionAsked == true
+                dao.putSettings(
+                    learning.settings.copy(
+                        notificationPermissionAsked =
+                            asked || learning.settings.notificationPermissionAsked
+                    )
+                )
+                dao.clearPersonalAnswers()
+                learning.answers.forEach { dao.putPersonalAnswer(it) }
+                dao.clearPersonalMetadata()
+                learning.metadata.forEach { dao.putPersonalMetadata(it) }
+            }
             dao.clearAttempts()
             dao.clearProgress()
             dao.clearAi()
@@ -309,5 +376,106 @@ class QuizRepository(val db: QuizDatabase) {
             attempts.forEach { dao.addAttempt(it) }
             ai.forEach { dao.putAi(it) }
         }
+    }
+
+    suspend fun question(id: String): Question? =
+        dao.question(id)?.let { BankCodec.parseQuestion(JSONObject(it.json)) }
+
+    suspend fun savePersonalAnswer(q: Question, selected: Set<String>, notes: String) {
+        val value =
+            PersonalAnswer(
+                q.id,
+                selected.sorted().joinToString(","),
+                notes,
+                q.contentHash,
+                System.currentTimeMillis(),
+            )
+        require(value.validFor(q)) { "请按题型选择有效选项，至少需要两个原始选项" }
+        dao.putPersonalAnswer(value)
+    }
+
+    suspend fun exportPersonalAnswers(): String =
+        JSONObject()
+            .put("personalAnswersVersion", 1)
+            .put("answers", JSONArray(dao.allPersonalAnswers().map(LearningCodec::answer)))
+            .toString()
+
+    suspend fun importPersonalAnswers(text: String): Int {
+        val root = JSONObject(text)
+        require(root.getInt("personalAnswersVersion") == 1) { "个人核对答案格式不支持" }
+        val answers = LearningCodec.objects(root, "answers").map(LearningCodec::parseAnswer)
+        require(answers.map { it.questionId }.distinct().size == answers.size) { "题目编号重复" }
+        for (answer in answers) {
+            val q = question(answer.questionId) ?: error("个人核对答案中存在未知题号")
+            require(answer.validFor(q)) { "题目内容已变化或选项无效，请重新核对" }
+        }
+        db.withTransaction { answers.forEach { dao.putPersonalAnswer(it) } }
+        return answers.size
+    }
+
+    suspend fun search(
+        filter: BrowseFilter,
+        programming: Boolean,
+        mistakes: Boolean,
+    ): List<QuestionSummary> {
+        val clauses =
+            mutableListOf(if (programming) "q.kind='PROGRAMMING'" else "q.kind!='PROGRAMMING'")
+        val args = mutableListOf<Any>()
+        listOf(
+                "source" to filter.source,
+                "company" to filter.company,
+                "normalizedCategory" to filter.category,
+                "kind" to filter.kind,
+                "difficulty" to filter.difficulty,
+            )
+            .forEach { (column, value) ->
+                if (value != "全部") {
+                    clauses += "q.$column=?"
+                    args += value
+                }
+            }
+        for (term in SearchTerms.split(filter.search)) {
+            clauses +=
+                "LOWER(q.searchText||' '||COALESCE(p.notes,'')||' '||COALESCE(p.code,'')||' '||COALESCE(m.tags,'')) LIKE ? ESCAPE '\\'"
+            args += SearchTerms.like(term)
+        }
+        if (mistakes)
+            clauses +=
+                when (filter.group) {
+                    "错题" -> "p.wrong=1"
+                    "不会" ->
+                        "p.wrong=1 AND (SELECT assessment FROM attempts a WHERE a.questionId=q.id ORDER BY timestamp DESC,id DESC LIMIT 1)='UNKNOWN'"
+                    "收藏" -> "p.favorite=1"
+                    else -> "p.flagged=1 OR q.reviewRequired=1"
+                }.let { "($it)" }
+        val haystack =
+            "q.searchText||' '||COALESCE(p.notes,'')||' '||COALESCE(p.code,'')||' '||COALESCE(m.tags,'')"
+        val terms = SearchTerms.split(filter.search)
+        val snippet =
+            if (terms.isEmpty()) "'' AS matchSnippet"
+            else "substr($haystack,MAX(1,instr(LOWER($haystack),?)-40),180) AS matchSnippet"
+        val columns =
+            "q.id,q.stem,q.kind,q.source,q.category,q.normalizedCategory,q.company,q.difficulty,q.reviewRequired,q.correctKeys,q.hasAnswer,q.contentHash,q.optionKeys,$snippet"
+        val sql =
+            "SELECT $columns FROM questions q LEFT JOIN progress p ON p.questionId=q.id LEFT JOIN question_personal m ON m.questionId=q.id WHERE " +
+                clauses.joinToString(" AND ") +
+                " ORDER BY q.id"
+        val allArgs = if (terms.isEmpty()) args else listOf(terms.first()) + args
+        return dao.searchSummaries(
+            androidx.sqlite.db.SimpleSQLiteQuery(sql, allArgs.toTypedArray())
+        )
+    }
+
+    suspend fun searchNotes(text: String): List<StickyNote> {
+        val terms = SearchTerms.split(text)
+        val where =
+            if (terms.isEmpty()) "1"
+            else terms.joinToString(" AND ") { "LOWER(title||' '||content) LIKE ? ESCAPE '\\'" }
+        return dao.searchStickyNotes(
+            androidx.sqlite.db.SimpleSQLiteQuery(
+                "SELECT * FROM sticky_notes WHERE $where ORDER BY updated DESC",
+                terms.map(SearchTerms::like).toTypedArray(),
+            )
+        )
     }
 }

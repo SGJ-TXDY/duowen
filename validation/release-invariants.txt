@@ -1,0 +1,3 @@
+Same certificate as 1.3.0: Signer #1 certificate SHA-256 digest: 2c73c905e6d127dd92fbfaf5351058572cb8e78e98beb477eb1a0f37ee43b151
+Only added permission: android.permission.POST_NOTIFICATIONS
+Unchanged bank SHA-256: 353C943A208288245CCD532C3CFD4905E9279DEF2E06D201E2D23601F4C68E07

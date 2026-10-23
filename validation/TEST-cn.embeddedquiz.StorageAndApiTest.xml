@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="cn.embeddedquiz.StorageAndApiTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-23T03:57:11" hostname="LAPTOP-0JLS131B" time="1.808">
+<testsuite name="cn.embeddedquiz.StorageAndApiTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-23T04:56:23" hostname="LAPTOP-0JLS131B" time="1.089">
   <properties/>
-  <testcase name="apiParsesSuccessAndSanitizesErrors" classname="cn.embeddedquiz.StorageAndApiTest" time="0.472"/>
-  <testcase name="importRejectsBadAnswerReferencesAndDuplicateIds" classname="cn.embeddedquiz.StorageAndApiTest" time="0.043"/>
-  <testcase name="networkTimeoutIsRecoverable" classname="cn.embeddedquiz.StorageAndApiTest" time="0.237"/>
-  <testcase name="manualAssessmentPersistsAndDistinguishesUnknown" classname="cn.embeddedquiz.StorageAndApiTest" time="0.285"/>
-  <testcase name="bundledAnswerUpgradePreservesLearningAndCustomQuestions" classname="cn.embeddedquiz.StorageAndApiTest" time="0.196"/>
-  <testcase name="closeReopenBackupRestoreAndWrongAnswerScheduling" classname="cn.embeddedquiz.StorageAndApiTest" time="0.261"/>
-  <testcase name="embeddedBankIsCompleteAndSafe" classname="cn.embeddedquiz.StorageAndApiTest" time="0.132"/>
-  <testcase name="versionOneDatabaseMigratesWithoutLosingAttempts" classname="cn.embeddedquiz.StorageAndApiTest" time="0.179"/>
+  <testcase name="apiParsesSuccessAndSanitizesErrors" classname="cn.embeddedquiz.StorageAndApiTest" time="0.06"/>
+  <testcase name="importRejectsBadAnswerReferencesAndDuplicateIds" classname="cn.embeddedquiz.StorageAndApiTest" time="0.03"/>
+  <testcase name="networkTimeoutIsRecoverable" classname="cn.embeddedquiz.StorageAndApiTest" time="0.19"/>
+  <testcase name="manualAssessmentPersistsAndDistinguishesUnknown" classname="cn.embeddedquiz.StorageAndApiTest" time="0.187"/>
+  <testcase name="bundledAnswerUpgradePreservesLearningAndCustomQuestions" classname="cn.embeddedquiz.StorageAndApiTest" time="0.128"/>
+  <testcase name="closeReopenBackupRestoreAndWrongAnswerScheduling" classname="cn.embeddedquiz.StorageAndApiTest" time="0.179"/>
+  <testcase name="embeddedBankIsCompleteAndSafe" classname="cn.embeddedquiz.StorageAndApiTest" time="0.159"/>
+  <testcase name="versionOneDatabaseMigratesWithoutLosingAttempts" classname="cn.embeddedquiz.StorageAndApiTest" time="0.155"/>
   <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[Oct 23, 2026 12:57:11 PM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
-WARNING: MockWebServer[62373] connection from /127.0.0.1 didn't make a request
+  <system-err><![CDATA[Oct 23, 2026 1:56:23 PM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[54766] connection from /127.0.0.1 didn't make a request
 ]]></system-err>
 </testsuite>

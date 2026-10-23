@@ -177,17 +177,16 @@ document.getElementById(id).style.display = 'none';
 <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
   <header class="mdl-layout__header">
     <div class="mdl-layout__header-row">
-      <span class="mdl-layout-title">Lint Report: 12 warnings</span>
+      <span class="mdl-layout-title">Lint Report: 10 warnings</span>
       <div class="mdl-layout-spacer"></div>
-      <nav class="mdl-navigation mdl-layout--large-screen-only">Check performed at Fri Oct 23 11:28:31 JST 2026 by AGP (8.7.3)</nav>
+      <nav class="mdl-navigation mdl-layout--large-screen-only">Check performed at Fri Oct 23 14:15:44 JST 2026 by AGP (8.7.3)</nav>
     </div>
   </header>
   <div class="mdl-layout__drawer">
     <span class="mdl-layout-title">Issue Types</span>
     <nav class="mdl-navigation">
       <a class="mdl-navigation__link" href="#overview"><i class="material-icons">dashboard</i>Overview</a>
-      <a class="mdl-navigation__link" href="#ApplySharedPref"><i class="material-icons warning-icon">warning</i>Use <code>apply()</code> on <code>SharedPreferences</code> (4)</a>
-      <a class="mdl-navigation__link" href="#GradleDependency"><i class="material-icons warning-icon">warning</i>Obsolete Gradle Dependency (8)</a>
+      <a class="mdl-navigation__link" href="#GradleDependency"><i class="material-icons warning-icon">warning</i>Obsolete Gradle Dependency (10)</a>
     </nav>
   </div>
   <main class="mdl-layout__content">
@@ -203,12 +202,9 @@ document.getElementById(id).style.display = 'none';
 <tr><td class="countColumn"></td><td class="categoryColumn"><a href="#Correctness">Correctness</a>
 </td></tr>
 <tr>
-<td class="countColumn">4</td><td class="issueColumn"><i class="material-icons warning-icon">warning</i>
-<a href="#ApplySharedPref">ApplySharedPref</a>: Use <code>apply()</code> on <code>SharedPreferences</code></td></tr>
-<tr>
-<td class="countColumn">8</td><td class="issueColumn"><i class="material-icons warning-icon">warning</i>
+<td class="countColumn">10</td><td class="issueColumn"><i class="material-icons warning-icon">warning</i>
 <a href="#GradleDependency">GradleDependency</a>: Obsolete Gradle Dependency</td></tr>
-<tr><td></td><td class="categoryColumn"><a href="#ExtraIssues">Included Additional Checks (53)</a>
+<tr><td></td><td class="categoryColumn"><a href="#ExtraIssues">Included Additional Checks (63)</a>
 </td></tr>
 <tr><td></td><td class="categoryColumn"><a href="#MissingIssues">Disabled Checks (41)</a>
 </td></tr>
@@ -220,82 +216,7 @@ Dismiss</button>            </div>
             </div>
           </section>
 <a name="Correctness"></a>
-<a name="ApplySharedPref"></a>
-<section class="section--center mdl-grid mdl-grid--no-spacing mdl-shadow--2dp" id="ApplySharedPrefCard" style="display: block;">
-            <div class="mdl-card mdl-cell mdl-cell--12-col">
-  <div class="mdl-card__title">
-    <h2 class="mdl-card__title-text">Use apply() on SharedPreferences</h2>
-  </div>
-              <div class="mdl-card__supporting-text">
-<div class="issue">
-<div class="warningslist">
-<span class="location"><a href="../../src/main/java/cn/embeddedquiz/Ai.kt">../../src/main/java/cn/embeddedquiz/Ai.kt</a>:32</span>: <span class="message">Consider using <code>apply()</code> instead; <code>commit</code> writes its data to persistent storage immediately, whereas <code>apply</code> will handle it in the background</span><br /><pre class="errorlines">
-<span class="lineno"> 29 </span>      }.generateKey()
-<span class="lineno"> 30 </span>  }
-<span class="lineno"> 31 </span>  <span class="keyword">fun</span> save(value: String) {
-<span class="caretline"><span class="lineno"> 32 </span>      <span class="keyword">if</span>(value.isBlank()) { prefs.edit().clear().<span class="warning">commit()</span>; <span class="keyword">return</span> }&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno"> 33 </span>      <span class="keyword">val</span> cipher=Cipher.getInstance(<span class="string">"AES/GCM/NoPadding"</span>).apply { init(Cipher.ENCRYPT_MODE,key()) }
-<span class="lineno"> 34 </span>      <span class="keyword">val</span> bytes=cipher.doFinal(value.trim().toByteArray(Charsets.UTF_8))
-<span class="lineno"> 35 </span>      check(prefs.edit().putString(<span class="string">"iv"</span>,Base64.encodeToString(cipher.iv,Base64.NO_WRAP)).putString(<span class="string">"value"</span>,Base64.encodeToString(bytes,Base64.NO_WRAP)).commit())
-</pre>
-
-<span class="location"><a href="../../src/main/java/cn/embeddedquiz/QuizViewModel.kt">../../src/main/java/cn/embeddedquiz/QuizViewModel.kt</a>:150</span>: <span class="message">Consider using <code>apply()</code> instead; <code>commit</code> writes its data to persistent storage immediately, whereas <code>apply</code> will handle it in the background</span><br /><pre class="errorlines">
-<span class="lineno"> 147 </span>      <span class="keyword">if</span>(mode!=<span class="string">"模拟考试"</span> || examFinished) <span class="keyword">return</span>
-<span class="lineno"> 148 </span>      <span class="keyword">val</span> o=JSONObject().put(<span class="string">"ids"</span>,JSONArray(queue)).put(<span class="string">"index"</span>,index).put(<span class="string">"deadline"</span>,examDeadline)
-<span class="lineno"> 149 </span>      <span class="keyword">val</span> answers=JSONObject(); examAnswers.forEach { (k,v)->answers.put(k,JSONArray(v.toList())) }; o.put(<span class="string">"answers"</span>,answers)
-<span class="caretline"><span class="lineno"> 150 </span>      prefs.edit().putString(<span class="string">"exam"</span>,o.toString()).<span class="warning">commit()</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno"> 151 </span>  }
-<span class="lineno"> 152 </span>  <span class="keyword">fun</span> answerExam(id: String, answer: Set&lt;String>) {
-<span class="lineno"> 153 </span>      <span class="keyword">if</span>(System.currentTimeMillis()>=examDeadline) {finishExam();<span class="keyword">return</span>}
-</pre>
-
-<span class="location"><a href="../../src/main/java/cn/embeddedquiz/QuizViewModel.kt">../../src/main/java/cn/embeddedquiz/QuizViewModel.kt</a>:230</span>: <span class="message">Consider using <code>apply()</code> instead; <code>commit</code> writes its data to persistent storage immediately, whereas <code>apply</code> will handle it in the background</span><br /><pre class="errorlines">
-<span class="lineno"> 227 </span>      <span class="keyword">return</span> bytes.toString(Charsets.UTF_8)
-<span class="lineno"> 228 </span>  }
-<span class="lineno"> 229 </span>  <span class="keyword">fun</span> importUri(uri: Uri) = launchTask { <span class="keyword">val</span> (added,skipped)=repo.importBank(readUri(uri)); notice=<span class="string">"新增 $added 题，跳过 $skipped 个已有 ID（保留旧答案与进度）"</span> }
-<span class="caretline"><span class="lineno"> 230 </span>  <span class="keyword">fun</span> restoreUri(uri: Uri) = launchTask { flushStickyNotes(); repo.restore(readUri(uri)); prefs.edit().remove(<span class="string">"exam"</span>).<span class="warning">commit()</span>; withContext(Dispatchers.Main) { practiceSession++; practiceRecords=emptyMap(); queue=emptyList(); noteDraft=<span class="keyword">null</span>; page=<span class="string">"首页"</span>; notice=<span class="string">"备份已恢复"</span> } }</span>
-<span class="lineno"> 231 </span>  <span class="keyword">fun</span> backupUri(uri: Uri) = launchTask {
-<span class="lineno"> 232 </span>      flushStickyNotes()
-<span class="lineno"> 233 </span>      <span class="keyword">val</span> text=repo.backup()
-</pre>
-
-<span class="location"><a href="../../src/main/java/cn/embeddedquiz/QuizViewModel.kt">../../src/main/java/cn/embeddedquiz/QuizViewModel.kt</a>:237</span>: <span class="message">Consider using <code>apply()</code> instead; <code>commit</code> writes its data to persistent storage immediately, whereas <code>apply</code> will handle it in the background</span><br /><pre class="errorlines">
-<span class="lineno"> 234 </span>        <span class="keyword">val</span> out=getApplication&lt;Application>().contentResolver.openOutputStream(uri,<span class="string">"wt"</span>) ?: error(<span class="string">"无法写入文件"</span>)
-<span class="lineno"> 235 </span>        out.bufferedWriter().use { it.write(text) }; notice=<span class="string">"备份完成（不包含 API Key）"</span>
-<span class="lineno"> 236 </span>    }
-<span class="caretline"><span class="lineno"> 237 </span>    <span class="keyword">fun</span> resetProgress() = launchTask { repo.reset(); prefs.edit().remove(<span class="string">"exam"</span>).<span class="warning">commit()</span>; withContext(Dispatchers.Main) { practiceSession++; practiceRecords=emptyMap(); queue=emptyList(); notice=<span class="string">"复习和历史已重置；收藏、笔记和便签保留"</span> } }</span>
-<span class="lineno"> 238 </span>    override <span class="keyword">fun</span> onCleared() { noteWrites.close(); db.close() }
-<span class="lineno"> 239 </span>}
-</pre>
-
-</div>
-<div class="metadata"><div class="explanation" id="explanationApplySharedPref" style="display: none;">
-Consider using <code>apply()</code> instead of <code>commit</code> on shared preferences. Whereas <code>commit</code> blocks and writes its data to persistent storage immediately, <code>apply</code> will handle it in the background.<br/>Note: This issue has an associated quickfix operation in Android Studio and IntelliJ IDEA.<br>
-To suppress this error, use the issue id "ApplySharedPref" as explained in the <a href="#SuppressInfo">Suppressing Warnings and Errors</a> section.<br/>
-<br/></div>
-</div>
-</div>
-<div class="chips">
-<span class="mdl-chip">
-    <span class="mdl-chip__text">ApplySharedPref</span>
-</span>
-<span class="mdl-chip">
-    <span class="mdl-chip__text">Correctness</span>
-</span>
-<span class="mdl-chip">
-    <span class="mdl-chip__text">Warning</span>
-</span>
-<span class="mdl-chip">
-    <span class="mdl-chip__text">Priority 6/10</span>
-</span>
-</div>
-              </div>
-              <div class="mdl-card__actions mdl-card--border">
-<button class="mdl-button mdl-js-button mdl-js-ripple-effect" id="explanationApplySharedPrefLink" onclick="reveal('explanationApplySharedPref');">
-Explain</button><button class="mdl-button mdl-js-button mdl-js-ripple-effect" id="ApplySharedPrefCardLink" onclick="hideid('ApplySharedPrefCard');">
-Dismiss</button>            </div>
-            </div>
-          </section><a name="GradleDependency"></a>
+<a name="GradleDependency"></a>
 <section class="section--center mdl-grid mdl-grid--no-spacing mdl-shadow--2dp" id="GradleDependencyCard" style="display: block;">
             <div class="mdl-card mdl-cell mdl-cell--12-col">
   <div class="mdl-card__title">
@@ -304,21 +225,21 @@ Dismiss</button>            </div>
               <div class="mdl-card__supporting-text">
 <div class="issue">
 <div class="warningslist">
-<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:29</span>: <span class="message">A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.09.00</span><br /><pre class="errorlines">
+<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:29</span>: <span class="message">A newer version of androidx.compose:compose-bom than 2025.01.01 is available: 2026.09.00</span><br /><pre class="errorlines">
 <span class="lineno"> 26 </span>}
 <span class="lineno"> 27 </span>ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 <span class="lineno"> 28 </span>dependencies {
-<span class="caretline"><span class="lineno"> 29 </span>    implementation(<span class="warning">platform("androidx.compose:compose-bom:2024.12.01")</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno"> 30 </span>    implementation("androidx.activity:activity-compose:1.9.3")
+<span class="caretline"><span class="lineno"> 29 </span>    implementation(<span class="warning">platform("androidx.compose:compose-bom:2025.01.01")</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno"> 30 </span>    implementation("androidx.activity:activity-compose:1.10.1")
 <span class="lineno"> 31 </span>    implementation("androidx.compose.material3:material3")
 <span class="lineno"> 32 </span>    implementation("androidx.compose.ui:ui-tooling-preview")
 </pre>
 
-<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:30</span>: <span class="message">A newer version of androidx.activity:activity-compose than 1.9.3 is available: 1.13.0</span><br /><pre class="errorlines">
+<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:30</span>: <span class="message">A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0</span><br /><pre class="errorlines">
 <span class="lineno"> 27 </span>ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 <span class="lineno"> 28 </span>dependencies {
-<span class="lineno"> 29 </span>    implementation(platform("androidx.compose:compose-bom:2024.12.01"))
-<span class="caretline"><span class="lineno"> 30 </span>    implementation(<span class="warning">"androidx.activity:activity-compose:1.9.3"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno"> 29 </span>    implementation(platform("androidx.compose:compose-bom:2025.01.01"))
+<span class="caretline"><span class="lineno"> 30 </span>    implementation(<span class="warning">"androidx.activity:activity-compose:1.10.1"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
 <span class="lineno"> 31 </span>    implementation("androidx.compose.material3:material3")
 <span class="lineno"> 32 </span>    implementation("androidx.compose.ui:ui-tooling-preview")
 <span class="lineno"> 33 </span>    debugImplementation("androidx.compose.ui:ui-tooling")
@@ -330,8 +251,8 @@ Dismiss</button>            </div>
 <span class="lineno"> 33 </span>    debugImplementation("androidx.compose.ui:ui-tooling")
 <span class="caretline"><span class="lineno"> 34 </span>    implementation(<span class="warning">"androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
 <span class="lineno"> 35 </span>    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-<span class="lineno"> 36 </span>    implementation("androidx.room:room-runtime:2.6.1")
-<span class="lineno"> 37 </span>    implementation("androidx.room:room-ktx:2.6.1")
+<span class="lineno"> 36 </span>    implementation("androidx.room:room-runtime:2.7.2")
+<span class="lineno"> 37 </span>    implementation("androidx.room:room-ktx:2.7.2")
 </pre>
 
 <span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:35</span>: <span class="message">A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.11.0</span><br /><pre class="errorlines">
@@ -339,51 +260,74 @@ Dismiss</button>            </div>
 <span class="lineno"> 33 </span>    debugImplementation("androidx.compose.ui:ui-tooling")
 <span class="lineno"> 34 </span>    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 <span class="caretline"><span class="lineno"> 35 </span>    implementation(<span class="warning">"androidx.lifecycle:lifecycle-runtime-compose:2.8.7"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno"> 36 </span>    implementation("androidx.room:room-runtime:2.6.1")
-<span class="lineno"> 37 </span>    implementation("androidx.room:room-ktx:2.6.1")
-<span class="lineno"> 38 </span>    ksp("androidx.room:room-compiler:2.6.1")
+<span class="lineno"> 36 </span>    implementation("androidx.room:room-runtime:2.7.2")
+<span class="lineno"> 37 </span>    implementation("androidx.room:room-ktx:2.7.2")
+<span class="lineno"> 38 </span>    ksp("androidx.room:room-compiler:2.7.2")
 </pre>
 
-<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:36</span>: <span class="message">A newer version of androidx.room:room-runtime than 2.6.1 is available: 2.8.5</span><br /><pre class="errorlines">
+<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:36</span>: <span class="message">A newer version of androidx.room:room-runtime than 2.7.2 is available: 2.8.5</span><br /><pre class="errorlines">
 <span class="lineno"> 33 </span>    debugImplementation("androidx.compose.ui:ui-tooling")
 <span class="lineno"> 34 </span>    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 <span class="lineno"> 35 </span>    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-<span class="caretline"><span class="lineno"> 36 </span>    implementation(<span class="warning">"androidx.room:room-runtime:2.6.1"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno"> 37 </span>    implementation("androidx.room:room-ktx:2.6.1")
-<span class="lineno"> 38 </span>    ksp("androidx.room:room-compiler:2.6.1")
+<span class="caretline"><span class="lineno"> 36 </span>    implementation(<span class="warning">"androidx.room:room-runtime:2.7.2"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno"> 37 </span>    implementation("androidx.room:room-ktx:2.7.2")
+<span class="lineno"> 38 </span>    ksp("androidx.room:room-compiler:2.7.2")
 <span class="lineno"> 39 </span>    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 </pre>
 
-<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:37</span>: <span class="message">A newer version of androidx.room:room-ktx than 2.6.1 is available: 2.8.5</span><br /><pre class="errorlines">
+<button class="mdl-button mdl-js-button mdl-button--primary" id="GradleDependencyDivLink" onclick="reveal('GradleDependencyDiv');" />+ 5 More Occurrences...</button>
+<div id="GradleDependencyDiv" style="display: none">
+<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:37</span>: <span class="message">A newer version of androidx.room:room-ktx than 2.7.2 is available: 2.8.5</span><br /><pre class="errorlines">
 <span class="lineno"> 34 </span>    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 <span class="lineno"> 35 </span>    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-<span class="lineno"> 36 </span>    implementation("androidx.room:room-runtime:2.6.1")
-<span class="caretline"><span class="lineno"> 37 </span>    implementation(<span class="warning">"androidx.room:room-ktx:2.6.1"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno"> 38 </span>    ksp("androidx.room:room-compiler:2.6.1")
+<span class="lineno"> 36 </span>    implementation("androidx.room:room-runtime:2.7.2")
+<span class="caretline"><span class="lineno"> 37 </span>    implementation(<span class="warning">"androidx.room:room-ktx:2.7.2"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno"> 38 </span>    ksp("androidx.room:room-compiler:2.7.2")
 <span class="lineno"> 39 </span>    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-<span class="lineno"> 40 </span>    testImplementation("junit:junit:4.13.2")
+<span class="lineno"> 40 </span>    implementation("androidx.work:work-runtime-ktx:2.9.1")
 </pre>
 
-<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:38</span>: <span class="message">A newer version of androidx.room:room-compiler than 2.6.1 is available: 2.8.5</span><br /><pre class="errorlines">
+<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:38</span>: <span class="message">A newer version of androidx.room:room-compiler than 2.7.2 is available: 2.8.5</span><br /><pre class="errorlines">
 <span class="lineno"> 35 </span>    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-<span class="lineno"> 36 </span>    implementation("androidx.room:room-runtime:2.6.1")
-<span class="lineno"> 37 </span>    implementation("androidx.room:room-ktx:2.6.1")
-<span class="caretline"><span class="lineno"> 38 </span>    ksp(<span class="warning">"androidx.room:room-compiler:2.6.1"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno"> 36 </span>    implementation("androidx.room:room-runtime:2.7.2")
+<span class="lineno"> 37 </span>    implementation("androidx.room:room-ktx:2.7.2")
+<span class="caretline"><span class="lineno"> 38 </span>    ksp(<span class="warning">"androidx.room:room-compiler:2.7.2"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
 <span class="lineno"> 39 </span>    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-<span class="lineno"> 40 </span>    testImplementation("junit:junit:4.13.2")
-<span class="lineno"> 41 </span>    testImplementation("org.robolectric:robolectric:4.14.1")
+<span class="lineno"> 40 </span>    implementation("androidx.work:work-runtime-ktx:2.9.1")
+<span class="lineno"> 41 </span>    testImplementation("androidx.work:work-testing:2.9.1")
 </pre>
 
-<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:42</span>: <span class="message">A newer version of androidx.test:core than 1.6.1 is available: 1.7.0</span><br /><pre class="errorlines">
+<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:40</span>: <span class="message">A newer version of androidx.work:work-runtime-ktx than 2.9.1 is available: 2.12.0</span><br /><pre class="errorlines">
+<span class="lineno"> 37 </span>    implementation("androidx.room:room-ktx:2.7.2")
+<span class="lineno"> 38 </span>    ksp("androidx.room:room-compiler:2.7.2")
 <span class="lineno"> 39 </span>    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-<span class="lineno"> 40 </span>    testImplementation("junit:junit:4.13.2")
-<span class="lineno"> 41 </span>    testImplementation("org.robolectric:robolectric:4.14.1")
-<span class="caretline"><span class="lineno"> 42 </span>    testImplementation(<span class="warning">"androidx.test:core:1.6.1"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno"> 43 </span>    testImplementation("androidx.compose.ui:ui-test-junit4")
-<span class="lineno"> 44 </span>    debugImplementation("androidx.compose.ui:ui-test-manifest")
-<span class="lineno"> 45 </span>    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+<span class="caretline"><span class="lineno"> 40 </span>    implementation(<span class="warning">"androidx.work:work-runtime-ktx:2.9.1"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno"> 41 </span>    testImplementation("androidx.work:work-testing:2.9.1")
+<span class="lineno"> 42 </span>    testImplementation("junit:junit:4.13.2")
+<span class="lineno"> 43 </span>    testImplementation("org.robolectric:robolectric:4.14.1")
 </pre>
 
+<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:41</span>: <span class="message">A newer version of androidx.work:work-testing than 2.9.1 is available: 2.12.0</span><br /><pre class="errorlines">
+<span class="lineno"> 38 </span>    ksp("androidx.room:room-compiler:2.7.2")
+<span class="lineno"> 39 </span>    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+<span class="lineno"> 40 </span>    implementation("androidx.work:work-runtime-ktx:2.9.1")
+<span class="caretline"><span class="lineno"> 41 </span>    testImplementation(<span class="warning">"androidx.work:work-testing:2.9.1"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno"> 42 </span>    testImplementation("junit:junit:4.13.2")
+<span class="lineno"> 43 </span>    testImplementation("org.robolectric:robolectric:4.14.1")
+<span class="lineno"> 44 </span>    testImplementation("androidx.test:core:1.6.1")
+</pre>
+
+<span class="location"><a href="../../build.gradle.kts">../../build.gradle.kts</a>:44</span>: <span class="message">A newer version of androidx.test:core than 1.6.1 is available: 1.7.0</span><br /><pre class="errorlines">
+<span class="lineno"> 41 </span>    testImplementation("androidx.work:work-testing:2.9.1")
+<span class="lineno"> 42 </span>    testImplementation("junit:junit:4.13.2")
+<span class="lineno"> 43 </span>    testImplementation("org.robolectric:robolectric:4.14.1")
+<span class="caretline"><span class="lineno"> 44 </span>    testImplementation(<span class="warning">"androidx.test:core:1.6.1"</span>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno"> 45 </span>    testImplementation("androidx.compose.ui:ui-test-junit4")
+<span class="lineno"> 46 </span>    debugImplementation("androidx.compose.ui:ui-test-manifest")
+<span class="lineno"> 47 </span>    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+</pre>
+
+</div>
 </div>
 <div class="metadata"><div class="explanation" id="explanationGradleDependency" style="display: none;">
 This detector looks for usages of libraries where the version you are using is not the current stable release. Using older versions is fine, and there are cases where you deliberately want to stick with an older version. However, you may simply not be aware that a more recent version is available, and that is what this lint check helps find.<br/>Note: This issue has an associated quickfix operation in Android Studio and IntelliJ IDEA.<br>
@@ -465,6 +409,35 @@ Feedback: <a href="https://issuetracker.google.com/issues/new?component=612128">
 </div>
 </div>
 <div class="issue">
+<div class="id">BadConfigurationProvider<div class="issueSeparator"></div>
+</div>
+<div class="metadata"><div class="explanation">
+An <code>android.app.Application</code> must implement <code>androidx.work.Configuration.Provider</code><br/>
+for on-demand initialization.<br/><div class="vendor">
+Vendor: Android Open Source Project<br/>
+Identifier: androidx.work<br/>
+Feedback: <a href="https://issuetracker.google.com/issues/new?component=409906">https://issuetracker.google.com/issues/new?component=409906</a><br/>
+</div>
+<br/>
+<br/></div>
+</div>
+</div>
+<div class="issue">
+<div class="id">BadPeriodicWorkRequestEnqueue<div class="issueSeparator"></div>
+</div>
+<div class="metadata"><div class="explanation">
+When using <code>enqueue()</code> for `PeriodicWorkRequest`s, you might end up enqueuing<br/>
+duplicate requests unintentionally. You should be using<br/>
+<code>enqueueUniquePeriodicWork</code> with an <code>ExistingPeriodicWorkPolicy.KEEP</code> instead.<br/><div class="vendor">
+Vendor: Android Open Source Project<br/>
+Identifier: androidx.work<br/>
+Feedback: <a href="https://issuetracker.google.com/issues/new?component=409906">https://issuetracker.google.com/issues/new?component=409906</a><br/>
+</div>
+<br/>
+<br/></div>
+</div>
+</div>
+<div class="issue">
 <div class="id">ComposableNaming<div class="issueSeparator"></div>
 </div>
 <div class="metadata"><div class="explanation">
@@ -497,6 +470,19 @@ Feedback: <a href="https://issuetracker.google.com/issues/new?component=612128">
 In the Material color system background colors have a corresponding 'on' color which is used for the content color inside a component. For example, a button colored <code>primary</code> will have <code>onPrimary</code> text. Because of this, it is important that there is only one possible <code>onColor</code> for a given color value, otherwise there is no way to know which 'on' color should be used inside a component. To fix this either use the same 'on' color for identical background colors, or use a different background color for each 'on' color.<br/><div class="vendor">
 Vendor: Jetpack Compose<br/>
 Identifier: androidx.compose.material<br/>
+Feedback: <a href="https://issuetracker.google.com/issues/new?component=612128">https://issuetracker.google.com/issues/new?component=612128</a><br/>
+</div>
+<br/>
+<br/></div>
+</div>
+</div>
+<div class="issue">
+<div class="id">ContextCastToActivity<div class="issueSeparator"></div>
+</div>
+<div class="metadata"><div class="explanation">
+Casting Context to Activity is an error as Contexts are not always Activities. Use LocalActivity instead<br/><div class="vendor">
+Vendor: Jetpack Activity Compose<br/>
+Identifier: androidx.activity.compose<br/>
 Feedback: <a href="https://issuetracker.google.com/issues/new?component=612128">https://issuetracker.google.com/issues/new?component=612128</a><br/>
 </div>
 <br/>
@@ -582,6 +568,20 @@ Feedback: <a href="https://issuetracker.google.com/issues/new?component=612128">
 </div>
 </div>
 <div class="issue">
+<div class="id">IdleBatteryChargingConstraints<div class="issueSeparator"></div>
+</div>
+<div class="metadata"><div class="explanation">
+Some devices are never considered charging and idle at the same time.<br/>
+Consider removing one of these constraints.<br/><div class="vendor">
+Vendor: Android Open Source Project<br/>
+Identifier: androidx.work<br/>
+Feedback: <a href="https://issuetracker.google.com/issues/new?component=409906">https://issuetracker.google.com/issues/new?component=409906</a><br/>
+</div>
+<br/>
+<br/></div>
+</div>
+</div>
+<div class="issue">
 <div class="id">InvalidColorHexValue<div class="issueSeparator"></div>
 </div>
 <div class="metadata"><div class="explanation">
@@ -616,6 +616,19 @@ A language tag must be compliant with IETF BCP47, specifically a sequence of sub
 Vendor: Jetpack Compose<br/>
 Identifier: androidx.compose.ui.text<br/>
 Feedback: <a href="https://issuetracker.google.com/issues/new?component=779818">https://issuetracker.google.com/issues/new?component=779818</a><br/>
+</div>
+<br/>
+<br/></div>
+</div>
+</div>
+<div class="issue">
+<div class="id">InvalidPeriodicWorkRequestInterval<div class="issueSeparator"></div>
+</div>
+<div class="metadata"><div class="explanation">
+The interval duration for a <code>PeriodicWorkRequest</code> must be at least 15 minutes.<br/><div class="vendor">
+Vendor: Android Open Source Project<br/>
+Identifier: androidx.work<br/>
+Feedback: <a href="https://issuetracker.google.com/issues/new?component=409906">https://issuetracker.google.com/issues/new?component=409906</a><br/>
 </div>
 <br/>
 <br/></div>
@@ -838,6 +851,21 @@ Feedback: <a href="https://issuetracker.google.com/issues/new?component=612128">
 </div>
 </div>
 <div class="issue">
+<div class="id">RemoveWorkManagerInitializer<div class="issueSeparator"></div>
+</div>
+<div class="metadata"><div class="explanation">
+If an <code>android.app.Application</code> implements <code>androidx.work.Configuration.Provider</code>,<br/>
+the default <code>androidx.startup.InitializationProvider</code> needs to be removed from the<br/>
+AndroidManifest.xml file.<br/><div class="vendor">
+Vendor: Android Open Source Project<br/>
+Identifier: androidx.work<br/>
+Feedback: <a href="https://issuetracker.google.com/issues/new?component=409906">https://issuetracker.google.com/issues/new?component=409906</a><br/>
+</div>
+<br/>
+<br/></div>
+</div>
+</div>
+<div class="issue">
 <div class="id">RepeatOnLifecycleWrongUsage<div class="issueSeparator"></div>
 </div>
 <div class="metadata"><div class="explanation">
@@ -858,6 +886,33 @@ Pointer Input events are queued inside awaitPointerEventScope. By using the retu
 Vendor: Jetpack Compose<br/>
 Identifier: androidx.compose.ui<br/>
 Feedback: <a href="https://issuetracker.google.com/issues/new?component=612128">https://issuetracker.google.com/issues/new?component=612128</a><br/>
+</div>
+<br/>
+<br/></div>
+</div>
+</div>
+<div class="issue">
+<div class="id">SpecifyForegroundServiceType<div class="issueSeparator"></div>
+</div>
+<div class="metadata"><div class="explanation">
+When using the setForegroundAsync() API, the application must override &lt;service /> entry for <code>SystemForegroundService</code> to include the foreground service type in the  <code>AndroidManifest.xml</code> file.<br/><div class="vendor">
+Vendor: Android Open Source Project<br/>
+Identifier: androidx.work<br/>
+Feedback: <a href="https://issuetracker.google.com/issues/new?component=409906">https://issuetracker.google.com/issues/new?component=409906</a><br/>
+</div>
+<br/>
+<br/></div>
+</div>
+</div>
+<div class="issue">
+<div class="id">SpecifyJobSchedulerIdRange<div class="issueSeparator"></div>
+</div>
+<div class="metadata"><div class="explanation">
+When using <code>JobScheduler</code> APIs directly, <code>WorkManager</code> requires that developers specify a range of <code>JobScheduler</code> ids that are safe for <code>WorkManager</code> to use so the `id`s do not collide. <br/>
+For more information look at <code>androidx.work.Configuration.Builder.setJobSchedulerJobIdRange(int, int)</code>.<br/><div class="vendor">
+Vendor: Android Open Source Project<br/>
+Identifier: androidx.work<br/>
+Feedback: <a href="https://issuetracker.google.com/issues/new?component=409906">https://issuetracker.google.com/issues/new?component=409906</a><br/>
 </div>
 <br/>
 <br/></div>
@@ -1135,6 +1190,19 @@ Feedback: <a href="https://issuetracker.google.com/issues/new?component=612128">
 </div>
 </div>
 <div class="issue">
+<div class="id">UseRxSetProgress2<div class="issueSeparator"></div>
+</div>
+<div class="metadata"><div class="explanation">
+Use <code>setCompletableProgress(...)</code> instead of `setProgress(...) in <code>RxWorker</code>.<br/><div class="vendor">
+Vendor: Android Open Source Project<br/>
+Identifier: androidx.work<br/>
+Feedback: <a href="https://issuetracker.google.com/issues/new?component=409906">https://issuetracker.google.com/issues/new?component=409906</a><br/>
+</div>
+<br/>
+<br/></div>
+</div>
+</div>
+<div class="issue">
 <div class="id">UsingMaterialAndMaterial3Libraries<div class="issueSeparator"></div>
 </div>
 <div class="metadata"><div class="explanation">
@@ -1142,6 +1210,20 @@ material and material3 are separate design system libraries that are incompatibl
 Vendor: Jetpack Compose<br/>
 Identifier: androidx.compose.material3<br/>
 Feedback: <a href="https://issuetracker.google.com/issues/new?component=612128">https://issuetracker.google.com/issues/new?component=612128</a><br/>
+</div>
+<br/>
+<br/></div>
+</div>
+</div>
+<div class="issue">
+<div class="id">WorkerHasAPublicModifier<div class="issueSeparator"></div>
+</div>
+<div class="metadata"><div class="explanation">
+When you define a ListenableWorker which is constructed using the <br/>
+default WorkerFactory, the ListenableWorker sub-type needs to be public.<br/><div class="vendor">
+Vendor: Android Open Source Project<br/>
+Identifier: androidx.work<br/>
+Feedback: <a href="https://issuetracker.google.com/issues/new?component=409906">https://issuetracker.google.com/issues/new?component=409906</a><br/>
 </div>
 <br/>
 <br/></div>

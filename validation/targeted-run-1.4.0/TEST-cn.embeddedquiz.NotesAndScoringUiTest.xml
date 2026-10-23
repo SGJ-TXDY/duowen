@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.NotesAndScoringUiTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-23T05:04:34" hostname="LAPTOP-0JLS131B" time="30.034">
+  <properties/>
+  <testcase name="personalWorkbenchAnswerEnablesAutomaticGradingWithoutChangingQuestion" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="15.712"/>
+  <testcase name="correctAnswerIsRecordedWithoutExtraFeedback" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="2.036"/>
+  <testcase name="textDraftAndManualAssessmentSurviveNotesAndQuestionNavigation" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="2.916"/>
+  <testcase name="rapidNoteEditsAreSavedInOrderAndDeletionWins" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="2.516"/>
+  <testcase name="examExpiresAndRecordsWhileNotesAreOpen" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="1.621"/>
+  <testcase name="bottomNavigationAndDarkModeAndGoalPersist" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="1.958"/>
+  <testcase name="choiceSurvivesNotesAndSubmissionRecordsExactlyOnce" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="1.765"/>
+  <testcase name="codeDraftAutoSavesIndentAndSurvivesNotesRoundTrip" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="1.509"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

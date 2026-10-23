@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="cn.embeddedquiz.NotesAndScoringUiTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-23T03:56:49" hostname="LAPTOP-0JLS131B" time="19.392">
+<testsuite name="cn.embeddedquiz.NotesAndScoringUiTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-23T05:15:01" hostname="LAPTOP-0JLS131B" time="29.917">
   <properties/>
-  <testcase name="correctAnswerIsRecordedWithoutExtraFeedback" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="13.396"/>
-  <testcase name="textDraftAndManualAssessmentSurviveNotesAndQuestionNavigation" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="2.089"/>
-  <testcase name="rapidNoteEditsAreSavedInOrderAndDeletionWins" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="1.811"/>
-  <testcase name="examExpiresAndRecordsWhileNotesAreOpen" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="0.847"/>
-  <testcase name="choiceSurvivesNotesAndSubmissionRecordsExactlyOnce" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="1.248"/>
+  <testcase name="personalWorkbenchAnswerEnablesAutomaticGradingWithoutChangingQuestion" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="15.42"/>
+  <testcase name="correctAnswerIsRecordedWithoutExtraFeedback" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="2.116"/>
+  <testcase name="textDraftAndManualAssessmentSurviveNotesAndQuestionNavigation" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="3.01"/>
+  <testcase name="rapidNoteEditsAreSavedInOrderAndDeletionWins" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="2.542"/>
+  <testcase name="examExpiresAndRecordsWhileNotesAreOpen" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="1.501"/>
+  <testcase name="bottomNavigationAndDarkModeAndGoalPersist" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="2.002"/>
+  <testcase name="choiceSurvivesNotesAndSubmissionRecordsExactlyOnce" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="1.773"/>
+  <testcase name="codeDraftAutoSavesIndentAndSurvivesNotesRoundTrip" classname="cn.embeddedquiz.NotesAndScoringUiTest" time="1.552"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

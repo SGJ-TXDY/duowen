@@ -8,7 +8,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.ZoneId
@@ -88,10 +87,10 @@ fun StickyNotesScreen(vm: QuizViewModel) {
                 singleLine = true,
             )
             val filtered =
-                vm.stickyNotes.filter {
-                    search.isBlank() ||
-                        it.title.contains(search, true) ||
-                        it.content.contains(search, true)
+                vm.stickyNotes.filter { note ->
+                    SearchTerms.split(search).all { term ->
+                        note.title.contains(term, true) || note.content.contains(term, true)
+                    }
                 }
             LazyColumn(
                 Modifier.weight(1f),
@@ -105,7 +104,11 @@ fun StickyNotesScreen(vm: QuizViewModel) {
                         onClick = { vm.editStickyNote(note) },
                         enabled = !vm.busy && vm.pendingNoteWrites == 0,
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF4CD)),
+                        colors =
+                            CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                            ),
                     ) {
                         Column(
                             Modifier.padding(16.dp),

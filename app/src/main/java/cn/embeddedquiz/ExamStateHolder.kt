@@ -50,7 +50,7 @@ class ExamStateHolder(private val prefs: SharedPreferences, private val repo: Qu
         repo.db.withTransaction {
             questions.forEach { q ->
                 val selected = answers[q.id].orEmpty()
-                if (Grader.grade(q, selected) == true) correct++
+                if (Grader.grade(q, selected, repo.dao.personalAnswer(q.id)) == true) correct++
                 repo.record(q, selected.joinToString(), selected, "模拟考试")
             }
         }

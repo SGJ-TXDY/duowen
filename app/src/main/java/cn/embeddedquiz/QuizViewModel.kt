@@ -8,14 +8,13 @@ import androidx.lifecycle.viewModelScope
 import java.time.LocalDate
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import org.json.JSONObject
 
 class QuizViewModel(app: Application) : AndroidViewModel(app) {
     val db = QuizDatabase.open(app)
     val repo = QuizRepository(db)
     val vault = KeyVault(app)
     private val prefs = app.getSharedPreferences("settings", 0)
-    var questions by mutableStateOf<List<Question>>(emptyList())
+    var questions by mutableStateOf<List<QuestionSummary>>(emptyList())
         private set
 
     var progress by mutableStateOf<Map<String, Progress>>(emptyMap())
@@ -45,6 +44,19 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     val hasKey
         get() = aiState.hasKey
 
+    val learning = LearningStateHolder(viewModelScope, repo, app)
+    val codeDrafts = CodeDraftStateHolder(viewModelScope, repo)
+    val errorLog = LocalErrorLog(app)
+    var errorLogText by mutableStateOf("")
+        private set
+
+    var importProgress by mutableFloatStateOf(0f)
+        private set
+
+    var loadingMessage by mutableStateOf("正在准备离线题库")
+        private set
+
+    private val fullQuestionCache = android.util.LruCache<String, Question>(8)
     val notesState = NotesStateHolder(viewModelScope, repo)
     val stickyNotes
         get() = notesState.stickyNotes
@@ -67,6 +79,17 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     var practiceRecords by mutableStateOf<Map<String, String>>(emptyMap())
         private set
+
+    private val questionDrafts = mutableMapOf<String, QuestionDraft>()
+
+    fun questionDraft(q: Question): QuestionDraft =
+        questionDrafts.getOrPut(q.id) {
+            QuestionDraft(
+                if (mode == "模拟考试") examAnswers[q.id].orEmpty().toList() else emptyList(),
+                codeDrafts.drafts[q.id]?.code ?: p(q.id).code,
+                codeDrafts.drafts[q.id]?.notes ?: p(q.id).notes,
+            )
+        }
 
     val examState = ExamStateHolder(prefs, repo)
     var examDeadline: Long
@@ -97,21 +120,26 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    if (repo.dao.allQuestions().isEmpty() || prefs.getInt("bankRevision", 0) < 4) {
+                    if (repo.dao.questionCount() == 0 || prefs.getInt("bankRevision", 0) < 4) {
+                        loadingMessage = "首次导入离线题库，请稍候"
+                        importProgress = 0.1f
                         repo.upgradeBundledBank(
                             app.assets.open("bank.json").bufferedReader().use { it.readText() }
-                        )
+                        ) { done, total ->
+                            importProgress = 0.1f + 0.8f * done / total
+                        }
+                        importProgress = 1f
                         prefs.writeDurably { putInt("bankRevision", 4) }
                     }
                 }
-                launch {
-                    repo.dao.questions().collect { rows ->
-                        questions =
-                            withContext(Dispatchers.Default) {
-                                rows.map { BankCodec.parseQuestion(JSONObject(it.json)) }
-                            }
+                withContext(Dispatchers.IO) {
+                    if (prefs.getString("categoryMapHash", null) != CategoryMap.fingerprint) {
+                        repo.reindexCategories()
+                        prefs.writeDurably { putString("categoryMapHash", CategoryMap.fingerprint) }
                     }
                 }
+                launch { repo.dao.summaries().collect { questions = it } }
+                learning.start()
                 launch {
                     repo.dao.progress().collect { progress = it.associateBy { p -> p.questionId } }
                 }
@@ -124,7 +152,8 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 ready = true
             } catch (e: Exception) {
-                notice = "题库加载失败：${e.message}"
+                withContext(Dispatchers.IO) { errorLog.record(LogEvent.LOAD, e) }
+                notice = "题库加载失败，请查看本地错误记录"
             }
         }
     }
@@ -163,7 +192,9 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     fun due(today: Long = LocalDate.now().toEpochDay()) =
         questions
             .filter { it.daily && p(it.id).seen > 0 && p(it.id).due <= today }
-            .sortedWith(compareByDescending<Question> { p(it.id).wrong }.thenBy { p(it.id).due })
+            .sortedWith(
+                compareByDescending<QuestionSummary> { p(it.id).wrong }.thenBy { p(it.id).due }
+            )
 
     fun launchTask(action: suspend () -> Unit) {
         if (busy) return
@@ -172,6 +203,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 withContext(Dispatchers.IO) { action() }
             } catch (e: Exception) {
+                withContext(Dispatchers.IO) { errorLog.record(LogEvent.OPERATION, e) }
                 notice = "操作未完成：${e.message ?: "请重试"}"
             } finally {
                 busy = false
@@ -179,7 +211,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun start(list: List<Question>, selectedMode: String) {
+    fun start(list: List<QuestionSummary>, selectedMode: String) {
         if (prefs.contains("exam") && !examFinished) {
             notice = "请先继续并交卷当前考试，再开始其他练习"
             page = Page.QUESTION
@@ -189,6 +221,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
             notice = "当前没有符合条件的题目"
             return
         }
+        questionDrafts.clear()
         practiceSession++
         practiceRecords = emptyMap()
         queue = list.map { it.id }
@@ -199,13 +232,13 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         examResult = ""
     }
 
-    fun startExam(list: List<Question>, count: Int, minutes: Int) {
+    fun startExam(list: List<QuestionSummary>, count: Int, minutes: Int) {
         if (prefs.contains("exam") && !examFinished) {
             notice = "已有未交卷考试，请先完成"
             page = Page.QUESTION
             return
         }
-        val eligible = list.filter { it.daily && it.autoGradable }
+        val eligible = list.filter { it.daily && learning.canGrade(it) }
         if (eligible.isEmpty()) {
             notice = "当前筛选范围没有可判分客观题，请扩大筛选范围或导入含已核对标准答案的 JSON。"
             return
@@ -230,9 +263,11 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     fun finishExam() {
         if (busy || examFinished) return
         launchTask {
-            val selected = queue.mapNotNull { id -> questions.find { it.id == id } }
+            val selected = queue.mapNotNull { id -> repo.question(id) }
             val result = examState.grade(selected)
+            val committedAttempts = repo.dao.historyPage(100, 0)
             withContext(Dispatchers.Main) {
+                attempts = committedAttempts
                 examFinished = true
                 examResult = result
             }
@@ -244,7 +279,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         val session = practiceSession
         val selectedMode = mode
         launchTask {
-            require(q.autoGradable) { "本题需要手动判断" }
+            require(learning.canGrade(q)) { "本题需要手动判断" }
             repo.record(q, text.ifBlank { choices.joinToString() }, choices, selectedMode)
             withContext(Dispatchers.Main) {
                 if (session == practiceSession) {
@@ -270,7 +305,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         val session = practiceSession
         val selectedMode = mode
         launchTask {
-            require(!q.autoGradable) { "本题按标准答案自动判分" }
+            require(!learning.canGrade(q)) { "本题按标准答案自动判分" }
             repo.record(
                 q,
                 text.ifBlank { choices.joinToString() },
@@ -289,9 +324,12 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     fun toggleFlag(id: String) = launchTask { repo.update(id) { it.copy(flagged = !it.flagged) } }
 
-    fun saveNotes(id: String, code: String, notes: String) = launchTask {
-        repo.update(id) { it.copy(code = code, notes = notes) }
-        notice = "代码与笔记已保存"
+    fun saveNotes(id: String, code: String, notes: String) {
+        codeDrafts.update(id, code, notes)
+        launchTask {
+            codeDrafts.writer.flush()
+            notice = "代码与笔记已保存"
+        }
     }
 
     fun saveKey(value: String) = launchTask {
@@ -337,13 +375,17 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     fun restoreUri(uri: Uri) = launchTask {
         flushStickyNotes()
+        codeDrafts.writer.flush()
         repo.restore(readUri(uri))
+        fullQuestionCache.evictAll()
         examState.clear()
         withContext(Dispatchers.Main) {
+            questionDrafts.clear()
             practiceSession++
             practiceRecords = emptyMap()
             queue = emptyList()
             notesState.closeStickyNote()
+            codeDrafts.clear()
             page = Page.HOME
             notice = "备份已恢复"
         }
@@ -351,6 +393,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     fun backupUri(uri: Uri) = launchTask {
         flushStickyNotes()
+        codeDrafts.writer.flush()
         val text = repo.backup()
         val out =
             getApplication<Application>().contentResolver.openOutputStream(uri, "wt")
@@ -363,6 +406,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         repo.reset()
         examState.clear()
         withContext(Dispatchers.Main) {
+            questionDrafts.clear()
             practiceSession++
             practiceRecords = emptyMap()
             queue = emptyList()
@@ -370,7 +414,93 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    suspend fun loadQuestion(id: String): Question? =
+        withContext(Dispatchers.IO) {
+            val storedProgress = repo.dao.getProgress(id)
+            if (storedProgress != null)
+                withContext(Dispatchers.Main) {
+                    if (id !in progress) progress = progress + (id to storedProgress)
+                }
+            val cached = fullQuestionCache.get(id)
+            val expected = questions.firstOrNull { it.id == id }?.contentHash
+            if (cached != null && cached.contentHash == expected) cached
+            else repo.question(id)?.also { fullQuestionCache.put(id, it) }
+        }
+
+    fun updateSettings(transform: (LearningSettings) -> LearningSettings) = launchTask {
+        learning.updateSettings(transform)
+    }
+
+    fun markNotificationRequested(done: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    learning.updateSettings { it.copy(notificationPermissionAsked = true) }
+                }
+                done()
+            } catch (e: Exception) {
+                notice = "通知设置保存失败，请稍后重试"
+            }
+        }
+    }
+
+    fun savePersonalAnswer(q: Question, selected: Set<String>, notes: String) = launchTask {
+        repo.savePersonalAnswer(q, selected, notes)
+        notice = "个人核对答案已保存，原题库未修改"
+    }
+
+    fun deletePersonalAnswer(id: String) = launchTask {
+        repo.dao.deletePersonalAnswer(id)
+        notice = "已移除个人核对答案"
+    }
+
+    fun saveMetadata(value: QuestionPersonal) = launchTask {
+        LearningCodec.parseMetadata(LearningCodec.metadata(value))
+        repo.dao.putPersonalMetadata(value)
+        notice = "个人标记已保存"
+    }
+
+    fun importPersonalUri(uri: Uri) = launchTask {
+        val n = repo.importPersonalAnswers(readUri(uri))
+        notice = "已导入 $n 条个人核对答案"
+    }
+
+    fun exportPersonalUri(uri: Uri) = launchTask {
+        val text = repo.exportPersonalAnswers()
+        val out =
+            getApplication<Application>().contentResolver.openOutputStream(uri, "wt")
+                ?: error("无法写入文件")
+        out.bufferedWriter().use { it.write(text) }
+        notice = "个人核对答案已导出"
+    }
+
+    fun loadErrorLog() = launchTask { errorLogText = errorLog.read() }
+
+    fun clearErrorLog() = launchTask {
+        errorLog.clear()
+        errorLogText = "暂无错误记录"
+    }
+
+    fun startWeakPractice() {
+        val weak =
+            learning.categories
+                .filter { it.automatic + it.manual >= 3 && it.rate < 0.65 }
+                .map { it.category }
+                .toSet()
+        val list =
+            questions
+                .filter { it.daily && it.normalizedCategory in weak }
+                .sortedByDescending { p(it.id).wrong }
+                .take(20)
+        if (list.isEmpty()) {
+            notice = "暂无足够的薄弱知识点记录（至少 3 次作答且正确率低于 65%）"
+            return
+        }
+        start(list, "薄弱知识点练习")
+    }
+
     override fun onCleared() {
+        codeDrafts.writer.close()
         notesState.shutdown()
         db.close()
     }

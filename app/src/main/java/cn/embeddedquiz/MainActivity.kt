@@ -1,30 +1,43 @@
 package cn.embeddedquiz
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.lifecycle.viewmodel.compose.viewModel
 
 class MainActivity : ComponentActivity() {
+    private val vm: QuizViewModel by viewModels()
+    private var reviewAfterLoad by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        openNotification(intent)
         setContent {
-            MaterialTheme(
-                colorScheme =
-                    lightColorScheme(
-                        primary = Color(0xFF126B62),
-                        secondary = Color(0xFF426278),
-                        background = Color(0xFFF5F8F7),
-                    )
-            ) {
-                Surface(Modifier.fillMaxSize()) { QuizApp(viewModel()) }
+            LaunchedEffect(vm.ready, reviewAfterLoad) {
+                if (vm.ready && reviewAfterLoad) {
+                    vm.page = Page.REVIEW
+                    reviewAfterLoad = false
+                }
             }
+            QuizApp(vm)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        openNotification(intent)
+    }
+
+    private fun openNotification(intent: Intent?) {
+        if (intent?.getBooleanExtra(ReviewReminders.OPEN_REVIEW, false) == true) {
+            reviewAfterLoad = true
+            vm.page = Page.REVIEW
+            intent.removeExtra(ReviewReminders.OPEN_REVIEW)
         }
     }
 }

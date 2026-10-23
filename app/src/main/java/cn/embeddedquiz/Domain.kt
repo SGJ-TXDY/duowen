@@ -38,6 +38,22 @@ data class Question(
     val duplicateOf: String = "",
     val raw: String = "",
 ) {
+    val contentHash
+        get() =
+            DeepSeekClient.hash(
+                listOf(
+                        stem,
+                        kind.name,
+                        options.toString(),
+                        answer,
+                        correct.sorted().joinToString(),
+                        explanation,
+                        referenceCode,
+                        raw,
+                    )
+                    .joinToString("\n")
+            )
+
     val objective
         get() = kind in setOf(Kind.SINGLE, Kind.MULTIPLE, Kind.TRUE_FALSE)
 
@@ -50,8 +66,9 @@ data class Question(
 
 object Grader {
     // Exact set matching: extra choices and missing choices are both wrong.
-    fun grade(q: Question, selected: Set<String>): Boolean? =
-        if (!q.autoGradable) null else selected == q.correct
+    fun grade(q: Question, selected: Set<String>, personal: PersonalAnswer? = null): Boolean? =
+        if (personal?.validFor(q) == true) selected == personal.selected
+        else if (!q.autoGradable) null else selected == q.correct
 }
 
 data class Schedule(

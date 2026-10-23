@@ -1,43 +1,31 @@
-C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\src\main\java\cn\embeddedquiz\Ai.kt:32: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
-        if(value.isBlank()) { prefs.edit().clear().commit(); return }
-                                                   ~~~~~~~~
-C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\src\main\java\cn\embeddedquiz\QuizViewModel.kt:150: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
-        prefs.edit().putString("exam",o.toString()).commit()
-                                                    ~~~~~~~~
-C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\src\main\java\cn\embeddedquiz\QuizViewModel.kt:230: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
-    fun restoreUri(uri: Uri) = launchTask { flushStickyNotes(); repo.restore(readUri(uri)); prefs.edit().remove("exam").commit(); withContext(Dispatchers.Main) { practiceSession++; practiceRecords=emptyMap(); queue=emptyList(); noteDraft=null; page="首页"; notice="备份已恢复" } }
-                                                                                                                        ~~~~~~~~
-C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\src\main\java\cn\embeddedquiz\QuizViewModel.kt:237: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
-    fun resetProgress() = launchTask { repo.reset(); prefs.edit().remove("exam").commit(); withContext(Dispatchers.Main) { practiceSession++; practiceRecords=emptyMap(); queue=emptyList(); notice="复习和历史已重置；收藏、笔记和便签保留" } }
-                                                                                 ~~~~~~~~
-
-   Explanation for issues of type "ApplySharedPref":
-   Consider using apply() instead of commit on shared preferences. Whereas
-   commit blocks and writes its data to persistent storage immediately, apply
-   will handle it in the background.
-
-C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:29: Warning: A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.09.00 [GradleDependency]
-    implementation(platform("androidx.compose:compose-bom:2024.12.01"))
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:29: Warning: A newer version of androidx.compose:compose-bom than 2025.01.01 is available: 2026.09.00 [GradleDependency]
+    implementation(platform("androidx.compose:compose-bom:2025.01.01"))
                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:30: Warning: A newer version of androidx.activity:activity-compose than 1.9.3 is available: 1.13.0 [GradleDependency]
-    implementation("androidx.activity:activity-compose:1.9.3")
-                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:30: Warning: A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0 [GradleDependency]
+    implementation("androidx.activity:activity-compose:1.10.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:34: Warning: A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.11.0 [GradleDependency]
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:35: Warning: A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.11.0 [GradleDependency]
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:36: Warning: A newer version of androidx.room:room-runtime than 2.6.1 is available: 2.8.5 [GradleDependency]
-    implementation("androidx.room:room-runtime:2.6.1")
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:36: Warning: A newer version of androidx.room:room-runtime than 2.7.2 is available: 2.8.5 [GradleDependency]
+    implementation("androidx.room:room-runtime:2.7.2")
                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:37: Warning: A newer version of androidx.room:room-ktx than 2.6.1 is available: 2.8.5 [GradleDependency]
-    implementation("androidx.room:room-ktx:2.6.1")
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:37: Warning: A newer version of androidx.room:room-ktx than 2.7.2 is available: 2.8.5 [GradleDependency]
+    implementation("androidx.room:room-ktx:2.7.2")
                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:38: Warning: A newer version of androidx.room:room-compiler than 2.6.1 is available: 2.8.5 [GradleDependency]
-    ksp("androidx.room:room-compiler:2.6.1")
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:38: Warning: A newer version of androidx.room:room-compiler than 2.7.2 is available: 2.8.5 [GradleDependency]
+    ksp("androidx.room:room-compiler:2.7.2")
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:42: Warning: A newer version of androidx.test:core than 1.6.1 is available: 1.7.0 [GradleDependency]
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:40: Warning: A newer version of androidx.work:work-runtime-ktx than 2.9.1 is available: 2.12.0 [GradleDependency]
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:41: Warning: A newer version of androidx.work:work-testing than 2.9.1 is available: 2.12.0 [GradleDependency]
+    testImplementation("androidx.work:work-testing:2.9.1")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:44: Warning: A newer version of androidx.test:core than 1.6.1 is available: 1.7.0 [GradleDependency]
     testImplementation("androidx.test:core:1.6.1")
                        ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -48,4 +36,4 @@ C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33
    However, you may simply not be aware that a more recent version is
    available, and that is what this lint check helps find.
 
-0 errors, 12 warnings
+0 errors, 10 warnings

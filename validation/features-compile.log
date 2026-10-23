@@ -1,0 +1,48 @@
+Picked up JAVA_TOOL_OPTIONS: -Duser.home=C:\Users\woziji\Documents\Codex\2026-10-21\embeddedquiz-app-embeddedquiz-android-app-linux-5\work\java-home -Djava.io.tmpdir=C:/Users/woziji/Documents/Codex/eqtmp
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :app
+WARNING: The option setting 'android.overridePathCheck=true' is experimental.
+The current default is 'false'.
+
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+
+> Task :app:processDebugMainManifest
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\src\main\AndroidManifest.xml:8:5-107 Warning:
+	uses-permission#android.permission.FOREGROUND_SERVICE_DATA_SYNC was tagged at AndroidManifest.xml:8 to remove other declarations but no other declaration present
+
+> Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeDebugResources
+> Task :app:processDebugResources
+> Task :app:kspDebugKotlin
+
+> Task :app:compileDebugKotlin FAILED
+e: file:///C:/Users/woziji/.codex/visualizations/2026/10/23/01a16682-88e2-7921-b22f-1f42e33ecf00/EmbeddedQuiz/app/src/main/java/cn/embeddedquiz/Data.kt:301:13 Return type mismatch: expected 'cn.embeddedquiz.QuizDatabase', actual 'kotlin.Unit'.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 56s
+15 actionable tasks: 10 executed, 5 up-to-date

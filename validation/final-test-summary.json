@@ -1,0 +1,282 @@
+{
+  "version": "1.4.0",
+  "total": 45,
+  "passed": 45,
+  "failed": 0,
+  "skipped": 0,
+  "originalTestsRetained": 21,
+  "originalTestsPassed": 21,
+  "method": "完整回归后，仅对受影响的 13 项 UI/通知/启动测试复测；每个类采用最新完整报告。",
+  "cases": [
+    {
+      "class": "cn.embeddedquiz.DomainTest",
+      "name": "singleAndMultipleAreExactSets",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.DomainTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.DomainTest",
+      "name": "judgmentAndUncertainAnswers",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.DomainTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.DomainTest",
+      "name": "datesHandleLeapYearAndYearBoundary",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.DomainTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.DomainTest",
+      "name": "programmingNeverDaily",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.DomainTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.DomainTest",
+      "name": "successfulReviewsGrowAndLapseResets",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.DomainTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.EnhancedAiTest",
+      "name": "contextUsesCurrentContentHashAndOnlyLatestFourRounds",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.EnhancedAiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.EnhancedAiTest",
+      "name": "cancellationStopsHttpAndDoesNotCreateCacheEntry",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.EnhancedAiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.EnhancedAiTest",
+      "name": "verifiedModelParametersAndPricesMatchOfficialContract",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.EnhancedAiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.EnhancedAiTest",
+      "name": "failedRequestDoesNotCacheAndRetryCanSucceedWithExplicitLabel",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.EnhancedAiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDataTest",
+      "name": "migrationThreeToFourKeepsRawJsonNotesHistoryAndIndexes",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.LearningDataTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDataTest",
+      "name": "sqlStatisticsSeparateSelfAssessmentAndUseDistinctDailyQuestions",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.LearningDataTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDataTest",
+      "name": "backupThreeRestoresNewDataAndOldBackupsKeepIt",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.LearningDataTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDataTest",
+      "name": "localLogStaysBoundedAndNeverStoresExceptionMessage",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.LearningDataTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDataTest",
+      "name": "personalAnswersTakePrecedenceWithoutChangingOriginalAndExportSafely",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.LearningDataTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDataTest",
+      "name": "searchAndTermsCoverOptionsAnswerNotesTagsAndStickyNotesLiterally",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.LearningDataTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDataTest",
+      "name": "orderedCodeDraftsKeepLatestWithoutLosingFavoriteAndNotes",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.LearningDataTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDatesAndReadingTest",
+      "name": "reminderFollowsWallClockAcrossDstAndMidnight",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.LearningDatesAndReadingTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDatesAndReadingTest",
+      "name": "markdownIsLocalAndPreservesFencedCode",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.LearningDatesAndReadingTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDatesAndReadingTest",
+      "name": "streakHandlesYearBoundaryAndDuplicateAttempts",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.LearningDatesAndReadingTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDatesAndReadingTest",
+      "name": "streakUsesLocalDaysAcrossLeapDayAndMonthBoundary",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.LearningDatesAndReadingTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDatesAndReadingTest",
+      "name": "sourceReadingKeepsOriginalWhitespaceAndOnlyIndentUsesCodeStyle",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.LearningDatesAndReadingTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDatesAndReadingTest",
+      "name": "lightAndDarkTextAndVerificationColorsMeetContrast",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.LearningDatesAndReadingTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.NotesAndScoringUiTest",
+      "name": "personalWorkbenchAnswerEnablesAutomaticGradingWithoutChangingQuestion",
+      "result": "passed",
+      "report": "validation/final-ui-run-1.4.0/TEST-cn.embeddedquiz.NotesAndScoringUiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.NotesAndScoringUiTest",
+      "name": "correctAnswerIsRecordedWithoutExtraFeedback",
+      "result": "passed",
+      "report": "validation/final-ui-run-1.4.0/TEST-cn.embeddedquiz.NotesAndScoringUiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.NotesAndScoringUiTest",
+      "name": "textDraftAndManualAssessmentSurviveNotesAndQuestionNavigation",
+      "result": "passed",
+      "report": "validation/final-ui-run-1.4.0/TEST-cn.embeddedquiz.NotesAndScoringUiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.NotesAndScoringUiTest",
+      "name": "rapidNoteEditsAreSavedInOrderAndDeletionWins",
+      "result": "passed",
+      "report": "validation/final-ui-run-1.4.0/TEST-cn.embeddedquiz.NotesAndScoringUiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.NotesAndScoringUiTest",
+      "name": "examExpiresAndRecordsWhileNotesAreOpen",
+      "result": "passed",
+      "report": "validation/final-ui-run-1.4.0/TEST-cn.embeddedquiz.NotesAndScoringUiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.NotesAndScoringUiTest",
+      "name": "bottomNavigationAndDarkModeAndGoalPersist",
+      "result": "passed",
+      "report": "validation/final-ui-run-1.4.0/TEST-cn.embeddedquiz.NotesAndScoringUiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.NotesAndScoringUiTest",
+      "name": "choiceSurvivesNotesAndSubmissionRecordsExactlyOnce",
+      "result": "passed",
+      "report": "validation/final-ui-run-1.4.0/TEST-cn.embeddedquiz.NotesAndScoringUiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.NotesAndScoringUiTest",
+      "name": "codeDraftAutoSavesIndentAndSurvivesNotesRoundTrip",
+      "result": "passed",
+      "report": "validation/final-ui-run-1.4.0/TEST-cn.embeddedquiz.NotesAndScoringUiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.ReviewReminderTest",
+      "name": "notificationReviewEntryWinsAfterUnfinishedExamIsRestored",
+      "result": "passed",
+      "report": "validation/final-ui-run-1.4.0/TEST-cn.embeddedquiz.ReviewReminderTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.ReviewReminderTest",
+      "name": "deniedNotificationPermissionDoesNotNotifyOrResetAskedFlag",
+      "result": "passed",
+      "report": "validation/final-ui-run-1.4.0/TEST-cn.embeddedquiz.ReviewReminderTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.ReviewReminderTest",
+      "name": "onlyDueQuestionsNotifyAndTapOpensReview",
+      "result": "passed",
+      "report": "validation/final-ui-run-1.4.0/TEST-cn.embeddedquiz.ReviewReminderTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.ReviewReminderTest",
+      "name": "mergedManifestDoesNotRequestExtraWorkManagerOrAlarmPermissions",
+      "result": "passed",
+      "report": "validation/final-ui-run-1.4.0/TEST-cn.embeddedquiz.ReviewReminderTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.StartupTest",
+      "name": "launchOfflineAndOpenQuestion",
+      "result": "passed",
+      "report": "validation/final-ui-run-1.4.0/TEST-cn.embeddedquiz.StartupTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.StickyNoteStorageTest",
+      "name": "notesPersistRestoreAndSurviveResetAndOldBackup",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.StickyNoteStorageTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.StickyNoteStorageTest",
+      "name": "versionTwoMigrationPreservesExistingLearningData",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.StickyNoteStorageTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.StorageAndApiTest",
+      "name": "apiParsesSuccessAndSanitizesErrors",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.StorageAndApiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.StorageAndApiTest",
+      "name": "importRejectsBadAnswerReferencesAndDuplicateIds",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.StorageAndApiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.StorageAndApiTest",
+      "name": "networkTimeoutIsRecoverable",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.StorageAndApiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.StorageAndApiTest",
+      "name": "manualAssessmentPersistsAndDistinguishesUnknown",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.StorageAndApiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.StorageAndApiTest",
+      "name": "bundledAnswerUpgradePreservesLearningAndCustomQuestions",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.StorageAndApiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.StorageAndApiTest",
+      "name": "closeReopenBackupRestoreAndWrongAnswerScheduling",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.StorageAndApiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.StorageAndApiTest",
+      "name": "embeddedBankIsCompleteAndSafe",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.StorageAndApiTest.xml"
+    },
+    {
+      "class": "cn.embeddedquiz.StorageAndApiTest",
+      "name": "versionOneDatabaseMigratesWithoutLosingAttempts",
+      "result": "passed",
+      "report": "validation/full-run-1.4.0/TEST-cn.embeddedquiz.StorageAndApiTest.xml"
+    }
+  ]
+}

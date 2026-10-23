@@ -8,20 +8,28 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.*
 
 @Composable
 fun QuestionScreen(vm: QuizViewModel) {
-    val q = vm.queue.getOrNull(vm.index)?.let { id -> vm.questions.find { it.id == id } }
+    val id = vm.queue.getOrNull(vm.index)
+    if (id == null) {
+        Text("没有可继续的题目")
+        return
+    }
+    val hash = vm.questions.firstOrNull { it.id == id }?.contentHash
+    var question by remember(id, hash) { mutableStateOf<Question?>(null) }
+    LaunchedEffect(id, hash) { question = vm.loadQuestion(id) }
+    val q = question
     if (q == null) {
-        Text("题目加载中或已被恢复操作替换")
+        Text("正在加载题目…")
         return
     }
     key(q.id, vm.mode) { QuestionContent(vm, q) }
@@ -29,21 +37,19 @@ fun QuestionScreen(vm: QuizViewModel) {
 
 @Composable
 fun QuestionContent(vm: QuizViewModel, q: Question) {
-    var selected by
-        rememberSaveable(q.id) {
-            mutableStateOf(
-                if (vm.mode == "模拟考试") vm.examAnswers[q.id]?.toList() ?: emptyList()
-                else emptyList()
-            )
-        }
-    var response by rememberSaveable(q.id) { mutableStateOf("") }
-    var revealed by rememberSaveable(q.id) { mutableStateOf(false) }
+    val draft = vm.questionDraft(q)
+    var selected by draft.selected
+    var response by draft.response
+    var revealed by draft.revealed
     val recorded = vm.practiceRecords.containsKey(q.id)
     val savedAssessment = vm.practiceRecords[q.id]?.takeUnless { it == "AUTO" }.orEmpty()
-    var code by rememberSaveable(q.id) { mutableStateOf(vm.p(q.id).code) }
-    var notes by rememberSaveable(q.id) { mutableStateOf(vm.p(q.id).notes) }
-    var prompt by rememberSaveable(q.id) { mutableStateOf("") }
+    var code by draft.code
+    var notes by draft.notes
+    var prompt by draft.prompt
     var remaining by remember { mutableLongStateOf(0) }
+    val canGrade = vm.learning.canGrade(q)
+    val personal = vm.learning.personal(q)
+    LaunchedEffect(q.id, q.contentHash) { vm.aiState.observe(q) }
     val exam = vm.mode == "模拟考试" && !vm.examFinished
     LaunchedEffect(exam, vm.examDeadline) {
         if (exam)
@@ -53,7 +59,8 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
             }
     }
     LazyColumn(
-        Modifier.testTag("question-list"),
+        Modifier.testTag("question-list").semantics { contentDescription = "题目${q.id}" },
+        state = draft.scroll,
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(bottom = 32.dp),
     ) {
@@ -74,25 +81,15 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                 )
             }
         if (vm.examFinished && vm.mode == "模拟考试") item { Heading(vm.examResult) }
-        item { Text("${q.kind.label} · ${q.category} · ${q.difficulty}") }
-        item { Detail(q.stem) }
-        items(q.images) { pic ->
-            val bitmap =
-                remember(pic.data) {
-                    runCatching {
-                            val b = Base64.decode(pic.data, Base64.DEFAULT)
-                            BitmapFactory.decodeByteArray(b, 0, b.size)?.asImageBitmap()
-                        }
-                        .getOrNull()
-                }
-            if (bitmap != null)
-                Image(
-                    bitmap,
-                    contentDescription = pic.name,
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
-                )
-            else Text("图片无法显示：${pic.name}")
+        item {
+            Text("${q.kind.label} · ${CategoryMap.normalize(q.category)} · 原题难度：${q.difficulty}")
         }
+        item { Text("原始分类：${q.category}", style = MaterialTheme.typography.labelMedium) }
+        item {
+            Text("答案来源：${vm.learning.answerSource(q)}", color = MaterialTheme.colorScheme.primary)
+        }
+        item { Detail(q.stem) }
+        items(q.images) { pic -> QuestionImage(pic) }
         items(q.options) { o ->
             OutlinedButton(
                 onClick = {
@@ -134,21 +131,22 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
             if (q.duplicateOf.isNotBlank()) item { Text("同题关联：${q.duplicateOf}（来源和学习记录独立）") }
             if (q.reviewRequired)
                 item {
-                    Text("待核对：答案缺失或需结合条件核对，不自动判分，可手动判断。", color = MaterialTheme.colorScheme.error)
+                    VerificationNotice(
+                        if (personal != null) "原题仍待核对，本次按个人核对答案判分。" else "待核对：原答案缺失或有条件限制，需自行判断。"
+                    )
                 }
             if (!revealed && !recorded && !vm.examFinished)
                 item {
                     Action(
-                        if (q.autoGradable) "提交答案" else "查看参考答案",
-                        enabled = !vm.busy && (!q.autoGradable || selected.isNotEmpty()),
+                        if (canGrade) "提交答案" else "查看参考答案",
+                        enabled = !vm.busy && (!canGrade || selected.isNotEmpty()),
                     ) {
-                        if (q.autoGradable)
-                            vm.submit(q, response, selected.toSet()) { revealed = true }
+                        if (canGrade) vm.submit(q, response, selected.toSet()) { revealed = true }
                         else revealed = true
                     }
                 }
             if (revealed || recorded || vm.examFinished) {
-                val grade = Grader.grade(q, selected.toSet())
+                val grade = Grader.grade(q, selected.toSet(), personal)
                 item {
                     Heading(
                         if (savedAssessment.isNotBlank())
@@ -157,6 +155,12 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                         else if (grade == false) "自动判分：错误" else "自行核对参考"
                     )
                 }
+                if (personal != null)
+                    item {
+                        Text(
+                            "个人核对选项：${personal.selected.sorted().joinToString()}\n备注：${personal.notes}"
+                        )
+                    }
                 item {
                     Detail(
                         q.answer.ifBlank {
@@ -166,7 +170,7 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                     )
                 }
                 if (q.explanation.isNotBlank()) item { Detail(q.explanation) }
-                if (q.daily && !q.autoGradable && !recorded && !vm.examFinished)
+                if (q.daily && !canGrade && !recorded && !vm.examFinished)
                     item {
                         Column {
                             Text("手动判断本次回答（只记录你的掌握情况，不修改参考答案）")
@@ -202,31 +206,45 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                     }
                     item {
                         Text("参考代码")
-                        Detail(q.referenceCode.ifBlank { "原文未提供" })
+                        if (q.referenceCode.isBlank()) Text("原文未提供")
+                        else CodeBlock(q.referenceCode, "原题参考代码")
                     }
                 }
                 item {
-                    OutlinedTextField(
-                        value = code,
-                        onValueChange = { code = it },
-                        label = { Text("我的代码（手动保存）") },
-                        textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace),
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 6,
-                    )
+                    CodeEditor(code, draft.codeEditor) {
+                        code = it
+                        vm.codeDrafts.update(q.id, code, notes)
+                    }
                 }
+                item {
+                    if (vm.codeDrafts.writer.error.isNotBlank()) {
+                        VerificationNotice(vm.codeDrafts.writer.error)
+                        Action("重试保存草稿") { vm.codeDrafts.writer.retry() }
+                    } else Text(if (vm.codeDrafts.writer.pending > 0) "草稿保存中…" else "草稿已保存到本机")
+                }
+                item { CodingTimer(draft.timer) }
+                item {
+                    Action("AI 代码审查", !vm.aiBusy && code.isNotBlank()) {
+                        vm.aiState.ask(q, "", selected.toSet(), AiRequestType.CODE_REVIEW, code)
+                    }
+                }
+                item { VerifiedSolutionEditor(vm, q) }
                 item { Text("当前版本不执行或在线判定代码，请在自己的开发环境验证。") }
             }
             item {
                 OutlinedTextField(
                     value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("个人笔记（手动保存）") },
+                    onValueChange = {
+                        notes = it
+                        if (!q.daily) vm.codeDrafts.update(q.id, code, notes)
+                    },
+                    label = { Text(if (q.daily) "个人笔记（手动保存）" else "个人笔记（自动保存）") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                 )
             }
             item { Action("保存代码与笔记", !vm.busy) { vm.saveNotes(q.id, code, notes) } }
+            item { PersonalMarksEditor(vm, q) }
             item {
                 HorizontalDivider()
                 Heading("AI 学习助手")
@@ -237,6 +255,25 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                     vm.ask(q, "生成详细解析", selected.toSet(), AiRequestType.EXPLANATION)
                 }
             }
+            item {
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Action("AI 建议答案（待核对）", !vm.aiBusy) {
+                        vm.ask(q, "", selected.toSet(), AiRequestType.SUGGESTED_ANSWER)
+                    }
+                    Action("出一道同知识点变式题", !vm.aiBusy) {
+                        vm.ask(q, "", selected.toSet(), AiRequestType.VARIANT)
+                    }
+                }
+                if (vm.aiBusy) Action("取消 AI 请求") { vm.aiState.cancel() }
+                if (vm.aiState.error.isNotBlank()) {
+                    VerificationNotice(vm.aiState.error)
+                    Action("重试 AI 请求", !vm.aiBusy) { vm.aiState.retry() }
+                }
+                Text("AI 建议，未核实；不会写入原题库或自动参与判分。")
+            }
             items(vm.aiEntries.filter { it.questionId == q.id }, key = { it.cacheKey }) { a ->
                 Card {
                     Column(Modifier.padding(14.dp)) {
@@ -244,7 +281,8 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                             "${a.model} · ${a.prompt}",
                             style = MaterialTheme.typography.titleSmall,
                         )
-                        Detail(a.response)
+                        if (a.contentHash.isBlank()) Text("历史解析：题目版本未知，不用于追问上下文")
+                        MarkdownContent(a.response)
                         Text(
                             "输入 ${a.inputTokens} / 输出 ${a.outputTokens} tokens · 估算 $${"%.6f".format(a.estimatedUsd)}"
                         )
@@ -267,7 +305,10 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Action("上一题", vm.index > 0) {
                     vm.index--
                     vm.saveExam()
@@ -279,5 +320,33 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                 if (exam) Action("交卷", !vm.busy) { vm.finishExam() }
             }
         }
+    }
+}
+
+@Composable
+private fun QuestionImage(pic: Picture) {
+    var bitmap by remember(pic.data) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(pic.data) {
+        bitmap =
+            withContext(Dispatchers.IO) {
+                runCatching {
+                        val bytes = Base64.decode(pic.data, Base64.DEFAULT)
+                        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                        var sample = 1
+                        while (maxOf(bounds.outWidth, bounds.outHeight) / sample > 1600) sample *= 2
+                        val options = BitmapFactory.Options().apply { inSampleSize = sample }
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                            ?.asImageBitmap()
+                    }
+                    .getOrNull()
+            }
+    }
+    bitmap?.let {
+        Image(
+            it,
+            contentDescription = pic.name,
+            modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+        )
     }
 }

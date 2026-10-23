@@ -1,0 +1,16 @@
+test_audit_does_not_change_input_and_reports_conflicts (test_bank_quality.QualityTest.test_audit_does_not_change_input_and_reports_conflicts) ... ok
+test_display_mapping_removes_conflicting_numbers (test_bank_quality.QualityTest.test_display_mapping_removes_conflicting_numbers) ... ok
+test_delivered_programming_separation (test_handwritten.HandwrittenTests.test_delivered_programming_separation) ... ok
+test_multistep_grouping_and_source_preservation (test_handwritten.HandwrittenTests.test_multistep_grouping_and_source_preservation) ... ok
+test_delivered_bank (test_import_docx.ImportTests.test_delivered_bank) ... ok
+test_no_fabricated_answer_code_and_company (test_import_docx.ImportTests.test_no_fabricated_answer_code_and_company) ... ok
+test_putes_answer_code_and_heading_boundary (test_import_docx.ImportTests.test_putes_answer_code_and_heading_boundary) ... ok
+test_exact_answers_ambiguity_and_body_guard (test_merge_answers.SupplementTests.test_exact_answers_ambiguity_and_body_guard) ... ok
+test_delivered_bank_and_code (test_yanxuan.YanxuanTests.test_delivered_bank_and_code) ... ok
+test_missing_answers_and_bad_options_are_rejected (test_yanxuan.YanxuanTests.test_missing_answers_and_bad_options_are_rejected) ... ok
+test_number_restarts_table_mapping_and_indentation (test_yanxuan.YanxuanTests.test_number_restarts_table_mapping_and_indentation) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.941s
+
+OK

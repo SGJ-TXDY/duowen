@@ -11,9 +11,16 @@ enum class Page(val label: String) {
     STATISTICS("历史统计"),
     NOTES("便签"),
     SETTINGS("设置"),
+    MORE("更多"),
+    WORKBENCH("待核对工作台"),
+    COSTS("AI 费用估算"),
+    ERROR_LOG("本地错误记录"),
 }
 
-enum class AiRequestType {
-    EXPLANATION,
-    FOLLOW_UP,
+enum class AiRequestType(val label: String) {
+    EXPLANATION("生成详细解析"),
+    FOLLOW_UP("追问"),
+    SUGGESTED_ANSWER("AI 建议答案（待核对）"),
+    VARIANT("出一道同知识点变式题"),
+    CODE_REVIEW("AI 代码审查"),
 }
