@@ -28,7 +28,7 @@ class StartupTest {
             controller.visible()
             vm.start(vm.questions.filter {it.daily},"顺序练习")
             shadowOf(Looper.getMainLooper()).idle()
-            assertEquals("刷题",vm.page)
+            assertEquals(Page.QUESTION,vm.page)
             assertTrue(vm.queue.isNotEmpty())
             assertFalse(vm.queue.any {id->vm.questions.first {it.id==id}.kind==Kind.PROGRAMMING})
         } finally {controller.pause().stop().destroy()}

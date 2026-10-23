@@ -127,7 +127,7 @@ class NotesAndScoringUiTest {
             vm.examDeadline=System.currentTimeMillis()-1
         }
         await {vm.examFinished&&!vm.busy}
-        assertEquals("便签",vm.page)
+        assertEquals(Page.NOTES,vm.page)
         assertEquals(1,vm.attempts.size)
         assertEquals(true,vm.attempts.single().correct)
         ui.onNodeWithText("继续答题").performClick()
