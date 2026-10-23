@@ -7,6 +7,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.Configuration
+import androidx.work.testing.SynchronousExecutor
+import androidx.work.testing.WorkManagerTestInitHelper
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -37,6 +40,14 @@ class NotesAndScoringUiTest {
     fun setup() {
         app.deleteDatabase("embeddedquiz.db")
         app.getSharedPreferences("settings", 0).edit().clear().commit()
+        // Saving settings reschedules reminders; without this the test depended on class order.
+        WorkManagerTestInitHelper.initializeTestWorkManager(
+            app,
+            Configuration.Builder()
+                .setExecutor(SynchronousExecutor())
+                .setTaskExecutor(SynchronousExecutor())
+                .build(),
+        )
         ui.runOnUiThread {
             vm =
                 ViewModelProvider(store, ViewModelProvider.AndroidViewModelFactory(app))[
@@ -66,9 +77,9 @@ class NotesAndScoringUiTest {
                 shadowOf(Looper.getMainLooper()).idle()
                 condition()
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             throw AssertionError(
-                "notice=${vm.notice}; noteError=${vm.noteSaveError}; writes=${vm.pendingNoteWrites}; busy=${vm.busy}",
+                "notice=${vm.notice}; goal=${vm.learning.settings.dailyGoal}; page=${vm.page}; noteError=${vm.noteSaveError}; writes=${vm.pendingNoteWrites}; busy=${vm.busy}",
                 e,
             )
         }
@@ -78,7 +89,7 @@ class NotesAndScoringUiTest {
         await { vm.attempts.isNotEmpty() && !vm.busy }
     }
 
-    private fun questionText(text: String): SemanticsNodeInteraction {
+    private fun questionNode(matcher: SemanticsMatcher): SemanticsNodeInteraction {
         // Full JSON is loaded on demand; preserve existing assertions and await that boundary.
         await {
             ui.onAllNodes(
@@ -88,24 +99,34 @@ class NotesAndScoringUiTest {
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         }
-        ui.onNodeWithTag("question-list").performScrollToNode(hasText(text))
-        return ui.onNodeWithText(text)
+        // The top bar and action bar sit outside the scrolling list.
+        val inList = hasAnyAncestor(hasTestTag("question-list"))
+        if (ui.onAllNodes(matcher and !inList).fetchSemanticsNodes().isEmpty())
+            ui.onNodeWithTag("question-list").performScrollToNode(matcher)
+        return ui.onNode(matcher)
     }
+
+    private fun questionText(text: String) = questionNode(hasText(text))
+
+    private fun option(text: String) = questionNode(hasText(text) and hasClickAction())
+
+    private fun navButton(label: String) =
+        questionNode(hasContentDescription(label) or hasText(label))
 
     @Test
     fun choiceSurvivesNotesAndSubmissionRecordsExactlyOnce() {
         start("ui-choice")
-        questionText("□ 选项乙").performClick()
-        questionText("打开便签").performClick()
+        option("选项乙").performClick()
+        navButton("打开便签").performClick()
         ui.onNodeWithText("新建便签").performClick()
         ui.onNodeWithText("便签标题").performTextInput("复习要点")
         ui.onNodeWithText("记下思路、易错点或待办").performTextInput("检查指针的生命周期")
         ui.onNodeWithText("继续答题").performClick()
-        questionText("☑ 选项乙").assertExists()
+        questionNode(hasText("选项乙") and isSelected()).assertExists()
         questionText("提交答案").performClick()
         waitForRecord()
-        questionText("自动判分：错误").assertExists()
-        ui.onNodeWithText("手动判断本次回答（只记录你的掌握情况，不修改参考答案）").assertDoesNotExist()
+        questionText("回答错误").assertExists()
+        ui.onNodeWithText("这次答得怎么样？").assertDoesNotExist()
         ui.onNodeWithText("提交答案").assertDoesNotExist()
         assertEquals(1, vm.attempts.size)
         assertEquals(false, vm.attempts.single().correct)
@@ -114,7 +135,7 @@ class NotesAndScoringUiTest {
         ui.runOnIdle { vm.openStickyNotes() }
         ui.onNodeWithText("记下思路、易错点或待办").assertTextContains("检查指针的生命周期")
         ui.onNodeWithText("继续答题").performClick()
-        questionText("自动判分：错误").assertExists()
+        questionText("回答错误").assertExists()
         assertEquals(1, vm.attempts.size)
         await { vm.pendingNoteWrites == 0 && vm.stickyNotes.any { it.title == "复习要点" } }
         assertEquals("检查指针的生命周期", vm.stickyNotes.single().content)
@@ -135,8 +156,8 @@ class NotesAndScoringUiTest {
         ui.runOnIdle { vm.openStickyNotes() }
         ui.onNodeWithText("继续答题").performClick()
         questionText("先写下自己的回答").assertTextContains("尚未完成的回答")
-        questionText("下一题").performClick()
-        questionText("上一题").performClick()
+        navButton("下一题").performClick()
+        navButton("上一题").performClick()
         questionText("先写下自己的回答").assertTextContains("尚未完成的回答")
         questionText("查看参考答案").performClick()
         questionText("不会").performClick()
@@ -144,19 +165,19 @@ class NotesAndScoringUiTest {
         assertEquals("UNKNOWN", vm.attempts.single().assessment)
         assertEquals("尚未完成的回答", vm.attempts.single().response)
         assertTrue(vm.progress["ui-short"]!!.wrong)
-        questionText("已记录 · 自评：不会").assertExists()
+        questionText("自评：不会").assertExists()
     }
 
     @Test
     fun correctAnswerIsRecordedWithoutExtraFeedback() {
         start("ui-choice")
-        questionText("□ 选项甲").performClick()
+        option("选项甲").performClick()
         questionText("提交答案").performClick()
         waitForRecord()
         assertEquals(true, vm.attempts.single().correct)
         assertEquals("GOOD", vm.attempts.single().feedback)
         assertEquals("", vm.attempts.single().assessment)
-        questionText("自动判分：正确").assertExists()
+        questionText("回答正确").assertExists()
         ui.onNodeWithText("简单").assertDoesNotExist()
         ui.onNodeWithText("困难").assertDoesNotExist()
         ui.onNodeWithText("记住了").assertDoesNotExist()
@@ -229,8 +250,10 @@ class NotesAndScoringUiTest {
         ui.onNodeWithTag("workbench-editor").performScrollToNode(hasText("保存个人核对答案"))
         ui.onNodeWithText("保存个人核对答案").performClick()
         await { vm.learning.answers.containsKey("ui-pending") && !vm.busy }
+        // The confirmation snackbar is transient; let it close before tapping underneath it.
+        await { vm.notice.isEmpty() }
         start("ui-pending")
-        questionText("□ 选项乙").performClick()
+        option("选项乙").performClick()
         questionText("提交答案").performClick()
         waitForRecord()
         assertEquals("PERSONAL", vm.attempts.single().answerSource)

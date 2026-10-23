@@ -79,6 +79,12 @@ class LearningDatesAndReadingTest {
             assertTrue(contrast(colors.error, colors.background) >= 4.5)
             assertTrue(contrast(colors.onErrorContainer, colors.errorContainer) >= 4.5)
             assertTrue(contrast(colors.onTertiaryContainer, colors.tertiaryContainer) >= 4.5)
+            assertTrue(contrast(colors.onSurfaceVariant, colors.surfaceContainerLowest) >= 4.5)
+            assertTrue(contrast(colors.onPrimaryContainer, colors.primaryContainer) >= 4.5)
+            val status = statusColors(dark)
+            assertTrue(contrast(status.onSuccessContainer, status.successContainer) >= 4.5)
+            assertTrue(contrast(status.onWarningContainer, status.warningContainer) >= 4.5)
+            assertTrue(contrast(status.success, colors.surfaceContainerLowest) >= 3.0)
         }
     }
 }

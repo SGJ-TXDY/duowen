@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun PersonalMarksEditor(vm: QuizViewModel, q: Question) {
+fun PersonalMarksEditor(vm: QuizViewModel, q: Question, showHeading: Boolean = true) {
     val meta = vm.learning.metadata[q.id] ?: QuestionPersonal(q.id)
     var tags by rememberSaveable(q.id, meta.tags) { mutableStateOf(meta.tags) }
     var difficulty by
@@ -17,7 +17,7 @@ fun PersonalMarksEditor(vm: QuizViewModel, q: Question) {
             mutableStateOf(meta.perceivedDifficulty)
         }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Heading("我的题目标记")
+        if (showHeading) Heading("我的题目标记")
         Text("原题难度：${q.difficulty}。个人感受单独保存，不代表官方难度。")
         OutlinedTextField(
             value = tags,
@@ -35,13 +35,13 @@ fun PersonalMarksEditor(vm: QuizViewModel, q: Question) {
 }
 
 @Composable
-fun VerifiedSolutionEditor(vm: QuizViewModel, q: Question) {
+fun VerifiedSolutionEditor(vm: QuizViewModel, q: Question, showHeading: Boolean = true) {
     val meta = vm.learning.metadata[q.id] ?: QuestionPersonal(q.id)
     var code by rememberSaveable(q.id, meta.verifiedCode) { mutableStateOf(meta.verifiedCode) }
     var verified by rememberSaveable(q.id, meta.codeVerified) { mutableStateOf(meta.codeVerified) }
     var editing by rememberSaveable(q.id) { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Heading("我的参考解法")
+        if (showHeading) Heading("我的参考解法")
         Text("只保存你手动确认的解法，AI 不会自动写入。")
         if (meta.verifiedCode.isNotBlank()) {
             Text(if (meta.codeVerified) "已核对 · 个人参考解法" else "个人参考解法 · 尚未核对")

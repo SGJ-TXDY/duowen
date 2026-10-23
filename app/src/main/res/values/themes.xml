@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the Compose background so launch has no white flash before the first frame. -->
+    <style name="Theme.EmbeddedQuiz" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#F3F6F5</item>
+    </style>
+</resources>

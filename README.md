@@ -2,6 +2,16 @@
 
 原生 Kotlin / Jetpack Compose Android 应用，离线题库和学习记录使用 Room 保存，无账号和服务器依赖。Android 8.0（API 26）及以上可用。DeepSeek 是用户主动触发的可选联网功能。
 
+## 1.5.0 更新：界面重设计
+
+只改界面层，题库、判分、复习排程和数据库都不变（数据库仍为版本 4，备份格式仍为 3）。包名 `cn.embeddedquiz` 和签名证书与 1.4.0 相同，**直接覆盖安装**，学习记录保留。
+
+- 设计系统：新增 `Theme.kt`（完整浅色/深色配色、字号层级、圆角，以及对错/提醒用的状态色）和 `AppIcons.kt`（自绘线条图标，不引入图标库依赖）。`CommonComponents.kt` 增加次要按钮、标签、内容卡片和可折叠区块。
+- 应用外壳：底部导航改用图标，复习入口显示到期数角标；提示改为底部 Snackbar；启动窗口背景与应用一致，深色模式启动不闪白。
+- 答题页：顶栏放返回、题号、便签/收藏/更多，下方显示进度条，模拟考试时显示倒计时；选项改为带字母徽标的卡片，提交后标出正确答案和错选项；判分结果用彩色横幅显示；笔记、标签、AI 助手、题目信息收进折叠区块；上一题/提交/下一题固定在底部；交卷前需要确认。
+- “待核对”从红色改为琥珀色。首页、分类等页面目前只换了配色和组件样式，布局重做留到后续版本。
+- 验证：`assembleDebug testDebugUnitTest lintDebug` 全部通过（45 项测试），APK 签名证书与 1.4.0 一致。
+
 ## 1.4.0 更新
 
 本次在 1.3.0 上增量改进：底部导航、深色模式与字号、每日本地提醒、每日目标与连续学习、个人核对工作台、规范分类与标签、SQL 统计与 Canvas 图表、AI 取消/重试与本地 Markdown、编程草稿自动保存和个人参考解法。原包名、签名和题库保持不变，直接覆盖安装，不要卸载旧版。
@@ -32,15 +42,54 @@
 
 ## 工程与构建
 
-使用 Android Studio 打开本目录，安装 Android SDK Platform 35、Build Tools 35.0.0，选择 JDK 17 或兼容的 JDK。根目录已包含 Gradle Wrapper，无需全局安装 Gradle。
+技术栈：Kotlin 2.0 + Jetpack Compose（Material 3）+ Room，AGP 8.7.3，Gradle 8.9，compileSdk/targetSdk 35，minSdk 26，JDK 17。
 
-Windows 建议将源码解压到短的纯英文目录，例如 `C:/AndroidProjects/EmbeddedQuiz`，避免 Android 构建工具的非 ASCII 路径检查和测试数据库长路径限制。
+### 本机离线构建（推荐，不需要 Android Studio）
+
+这台电脑上已经有完整的工具链和依赖缓存，直接运行：
 
 ```powershell
-.\gradlew.bat assembleDebug testDebugUnitTest lintDebug
+powershell -ExecutionPolicy Bypass -File tools\build.ps1
 ```
 
-Linux/macOS：`sh gradlew assembleDebug testDebugUnitTest lintDebug`。生成的 APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。首次构建需要下载 Google Maven、Maven Central 的依赖。`local.properties` 是本机 SDK 路径，不应提交到 Git。
+默认执行 `assembleDebug testDebugUnitTest`。也可以在脚本后面写任务名，例如只打包时加 `assembleDebug`。生成的 APK 位于 `app/build/outputs/apk/debug/app-debug.apk`，发到手机即可覆盖安装。
+
+`tools/build.ps1` 使用以下位置，都可以用环境变量改：
+
+| 用途 | 默认位置 | 环境变量 |
+| --- | --- | --- |
+| JDK 17、Android SDK（platform 35 / build-tools 35.0.0）、Gradle 8.9 | `C:\Users\woziji\Documents\Codex\2026-10-21\embeddedquiz-app-embeddedquiz-android-app-linux-5\work\toolchain` | `EQ_TOOLCHAIN` |
+| 签名文件 `debug.keystore`（作为 `ANDROID_USER_HOME`） | 同上的 `work\android-home` | `EQ_ANDROID_HOME` |
+| Gradle 依赖缓存（脚本带 `--offline`） | 同上的 `work\gradle-home` | `EQ_GRADLE_HOME` |
+| 纯英文路径的目录联接 | `C:\AndroidProjects\EmbeddedQuiz` | `EQ_ASCII_LINK` |
+
+源码路径含中文时，测试进程加载不到测试类（每个测试都报 `ClassNotFoundException`）。脚本会自动在 `C:\AndroidProjects\EmbeddedQuiz` 创建一个指向源码的目录联接，从那里构建。联接只是一个入口，删掉它不影响源码。
+
+### 签名：保持覆盖安装的关键
+
+项目没有自定义 `signingConfigs`，Debug 包由 `ANDROID_USER_HOME\debug.keystore` 签名。所有已发布 APK 的签名证书 SHA-256 都是：
+
+```
+2c73c905e6d127dd92fbfaf5351058572cb8e78e98beb477eb1a0f37ee43b151
+```
+
+- 必须用这个 keystore 构建，否则手机会拒绝覆盖安装，只能导出备份、卸载后重装。仓库外的 `..\signing-backup\debug.keystore` 存有一份备份；`*.keystore` 已列入 `.gitignore`，不要提交。
+- 不要修改 `applicationId = "cn.embeddedquiz"`。每次发版把 `versionCode` 加 1。
+- 交付前用 build-tools 里的 `apksigner verify --print-certs` 核对证书，用 `aapt2 dump badging` 核对包名和版本号。
+
+### 其他方式
+
+- Android Studio：打开本目录即可，`gradle.properties` 已设置 `android.overridePathCheck=true`。如果测试同样报 `ClassNotFoundException`，从纯英文路径打开项目。
+- 命令行：`.\gradlew.bat assembleDebug testDebugUnitTest lintDebug`，Linux/macOS 用 `sh gradlew …`。首次构建会从 Google Maven、Maven Central 下载依赖。`local.properties` 记录本机 SDK 路径，不应提交到 Git。
+
+### 给下一位维护者（Claude / Codex）
+
+- 界面代码：`AppNavigation.kt`（外壳与导航）、`Theme.kt`、`AppIcons.kt`、`CommonComponents.kt`，以及各个 `*Screen.kt`。新界面优先复用 `SectionCard`、`ExpandableSection`、`Tag`、`SecondaryAction` 和 `MaterialTheme.status`，不要再硬编码颜色。
+- UI 测试 `NotesAndScoringUiTest` 按按钮文字和无障碍描述查找控件。改按钮文案或图标按钮的描述时，要同步更新测试。
+- 别在 `QuizLayout` 顶层读取进度、题目列表这类频繁变化的状态（例如到期题数），要放进用到它的 Scaffold 插槽里，并用 `derivedStateOf` 包一层；否则整个外壳会跟着每次进度更新重组，启动时的页面跳转会出错（`ReviewReminderTest` 能测出来）。
+- 加载状态不要用无限动画（例如不确定进度的 `CircularProgressIndicator`），Robolectric 下 Compose 测试会一直等不到空闲。
+- 答题页没有底部导航栏，Snackbar 已经抬高，避免挡住底部操作栏。
+- 改完后运行 `tools\build.ps1`，确认构建和测试全部通过、签名一致，再交付 APK。
 
 ## 开始使用
 
