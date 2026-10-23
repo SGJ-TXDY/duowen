@@ -1,0 +1,18 @@
+{
+  "total": 906,
+  "source_sha256": {
+    "嵌入式面试题合集_分类整合版.docx": "328ae736814ba893fe5b2932dd5f3a9c88525acf33edab3b5e7a357b9f66d287",
+    "普特面试问题汇总v2.3_全部问题解答.docx": "c1af9d0d387cacac4c930c44ee20b8049efe48ceb07ea4b45add494d6bcc20a3",
+    "嵌入式面试题合集_选择题答案与解析.docx": "ab3f660d79ef8cbd46954d33ed8f60a9de24c76292b493f54bd512ab9e33f8a0",
+    "手写代码.docx": "dc33d629f2b94378d996e6dd95780d3ac686fcdb24f40e368ed819504afad9a8",
+    "严选.docx": "937bec5922888101412b7f7ddd048f3df905b76c42550fd63de97b2caffcc8f5"
+  },
+  "code_paragraphs_preserved": 276,
+  "images_exact": 4,
+  "duplicate_links": 310,
+  "handwritten_added": 41,
+  "yanxuan_added": 61,
+  "daily": 827,
+  "programming": 79,
+  "deterministic_rebuild": true
+}

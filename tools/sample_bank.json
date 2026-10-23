@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "questions": [
+    {"id":"demo-single","stem":"【功能示例，非原题库】在 C 语言中，哪一个运算符用于获取普通变量的地址？","kind":"SINGLE","source":"功能验证示例","company":"示例","category":"C语言","difficulty":"基础","options":[{"key":"A","text":"A. &"},{"key":"B","text":"B. sizeof"}],"answer":"A：一元 & 运算符取得操作数的地址。","correct":["A"],"reviewRequired":false},
+    {"id":"demo-multiple","stem":"【功能示例，非原题库】以下哪些是 C 语言的循环语句？","kind":"MULTIPLE","source":"功能验证示例","company":"示例","category":"C语言","difficulty":"基础","options":[{"key":"A","text":"A. for"},{"key":"B","text":"B. while"},{"key":"C","text":"C. switch"}],"answer":"A、B。switch 是选择语句。","correct":["A","B"],"reviewRequired":false},
+    {"id":"demo-truefalse","stem":"【功能示例，非原题库】C 语言的 sizeof(char) 恒等于 1。","kind":"TRUE_FALSE","source":"功能验证示例","company":"示例","category":"C语言","difficulty":"基础","options":[{"key":"T","text":"正确"},{"key":"F","text":"错误"}],"answer":"正确。这里的 1 是 C 语言定义的一个字节，不假定所有平台字节位数均为 8。","correct":["T"],"reviewRequired":false}
+  ]
+}
