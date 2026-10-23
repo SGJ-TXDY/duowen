@@ -6,7 +6,7 @@
 |---|---|---|
 |Compose BOM|2024.12.01|2025.01.01|
 |Activity|1.9.3|1.10.1|
-|Lifecycle|2.8.7|2.9.4|
+|Lifecycle|2.8.7|2.8.7（保留）|
 |Room / KSP 编译器|2.6.1|2.7.2|
 |WorkManager|无|2.9.1（新增本地提醒）|
 
@@ -15,6 +15,8 @@
 未追随最新整套版本：当前官方 Lifecycle 2.11 文档要求的 Compose/AGP 版本已超出此项目工具链（提及最低 AGP 9.2）；最新 Activity/Compose 系列同样正在提高 compileSdk 要求。为保持可复现构建和覆盖安装，本次不迁移到这些版本。也不为获得最新 Room 2.8 而单独扩大 Kotlin/KSP 组合的升级范围。
 
 WorkManager 使用普通延迟后台任务，不申请精确闹钟权限。按用户硬性限制，从合并清单移除 WorkManager 的额外权限与前台服务，新增运行时权限仅 POST_NOTIFICATIONS。因此设备重启后需打开应用恢复提醒安排，不能依赖开机广播。
+
+实际兼容性结果：曾尝试 Lifecycle 2.9.4，主代码和 AAR 元数据检查通过，但其传递的 Compose Lint 检测器在 AGP 8.7.3 的 UAST 接口上触发 IncompatibleClassChangeError（FrequentlyChangingValueDetector）。按“不兼容则保留原版本”的要求回退到 2.8.7，没有禁用检测器、跳过 Lint 或升级 AGP 来绕过问题。失败日志保存在 validation/build-1.4.0.log。
 
 官方依据：
 
