@@ -40,13 +40,34 @@ class LearningStateHolder(
     var totals by mutableStateOf(Totals(0, 0, 0, 0, 0, 0))
         private set
 
+    var todaySummaryState by mutableStateOf(TodaySummaryState())
+        private set
+
     val filters = mutableStateMapOf<Page, BrowseFilter>()
     private val today = MutableStateFlow(LocalDate.now().toEpochDay())
+    private val summaryRevision = MutableStateFlow(0L)
     private var started = false
 
     fun start() {
         if (started) return
         started = true
+        scope.launch {
+            combine(today, summaryRevision) { day, revision -> day to revision }
+                .flatMapLatest { (day, _) ->
+                    repo
+                        .observeTodaySummary(day)
+                        .map { TodaySummaryState(value = it, loading = false) }
+                        .onStart { emit(TodaySummaryState()) }
+                        .catch { error ->
+                            if (error is CancellationException) throw error
+                            withContext(Dispatchers.IO) {
+                                LocalErrorLog(context).record(LogEvent.LOAD, error)
+                            }
+                            emit(TodaySummaryState(loading = false, error = "首页统计加载失败，请重试"))
+                        }
+                }
+                .collect { todaySummaryState = it }
+        }
         scope.launch { repo.dao.settings().collect { settings = it ?: LearningSettings() } }
         scope.launch {
             var wasEnabled = false
@@ -93,6 +114,10 @@ class LearningStateHolder(
 
     fun refreshDate(date: LocalDate) {
         today.value = date.toEpochDay()
+    }
+
+    fun retryTodaySummary() {
+        summaryRevision.value++
     }
 
     suspend fun updateSettings(transform: (LearningSettings) -> LearningSettings) {

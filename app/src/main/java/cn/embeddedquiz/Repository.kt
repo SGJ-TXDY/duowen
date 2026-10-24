@@ -413,6 +413,8 @@ class QuizRepository(val db: QuizDatabase) {
         return answers.size
     }
 
+    fun observeTodaySummary(today: Long) = dao.todaySummary(today)
+
     suspend fun search(
         filter: BrowseFilter,
         programming: Boolean,

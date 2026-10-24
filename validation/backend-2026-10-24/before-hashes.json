@@ -1,0 +1,166 @@
+[
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz-debug.apk",
+    "Hash": "AB0E7B26238814B9DD69C3F68F0E9DDCA9665041D1342D855DBBD76AC9A02BFF"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz-1.5.0-debug.apk",
+    "Hash": "81F1AB87A884750605885B642E66A6DE7374E8AD1816B2278A39909C8D851D99"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz-source.zip",
+    "Hash": "33AE204487EDB806D2684E9BB5257FE88E4D5ADFCA6647F2BCC1317D008F4BA3"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\Ai.kt",
+    "Hash": "C4A2DFB115793DFAAB77B739F3FC1ACF3C792E45385264D8526BBB33515042C1"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\AiStateHolder.kt",
+    "Hash": "26BF95966857CA86D44F4DA8305715C0AE3A42CDDC763CAFF30ED8812FBEE145"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\AnswerWorkbench.kt",
+    "Hash": "C84C1AE967129CBAD8FAF41EA7A54CFCDC154A4C05E050E7BF99FBDA2DA4CED3"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\AppIcons.kt",
+    "Hash": "C46540EDD1434AAF9D2188F0B64551AD40CFB38991AEFC16060F6A72F23B318D"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\AppNavigation.kt",
+    "Hash": "F67DBE3F2E2B111CA3E93BA0234F276F036FFF352CB82F7C51540D679BF288CA"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\BrowseScreen.kt",
+    "Hash": "4317295BD333A26CBC85799D2DB3A2B34F672BD75631065B91A24E917272BDDD"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\CodeEditor.kt",
+    "Hash": "83FC2B98D2F0CC1166CA2D83D217AE46D7BDBDC277F5A97FEB8219F7365E7A7A"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\CommonComponents.kt",
+    "Hash": "4982FD472D3D4375E90898D03BD0296846EBE064F9A651D421DD456A4C6760C7"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\Data.kt",
+    "Hash": "D371896903334C19819E09A4CFB3FAE6639F7F0CF5F9384E4F00291D27D29FA2"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\Domain.kt",
+    "Hash": "AED716CDC0C60953DBFA0450D619318105A891DC0A8A2E07EA049F517D563CB8"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\DurablePreferences.kt",
+    "Hash": "5A43427CF3491CBB44C65E65B067BCB7029895532F38723C7C043F6478B984C3"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\ExamScreen.kt",
+    "Hash": "91EABF4DDC3FDDF4C765A5C839FA50C40A0A5162D4384931B34186C08CDAD776"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\ExamStateHolder.kt",
+    "Hash": "FF0688AB9870A7F51685B226394F90D8330AC0AB7650CDF85EA54A7F80576166"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\HomeScreen.kt",
+    "Hash": "05339DF644A817305307CF56FD8E7A5D9868DC9E334788C0490FE705555F54EE"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\LearningBackup.kt",
+    "Hash": "4887AEB7FA6424F199D9DA861446F4B1FC411900E7C5EB88D8E35CC349D9FFA7"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\LearningMigration.kt",
+    "Hash": "E0E020BE2974944AD507B0CBA3E9DEC49587090BB309C7C1C6C2B5FD8D877BE2"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\LearningModels.kt",
+    "Hash": "3F674456B79E39206A69B6CA792546B4295B75E6462072BCF34DEE5EB53E8952"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\LearningStateHolder.kt",
+    "Hash": "AD63E5649272FBB30E7F3F196E9057E02554DCE3974BBC456E283E243D732468"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\LocalErrorLog.kt",
+    "Hash": "A6A6483405BD0A4F72699005407EEA4A76C5DD6099FB41923D56699928216C1A"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\MainActivity.kt",
+    "Hash": "196929C3F569B4F12E0F01AF6480A210B1B34FA94CBDEF613657D4620C63BCB5"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\Navigation.kt",
+    "Hash": "6C0737AD2E2CE62B4DE99BD6E972CB897272F557A5DF2666A0FE78146BDBADD0"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\NotesStateHolder.kt",
+    "Hash": "9391D5F72C2D1644083C5A54EAB261F538EEF7177FA0AD0589A8917EEF76C0C4"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\OrderedWriter.kt",
+    "Hash": "6BCDFDDD64C03A59B46824035C7A7C5341D31BA0984252F550E8C2D02E6AC3B2"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\PersonalEditors.kt",
+    "Hash": "CAB5BDB0AFDE0125028290802222CD52D1C948F432D65094A5E1BD1A5CD1A3D3"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\QuestionDraft.kt",
+    "Hash": "436435B93C056295B08199EC446F6CF4BDD44228329B946BD2575E1AA0A355C3"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\QuestionScreen.kt",
+    "Hash": "BF401428634E601B8403049C65B286B97A861037679A233837E598579F578CC3"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\QuizViewModel.kt",
+    "Hash": "4F9A604A486F720AD68A5A51B2A0E2597368B7B410E1795565149414CDB05678"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\ReadingContent.kt",
+    "Hash": "81BB08E723C9E6A169A9B693648221AA0E0413C7F8E38CE186944BA8AACB9158"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\Repository.kt",
+    "Hash": "DEC71199921BE5236EDB6B40AE69A32E46B85FD4934013BD15B5B81ED26E3743"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\ReviewReminders.kt",
+    "Hash": "0EBF2E002C0AF5EB4D6696DE55674E9ED31AF03AC0EE8A9A65B981C3DDE0AA8B"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\ReviewScreen.kt",
+    "Hash": "7BA04C7A498E6B652B27BDA27B32F78D59CC169F73D11BCE54439A5B51292DCF"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\SettingsScreen.kt",
+    "Hash": "2458A542F2A32399D80AF8FA9495989ABA7BA98088ED67509BEDC44CE0398306"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\StatisticsScreen.kt",
+    "Hash": "99765B5B040D97B7E530D042950107A3E0A048A7BBA6A3C00E804FE7486CE81B"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\StickyNotesScreen.kt",
+    "Hash": "86110522C7D39F14A9E2ADDB47931D963B7943534363AC6096AD6BE1FEDDAA9D"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\Theme.kt",
+    "Hash": "726FEA768D1BB5B5679C2BD3066BCB23D14CDA5CD1701A2223F1E6375CF31111"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\test\\java\\cn\\embeddedquiz\\NotesAndScoringUiTest.kt",
+    "Hash": "1F0795E0F443853C414DB1B6FA82A747F024B4171B4A50D809855142FB0C123C"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\docs\\FRONTEND_HANDOFF.md",
+    "Hash": "94D715E26639F5BE5EC3A5466F2BDC28763BFEDC159681B03FCD58F7CCD5AAFB"
+  },
+  {
+    "Path": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\build.gradle.kts",
+    "Hash": "69DF27501D0B0F3FEB75875A8AEA3C589C7CE4F89EC08313C03B985AFD0BC8B2"
+  }
+]

@@ -132,6 +132,20 @@ interface QuizDao {
 
     @Query("SELECT COUNT(*) FROM questions") suspend fun questionCount(): Int
 
+    @Query(
+        """
+        SELECT :today AS day,
+            COUNT(CASE WHEN q.kind!='PROGRAMMING' AND p.seen>0 AND p.due<=:today
+                THEN 1 END) AS dueCount,
+            COUNT(CASE WHEN q.kind!='PROGRAMMING' AND COALESCE(p.seen,0)=0
+                THEN 1 END) AS unseenCount,
+            COUNT(CASE WHEN q.kind!='PROGRAMMING' THEN 1 END) AS dailyCount,
+            COUNT(CASE WHEN q.kind='PROGRAMMING' THEN 1 END) AS programmingCount
+        FROM questions q LEFT JOIN progress p ON p.questionId=q.id
+        """
+    )
+    fun todaySummary(today: Long): Flow<TodaySummary>
+
     @Query("SELECT * FROM learning_settings WHERE id=1") fun settings(): Flow<LearningSettings?>
 
     @Query("SELECT * FROM learning_settings WHERE id=1")

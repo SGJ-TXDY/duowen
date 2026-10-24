@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-24",
+  "baselinePassed": 12,
+  "finalPassed": 18,
+  "failures": 0,
+  "skipped": 0,
+  "existingFilesChanged": [
+    "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\Data.kt",
+    "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\LearningStateHolder.kt",
+    "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\QuizViewModel.kt",
+    "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz\\app\\src\\main\\java\\cn\\embeddedquiz\\Repository.kt"
+  ],
+  "protectedFilesUnchanged": true,
+  "stableArtifactsUnchanged": true,
+  "schemaChanged": false,
+  "uiTestsRun": false
+}

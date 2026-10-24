@@ -160,6 +160,33 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     fun p(id: String) = progress[id] ?: Progress(id)
 
+    val todaySummaryState: TodaySummaryState
+        get() = learning.todaySummaryState
+
+    val todaySummary: TodaySummary?
+        get() = todaySummaryState.value
+
+    val currentQuestionSummary: QuestionSummary?
+        get() {
+            val id = queue.getOrNull(index) ?: return null
+            return questions.firstOrNull { it.id == id }
+        }
+
+    fun retryTodaySummary() = learning.retryTodaySummary()
+
+    /** 调用方拥有协程生命周期；取消及查询异常向上传递，不占用全局 busy。 */
+    suspend fun searchQuestions(filter: BrowseFilter, page: Page): List<QuestionSummary> {
+        require(page in setOf(Page.BROWSE, Page.PROGRAMMING, Page.MISTAKES, Page.EXAM)) {
+            "该页面不支持题库搜索"
+        }
+        return withContext(Dispatchers.IO) {
+            repo.search(filter, page == Page.PROGRAMMING, page == Page.MISTAKES)
+        }
+    }
+
+    suspend fun searchNotes(text: String): List<StickyNote> =
+        withContext(Dispatchers.IO) { repo.searchNotes(text) }
+
     fun navigate(name: Page) {
         if (name == Page.NOTES) openStickyNotes() else page = name
     }
