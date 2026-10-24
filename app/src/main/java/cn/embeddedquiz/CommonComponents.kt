@@ -206,6 +206,59 @@ fun ExpandableSection(
     }
 }
 
+/** Filter chip that opens a menu; highlighted once a value other than [allLabel] is chosen. */
+@Composable
+fun FilterMenuChip(
+    label: String,
+    value: String,
+    options: List<String>,
+    allLabel: String = "全部",
+    onChange: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val active = value != allLabel
+    Box {
+        FilterChip(
+            selected = active,
+            onClick = { expanded = true },
+            label = { Text(if (active) value else label, maxLines = 1) },
+            trailingIcon = {
+                Icon(AppIcons.ChevronDown, contentDescription = null, modifier = Modifier.size(16.dp))
+            },
+            shape = MaterialTheme.shapes.small,
+            colors =
+                FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.primary,
+                    selectedTrailingIconColor = MaterialTheme.colorScheme.primary,
+                ),
+            modifier =
+                Modifier.heightIn(min = 40.dp).semantics {
+                    contentDescription = "$label：$value"
+                },
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.heightIn(max = 360.dp),
+        ) {
+            options.distinct().forEach { x ->
+                DropdownMenuItem(
+                    text = { Text(x) },
+                    trailingIcon =
+                        if (x == value) {
+                            { Icon(AppIcons.Check, contentDescription = "当前选择", modifier = Modifier.size(18.dp)) }
+                        } else null,
+                    onClick = {
+                        onChange(x)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun Detail(text: String) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

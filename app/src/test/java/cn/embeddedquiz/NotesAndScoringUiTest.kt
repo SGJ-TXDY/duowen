@@ -232,7 +232,7 @@ class NotesAndScoringUiTest {
         ui.onNodeWithText("保存每日目标").performClick()
         await { vm.learning.settings.dailyGoal == 35 && !vm.busy }
         ui.onNodeWithContentDescription("导航到首页").performClick()
-        ui.onNodeWithText("今日目标 0 / 35 题").assertExists()
+        ui.onNodeWithContentDescription("今日目标 0 / 35 题").assertExists()
         assertEquals("DARK", runBlocking { vm.repo.dao.getSettings()!!.theme })
         ui.runOnIdle { vm.page = Page.STATISTICS }
         ui.onNodeWithTag("statistics-list").performScrollToNode(hasText("近 30 天答题量与正确率"))

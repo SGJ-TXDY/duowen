@@ -70,4 +70,11 @@ object AppIcons {
     val Send = stroke("send", "M5 12h14", "M13 6l6 6-6 6")
     val Code = stroke("code", "M8 7l-5 5 5 5", "M16 7l5 5-5 5")
     val Flag = stroke("flag", "M5 21V4", "M5 4h11l-2 4 2 4H5")
+    val Search = stroke("search", circle(11f, 11f, 7f), "M20 20l-3.5-3.5")
+    val Play = stroke("play", "M8 5v14l11-7z", filled = true)
+    val Shuffle = stroke("shuffle", "M16 4h4v4", "M4 20L20 4", "M20 16v4h-4", "M15 15l5 5", "M4 4l5 5")
+    val ListOrder = stroke("list", "M9 6h11", "M9 12h11", "M9 18h11", "M4 6h.01", "M4 12h.01", "M4 18h.01")
+    val Target = stroke("target", circle(12f, 12f, 9f), circle(12f, 12f, 5f), "M12 12h.01")
+    val Book = stroke("book", "M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2z", "M9 8h7")
+    val Flame = stroke("flame", "M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-4 2.5-5 .3 1.6 1 2.6 2 3 0-3 .5-5.5.5-8z")
 }

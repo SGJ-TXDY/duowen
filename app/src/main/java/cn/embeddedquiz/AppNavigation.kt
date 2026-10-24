@@ -83,11 +83,9 @@ private fun QuizLayout(vm: QuizViewModel) {
             )
         },
         bottomBar = {
-            // Scoped here so progress updates only touch the tab bar, not the whole app shell.
-            val dueCount by
-                remember(today) {
-                    derivedStateOf { if (vm.ready) vm.due(today.toEpochDay()).size else 0 }
-                }
+            // Read inside this slot so summary updates only touch the tab bar; hidden while loading.
+            val dueCount =
+                vm.todaySummary?.takeIf { it.day == today.toEpochDay() }?.dueCount ?: 0
             if (!answering())
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                     bottom.forEach { (page, label, icon) ->
