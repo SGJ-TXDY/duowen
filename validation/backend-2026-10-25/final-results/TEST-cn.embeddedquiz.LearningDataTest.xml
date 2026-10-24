@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.LearningDataTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-10-24T23:36:08" hostname="LAPTOP-0JLS131B" time="1.051">
+  <properties/>
+  <testcase name="migrationThreeToFourKeepsRawJsonNotesHistoryAndIndexes" classname="cn.embeddedquiz.LearningDataTest" time="0.198"/>
+  <testcase name="sqlStatisticsSeparateSelfAssessmentAndUseDistinctDailyQuestions" classname="cn.embeddedquiz.LearningDataTest" time="0.134"/>
+  <testcase name="backupThreeRestoresNewDataAndOldBackupsKeepIt" classname="cn.embeddedquiz.LearningDataTest" time="0.169"/>
+  <testcase name="localLogStaysBoundedAndNeverStoresExceptionMessage" classname="cn.embeddedquiz.LearningDataTest" time="0.063"/>
+  <testcase name="personalAnswersTakePrecedenceWithoutChangingOriginalAndExportSafely" classname="cn.embeddedquiz.LearningDataTest" time="0.132"/>
+  <testcase name="searchAndTermsCoverOptionsAnswerNotesTagsAndStickyNotesLiterally" classname="cn.embeddedquiz.LearningDataTest" time="0.128"/>
+  <testcase name="orderedCodeDraftsKeepLatestWithoutLosingFavoriteAndNotes" classname="cn.embeddedquiz.LearningDataTest" time="0.225"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

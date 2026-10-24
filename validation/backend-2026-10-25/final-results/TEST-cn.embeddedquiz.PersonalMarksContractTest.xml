@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.PersonalMarksContractTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-10-24T23:36:56" hostname="LAPTOP-0JLS131B" time="3.697">
+  <properties/>
+  <testcase name="preservesVerifiedSolutionProgressNotesAndBackupRepresentation" classname="cn.embeddedquiz.PersonalMarksContractTest" time="3.167"/>
+  <testcase name="concurrentQuestionNotesAndDifficultyWritesDoNotOverwriteEachOther" classname="cn.embeddedquiz.PersonalMarksContractTest" time="0.27"/>
+  <testcase name="createsDefaultMetadataAndClearsDifficulty" classname="cn.embeddedquiz.PersonalMarksContractTest" time="0.116"/>
+  <testcase name="invalidWritesLeaveExistingMetadataUnchangedAndCreateNoOrphans" classname="cn.embeddedquiz.PersonalMarksContractTest" time="0.144"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

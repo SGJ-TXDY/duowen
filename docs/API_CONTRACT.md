@@ -1,6 +1,37 @@
 # Android 业务接口契约
 
-更新日期：2026-10-24。适用于当前 1.5.0 工作区。本文件约定前端可调用的业务入口；后端负责实现与兼容，Claude 负责页面和展示交互。本次接口均为增量新增，不删除或改变已使用的成员。
+## 2026-10-25 增补：仅更新每题难度感受
+
+### `vm.savePerceivedDifficulty(id: String, difficulty: String): Unit`
+
+用途：供答题页“笔记与难度感受”合并区保存**当前题的个人难度**；与原题难度、判分、复习调度独立。全局标签 / 便签继续使用既有 `openStickyNotes/leaveStickyNotes`，不传题号，不在本接口中保存。
+
+| 输入 | 约束 |
+| --- | --- |
+| `id: String` | 已存在题目的 ID，不可为空白；题目不存在时不创建悬空个人资料 |
+| `difficulty: String` | 仅 `""`、`"易"`、`"中"`、`"难"`；UI“未设置”映射为 `""`，不能直接传“未设置” |
+
+返回 `Unit`，按既有 `launchTask` 异步写命令执行：调用方在主线程调用，写入切 IO；执行期间 `busy=true`，忙时调用可能忽略。成功 `notice="难度感受已保存"`；失败沿用 `notice="操作未完成：…"`，不宣称落盘成功。前端应禁用忙时保存，观察 `busy/notice/learning.metadata`，不要把函数返回当作完成回调。
+
+内部 `QuizRepository.savePerceivedDifficulty(id, difficulty): Unit`（suspend）在 Room 事务中通过新增 DAO `personalMetadata(id: String): QuestionPersonal?` 读取最新值，只更新 `perceivedDifficulty`，首次写入使用默认个人资料。按现有 `LearningCodec` 校验，缺题 / 非法值抛 `IllegalArgumentException`，数据库异常传播到调用方；事务失败回滚。Repository 入口不设置 UI 状态，前端使用 ViewModel 门面。
+
+成功后 `learning.metadata` 的现有 Flow 会发布更新；不主动乐观更新、不导航、不改变练习队列 / 作答记录 / SRS / 今日目标 / 考试状态。保留同一记录的旧版 `tags/verifiedCode/codeVerified`，不写 `Progress.notes/code`，不修改全局独立便签。该更新与 `saveNotes` **不是同一个事务**；前端不得在一次点击中连续调用两个受 `busy` 控制的命令。
+
+兼容：仅增加入口和 DAO 查询，旧 `saveMetadata(QuestionPersonal)` 整体替换接口保留；数据库仍为 4、备份仍为 3，无迁移。现有旧版题目级 `tags` 保留为兼容数据，与本轮用户要求的全局标签不是同一概念，不新增全局标签与题目的关联。
+
+### 本轮页面调整可复用的入口（无变更）
+
+| 用户入口 | 调用 | 边界 |
+| --- | --- | --- |
+| 首页分类练习 | `vm.navigate(Page.BROWSE)` | 只切页，保留会话和独立筛选 |
+| 首页编程专区 | `vm.navigate(Page.PROGRAMMING)` | 只切页；编程不进入日常 SRS |
+| 底部模拟考试 | `vm.navigate(Page.EXAM)` | 打开现有考试页；考试开始 / 继续沿用 `startExam`，未交卷不能覆盖 |
+| 顶部全局标签 / 便签 | `vm.openStickyNotes()` / `vm.leaveStickyNotes()` | 无题号，全局列表，恢复来源页和原练习草稿 |
+| 每题笔记 | `vm.questionDraft(q).notes` / `vm.saveNotes(id, code, notes)` | 每题存储；保存语义保持原样 |
+
+---
+
+更新日期：2026-10-25。适用于当前 1.5.0 工作区。本文件约定前端可调用的业务入口；后端负责实现与兼容，Claude 负责页面和展示交互。本次接口均为增量新增，不删除或改变已使用的成员。
 
 ## 通用约定
 

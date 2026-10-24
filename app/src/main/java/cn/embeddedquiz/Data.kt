@@ -174,6 +174,9 @@ interface QuizDao {
 
     @Query("SELECT * FROM question_personal") fun personalMetadata(): Flow<List<QuestionPersonal>>
 
+    @Query("SELECT * FROM question_personal WHERE questionId=:id")
+    suspend fun personalMetadata(id: String): QuestionPersonal?
+
     @Query("SELECT * FROM question_personal")
     suspend fun allPersonalMetadata(): List<QuestionPersonal>
 

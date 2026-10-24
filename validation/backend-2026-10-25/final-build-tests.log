@@ -1,0 +1,115 @@
+Picked up JAVA_TOOL_OPTIONS: -Duser.home=C:\Users\woziji\Documents\Codex\2026-10-21\embeddedquiz-app-embeddedquiz-android-app-linux-5\work\java-home -Djava.io.tmpdir=C:/Users/woziji/Documents/Codex/eqtmp
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build
+
+> Configure project :app
+WARNING: The option setting 'android.overridePathCheck=true' is experimental.
+The current default is 'false'.
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateDebugResValues
+> Task :app:mapDebugSourceSetPaths
+> Task :app:checkDebugAarMetadata
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+
+> Task :app:processDebugMainManifest
+C:\Users\woziji\.codex\visualizations\2026\10\24\01a17031-382e-79f2-a76b-3e5e86fadd08\EmbeddedQuiz\app\src\main\AndroidManifest.xml:8:5-107 Warning:
+	uses-permission#android.permission.FOREGROUND_SERVICE_DATA_SYNC was tagged at AndroidManifest.xml:8 to remove other declarations but no other declaration present
+
+> Task :app:processDebugManifest
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugResources
+> Task :app:mergeDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:javaPreCompileDebug
+> Task :app:mergeDebugJniLibFolders
+> Task :app:compressDebugAssets
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:mergeDebugNativeLibs
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:preDebugAndroidTestBuild SKIPPED
+> Task :app:generateDebugAndroidTestResValues
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so.
+
+> Task :app:extractProguardFiles
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:processDebugManifestForPackage
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeLibDexDebug
+> Task :app:processDebugResources
+> Task :app:mergeExtDexDebug
+> Task :app:packageDebugUnitTestForUnitTest
+> Task :app:generateDebugUnitTestConfig
+> Task :app:kspDebugKotlin
+> Task :app:compileDebugKotlin
+w: file:///C:/Users/woziji/.codex/visualizations/2026/10/24/01a17031-382e-79f2-a76b-3e5e86fadd08/EmbeddedQuiz/app/src/main/java/cn/embeddedquiz/Theme.kt:172:29 'var statusBarColor: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Users/woziji/.codex/visualizations/2026/10/24/01a17031-382e-79f2-a76b-3e5e86fadd08/EmbeddedQuiz/app/src/main/java/cn/embeddedquiz/Theme.kt:173:29 'var navigationBarColor: Int' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:dexBuilderDebug
+> Task :app:processDebugJavaRes
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:generateDebugLintReportModel
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:mergeProjectDexDebug
+> Task :app:generateDebugAndroidTestLintModel
+> Task :app:generateDebugUnitTestLintModel
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:kspDebugUnitTestKotlin
+> Task :app:mergeDebugJavaResource
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:lintAnalyzeDebugAndroidTest
+
+> Task :app:testDebugUnitTest
+Picked up JAVA_TOOL_OPTIONS: -Duser.home=C:\Users\woziji\Documents\Codex\2026-10-21\embeddedquiz-app-embeddedquiz-android-app-linux-5\work\java-home -Djava.io.tmpdir=C:/Users/woziji/Documents/Codex/eqtmp
+
+> Task :app:lintAnalyzeDebugUnitTest
+
+> Task :app:testDebugUnitTest
+
+PersonalMarksContractTest > preservesVerifiedSolutionProgressNotesAndBackupRepresentation FAILED
+    org.json.JSONException at PersonalMarksContractTest.kt:22
+
+PersonalMarksContractTest > concurrentQuestionNotesAndDifficultyWritesDoNotOverwriteEachOther FAILED
+    org.json.JSONException at PersonalMarksContractTest.kt:22
+
+PersonalMarksContractTest > createsDefaultMetadataAndClearsDifficulty FAILED
+    org.json.JSONException at PersonalMarksContractTest.kt:22
+
+PersonalMarksContractTest > invalidWritesLeaveExistingMetadataUnchangedAndCreateNoOrphans FAILED
+    org.json.JSONException at PersonalMarksContractTest.kt:22
+
+24 tests completed, 4 failed
+
+> Task :app:testDebugUnitTest FAILED
+> Task :app:lintAnalyzeDebug
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:testDebugUnitTest'.
+> There were failing tests. See the report at: file:///C:/Users/woziji/.codex/visualizations/2026/10/24/01a17031-382e-79f2-a76b-3e5e86fadd08/EmbeddedQuiz/app/build/reports/tests/testDebugUnitTest/index.html
+
+* Try:
+53 actionable tasks: 53 executed
+> Run with --scan to get full insights.
+
+BUILD FAILED in 2m 7s

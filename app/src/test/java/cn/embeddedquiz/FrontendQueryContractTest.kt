@@ -241,4 +241,50 @@ class FrontendQueryContractTest {
         model.queue = listOf("deleted")
         assertNull(model.currentQuestionSummary)
     }
+
+    @Test
+    fun difficultyCommandPublishesChangesAndPreservesUnrelatedFields() {
+        val model = model()
+        runBlocking {
+            model.repo.dao.putPersonalMetadata(QuestionPersonal("a", tags = "旧版标签", verifiedCode = "solution", codeVerified = true))
+        }
+        model.savePerceivedDifficulty("a", "难")
+        await { !model.busy && model.learning.metadata["a"]?.perceivedDifficulty == "难" }
+        assertEquals(QuestionPersonal("a", "旧版标签", "难", "solution", true), model.learning.metadata["a"])
+        model.savePerceivedDifficulty("a", "无效")
+        await { !model.busy }
+        assertEquals("难", model.learning.metadata["a"]!!.perceivedDifficulty)
+        assertTrue(model.notice.startsWith("操作未完成"))
+    }
+
+    @Test
+    fun relocatedEntryTargetsPreservePracticeDraftAndActiveExam() {
+        val model = model()
+        model.start(model.questions.filter { it.daily }, "顺序练习")
+        val question = runBlocking { model.loadQuestion("a")!! }
+        val draft = model.questionDraft(question)
+        draft.notes.value = "尚未保存的题目笔记"
+        val queue = model.queue
+        val session = model.practiceSession
+        listOf(Page.BROWSE, Page.PROGRAMMING, Page.EXAM).forEach { page ->
+            model.navigate(page)
+            assertEquals(page, model.page)
+            assertEquals(queue, model.queue)
+            assertEquals(session, model.practiceSession)
+            assertSame(draft, model.questionDraft(question))
+            assertEquals("尚未保存的题目笔记", model.questionDraft(question).notes.value)
+        }
+        model.startExam(model.questions, 10, 30)
+        val examQueue = model.queue
+        val deadline = model.examDeadline
+        model.navigate(Page.HOME)
+        model.navigate(Page.EXAM)
+        assertEquals(examQueue, model.queue)
+        assertEquals(deadline, model.examDeadline)
+        model.start(model.questions.filter { it.daily }, "随机练习")
+        assertEquals(Page.QUESTION, model.page)
+        assertEquals("模拟考试", model.mode)
+        assertEquals(examQueue, model.queue)
+        assertEquals(deadline, model.examDeadline)
+    }
 }

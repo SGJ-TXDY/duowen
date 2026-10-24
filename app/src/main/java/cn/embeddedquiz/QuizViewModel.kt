@@ -481,6 +481,11 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         notice = "已移除个人核对答案"
     }
 
+    fun savePerceivedDifficulty(id: String, difficulty: String) = launchTask {
+        repo.savePerceivedDifficulty(id, difficulty)
+        notice = "难度感受已保存"
+    }
+
     fun saveMetadata(value: QuestionPersonal) = launchTask {
         LearningCodec.parseMetadata(LearningCodec.metadata(value))
         repo.dao.putPersonalMetadata(value)

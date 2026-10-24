@@ -70,6 +70,20 @@ class QuizRepository(val db: QuizDatabase) {
     suspend fun update(id: String, transform: (Progress) -> Progress) =
         db.withTransaction { dao.putProgress(transform(dao.getProgress(id) ?: Progress(id))) }
 
+    /** Read the latest row so changing difficulty preserves other personal fields. */
+    suspend fun savePerceivedDifficulty(id: String, difficulty: String) =
+        updatePersonalMetadata(id) { it.copy(perceivedDifficulty = difficulty) }
+
+    private suspend fun updatePersonalMetadata(
+        id: String,
+        transform: (QuestionPersonal) -> QuestionPersonal,
+    ) = db.withTransaction {
+        require(id.isNotBlank() && dao.question(id) != null) { "题目不存在" }
+        val next = transform(dao.personalMetadata(id) ?: QuestionPersonal(id))
+        LearningCodec.parseMetadata(LearningCodec.metadata(next))
+        dao.putPersonalMetadata(next)
+    }
+
     suspend fun reset() =
         db.withTransaction {
             dao.allProgress().forEach {

@@ -1,0 +1,68 @@
+{
+  "date": "2026-10-25",
+  "author": "Codex (OpenAI)",
+  "tests": [
+    {
+      "name": "cn.embeddedquiz.DomainTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "cn.embeddedquiz.FrontendQueryContractTest",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "cn.embeddedquiz.LearningDataTest",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "cn.embeddedquiz.PersonalMarksContractTest",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "passed": 24,
+  "failures": 0,
+  "skipped": 0,
+  "newTests": 6,
+  "assembleDebug": "passed",
+  "lintDebug": "passed",
+  "lintWarnings": 5,
+  "protectedFilesUnchanged": true,
+  "protectedFileCount": 40,
+  "stableArtifactsUnchanged": true,
+  "schemaChanged": false,
+  "backupFormatChanged": false,
+  "composePagesChanged": false,
+  "uiTestsRun": false,
+  "deviceTestingPerformed": false,
+  "claudePageImplementationPending": true,
+  "apk": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz-1.5.0-icon-backend-20261025-debug.apk",
+  "apkSha256": "21d8db5b2bfcb5c99dee65590c1b04afde492e8fa31345b3078b8a4923e96d74",
+  "certificateSha256": "2c73c905e6d127dd92fbfaf5351058572cb8e78e98beb477eb1a0f37ee43b151",
+  "launcherResources": {
+    "app\\src\\main\\res\\drawable-nodpi\\ic_launcher_anime.png": {
+      "width": 432,
+      "height": 432,
+      "sha256": "c8fd4df72ecfb7237826c2dbb949dae18c3038273036350c0a8fc48b605433e0"
+    }
+  },
+  "lintWarningIds": [
+    "GradleDependency",
+    "GradleDependency",
+    "ModifierParameter",
+    "IconLauncherShape",
+    "MonochromeLauncherIcon"
+  ],
+  "adaptiveIconResource": "app/src/main/res/mipmap-anydpi/ic_launcher.xml"
+}
