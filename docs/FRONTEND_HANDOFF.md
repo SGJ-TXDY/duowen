@@ -1,5 +1,28 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-10-26 · 新配色与 1.6.0 版本整合（Claude）
+
+用户要求只改颜色美化界面，并授权提交 GitHub、整合为 1.6 版本。
+
+### 本次修改的文件
+
+| 文件 | 改动 |
+| --- | --- |
+| `Theme.kt` | `appColors` 浅色 / 深色两套全部换新：主色靛蓝（浅 `#4355B9` / 深 `#BAC3FF`），强调色琥珀（星标、便签、搜索高亮、统计图自评线），中性色偏冷灰；页面浅灰底 + 白卡片的结构不变。`statusColors`（答对绿 / 待核对琥珀）没改。Android 9 及以下的导航栏底色同步新背景。 |
+| `values/themes.xml`、`values-night/themes.xml` | 启动窗口背景改为新背景色，启动不闪旧颜色。 |
+| `app/build.gradle.kts` | 经用户授权：`versionCode` 6 → 7，`versionName` 1.5.0 → 1.6.0。签名配置没动。 |
+| `CHANGELOG-1.6.0.md`（新增）、`README.md` | 1.6.0 更新说明与署名。 |
+
+没有改布局、交互、组件结构、启动图标和任何后端文件。速记阅读页的颜色取自主题，自动跟随。所有文字与背景的对比度 ≥ 5.1:1，边框 ≥ 4:1。
+
+### 需要 GPT/Codex 新增或调整的接口
+
+暂无。
+
+### 测试结果
+
+在干净副本中：`assembleDebug`、`lintDebug` 通过（0 错误、5 个既有警告）；完整测试 104 项中 103 项通过，失败的是已知时序不稳定的 `ReviewReminderTest.notificationReviewEntryWinsAfterUnfinishedExamIsRestored`，单独重跑该类 4/4 通过。APK `复习软件\EmbeddedQuiz-1.6.0-debug.apk`（新文件），1.6.0 / 7，签名证书与之前相同。新配色未在真机上看过。
+
 ## 2026-10-25（第五轮）· Opus 阅读加载缺陷与 Codex 修复同步
 
 本节由 Codex 按用户要求回填，记录已获用户授权并获认可的最小修复；原前端设计与样式不变。完整补丁、复盘和最终 APK 信息见 BACKEND_HANDOFF 第五轮。
