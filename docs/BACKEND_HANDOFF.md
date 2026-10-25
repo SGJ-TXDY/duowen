@@ -1,5 +1,51 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-10-25（第二轮）· 修复参考解法的过期快照覆盖风险（Codex）
+
+### 本轮范围与现状核查
+
+依照 `gpt.docx` 与用户本轮限制，只修改后端、相关业务测试和本交接 / 接口文档；不提交、不推送 GitHub，不修改 Compose 页面、UI 测试、版本号、签名、构建配置，不覆盖已有 APK。
+
+用户描述的工作台 `PersonalMarksEditor` 已在当前工作区被 Claude 移除：`AnswerWorkbench.kt` 现在调用 `PerceivedDifficultyChips`，`PersonalEditors.kt` 只保留难度控件和参考解法编辑器。`FRONTEND_HANDOFF.md` 最新节也记录了这一变化。**本轮保留这些未提交前端工作，没有重复修改。**
+
+仍存在的跨层问题：`VerifiedSolutionEditor` 的保存回调继续调用 `vm.saveMetadata(meta.copy(verifiedCode=code, codeVerified=verified))`。复现：编辑器读取旧 meta → 另一处更新难度 → 点击保存解法 → 整行替换将旧难度写回。分类卡片仍将旧 `meta.tags` 显示为“标签：…”，与全局独立标签口径容易混淆。
+
+### 后端已完成
+
+- 新增 `vm.saveVerifiedSolution(id, code, verified)` 及 Repository 同名 suspend 接口。Room 事务内读取最新个人资料，只更新解法和核对状态，保留难度与旧标签；不存在资料时按默认值建立，题目不存在或校验失败时不写入。
+- 难度继续使用已有 `savePerceivedDifficulty`；两个 Repository 增量接口事务并发互不覆盖。ViewModel 依旧受全局 busy 控制，忙时新命令会被忽略，不提供写入队列承诺。
+- 旧 `saveMetadata` 的签名、校验、通知和整行替换语义保留；源码补充遗留接口提示，**未单方面改为忽略 tags 或强制合并**。
+- 新接口详细输入、Unit / busy / notice、异常、状态变化和兼容约定均已写入 `API_CONTRACT.md` 的“第二轮”增补。
+
+### 旧题目 tags 决策与依赖审计
+
+保留为**只读历史兼容数据**，新产品入口停止编辑；不删列、不清空、不迁移成全局标签。旧标签与全局便签原本是不同数据，保留能避免旧库和旧备份的信息丢失。只读属于新入口政策：旧 saveMetadata 与备份恢复仍可写入合法历史值，保证调用与数据兼容。
+
+- 搜索：继续查旧 `QuestionPersonal.tags`，保留匹配片段及既有搜索结果；契约把“个人标签”改称“旧版题目标记”。全局标签 / 便签仍独立使用 `searchNotes`，不按题目过滤。
+- 分类卡片：当前 `BrowseScreen.kt` 生成 `"标签：$tags"` 的历史字段仍显示，交由 Claude 删除这一分支；保留难度感受。不要为隐藏展示去清空数据库，也不要从摘要中伪造全局标签关联。旧标记仍可在搜索片段中出现，以保留历史检索能力。
+- 全量备份：备份 3 原样保留 `questionPersonal[].tags` 与解法 / 难度，独立便签在 `stickyNotes`；旧备份 1/2 的既有恢复规则不变。独立个人答案文件仍只导入 / 导出核对答案。
+- LearningCodec：保持 tags 字符串原样读写和原有有效性校验，不增加“tags 必须为空”的限制。已核对却空白的解法仍拒绝，无破坏性放宽。
+- 数据库版本 4、备份格式 3、Room 导出 schema 保持不变。
+
+### Claude 需要接入（本轮没有修改这些文件）
+
+1. `PersonalEditors.kt` 的 `VerifiedSolutionEditor`：将唯一保存回调替换为 `vm.saveVerifiedSolution(q.id, code, verified)`。该组件同时用于编程区和待核对工作台，统一替换后两处都受益；保持忙时禁用、人工核对含义和本地编辑状态。不要再从 meta 快照整行写回。
+2. `BrowseScreen.kt` 的卡片 `personal = listOfNotNull(...)`：删除读取 `it.tags` 并拼接“标签：…”的分支，保留 `it.perceivedDifficulty`。题目级标签不再展示为当前产品字段。搜索匹配片段仍可能含历史标签，这一兼容口径已在契约说明。
+3. 工作台现在已是 `PerceivedDifficultyChips`，保持现状；不要恢复 PersonalMarksEditor 或题目标签输入。全局标签继续走 `openStickyNotes`，不增加题号绑定。
+4. 完成接入后，针对“保存解法不回退刚修改的难度”、卡片不展示题目标签补充前端验收，并更新前端交接记录。**在该回调尚未替换前，旧页面仍有快照覆盖风险，本轮后端接口不会自动替换旧调用。**
+
+### 测试与保护检查
+
+只执行一次相关业务测试：`testDebugUnitTest --tests cn.embeddedquiz.PersonalMarksContractTest --tests cn.embeddedquiz.FrontendQueryContractTest --tests cn.embeddedquiz.LearningDataTest --offline`，**27 项通过、0 失败、0 跳过**（10 + 10 + 7），新增 8 项。不运行 UI 测试或完整套件，不执行 assemble / APK 打包或签名任务。
+
+覆盖：仅改解法保留最新难度、旧标签和每题笔记；并发解法 / 难度写入；未核对草稿与清空；已核对空白解法、缺题和空题号失败回滚；数据库 4 与备份 3 的旧数据往返、备份 1/2 兼容；旧标签与全局便签搜索独立；ViewModel 状态 / notice、busy 忽略规则和旧 saveMetadata 的整行替换兼容。
+
+验证实际测试源码与当前工作区一致，Room schema 4 导出文件未变化；以开发前指纹核对，只修改本轮预期的 6 个既有文件（Repository、ViewModel、两个业务测试类及两个文档）。Compose 页面、已有及未提交 UI 测试、前端交接、版本 / 构建配置、既有 APK / 源码 ZIP / gpt.docx 均未变；Git HEAD 与 index 指纹未变，没有提交、暂存或推送。原始日志、JUnit XML 和检查汇总见 `validation/backend-2026-10-25-verified-solution/summary.json`。
+
+署名：Codex（OpenAI）。
+
+---
+
 ## 2026-10-25 · 新图标、练习入口调整与答题页精简（Codex）
 
 ### 用户要求与责任边界

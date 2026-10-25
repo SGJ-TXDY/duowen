@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-25",
+  "scope": "verified-solution incremental save / legacy question tags",
+  "author": "Codex (OpenAI)",
+  "results": [
+    {
+      "class": "cn.embeddedquiz.PersonalMarksContractTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.embeddedquiz.FrontendQueryContractTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.embeddedquiz.LearningDataTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "passed": 27,
+  "failed": 0,
+  "skipped": 0,
+  "newTests": 8,
+  "runs": 1,
+  "fullSuiteRun": false,
+  "uiTestsRun": false,
+  "apkPackagingRun": false,
+  "changedExistingFiles": [
+    "app\\src\\main\\java\\cn\\embeddedquiz\\QuizViewModel.kt",
+    "app\\src\\main\\java\\cn\\embeddedquiz\\Repository.kt",
+    "app\\src\\test\\java\\cn\\embeddedquiz\\FrontendQueryContractTest.kt",
+    "app\\src\\test\\java\\cn\\embeddedquiz\\PersonalMarksContractTest.kt",
+    "docs\\API_CONTRACT.md",
+    "docs\\BACKEND_HANDOFF.md"
+  ],
+  "protectedBaselineFilesUnchanged": true,
+  "existingApksUnchanged": true,
+  "composeUnchanged": true,
+  "frontendUncommittedWorkPreserved": true,
+  "buildConfigurationUnchanged": true,
+  "schemaVersion": 4,
+  "backupVersion": 3,
+  "schemaUnchanged": true,
+  "buildInputsMatch": true,
+  "gitHeadUnchanged": true,
+  "gitIndexUnchanged": true,
+  "gitCommitCreated": false,
+  "gitPushPerformed": false,
+  "legacyTagsPolicy": "Read-only in new product entry points; preserved in search and backup; legacy whole-row save retained unchanged."
+}

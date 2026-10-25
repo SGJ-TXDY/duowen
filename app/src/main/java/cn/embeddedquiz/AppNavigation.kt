@@ -31,7 +31,11 @@ private fun QuizLayout(vm: QuizViewModel) {
             Page.QUESTION,
             Page.REVIEW,
             Page.MISTAKES,
-            Page.MORE -> vm.page = Page.HOME
+            Page.MORE,
+            Page.EXAM,
+            // Opened from the home screen's practice modes, so back returns there.
+            Page.BROWSE,
+            Page.PROGRAMMING -> vm.page = Page.HOME
             else -> vm.page = Page.MORE
         }
     }
@@ -54,12 +58,20 @@ private fun QuizLayout(vm: QuizViewModel) {
     val bottom =
         listOf(
             Triple(Page.HOME, "首页", AppIcons.Home),
-            Triple(Page.QUESTION, "刷题", AppIcons.Practice),
+            Triple(Page.EXAM, "模拟考试", AppIcons.Exam),
             Triple(Page.REVIEW, "复习", AppIcons.Review),
             Triple(Page.MISTAKES, "错题", AppIcons.Mistakes),
             Triple(Page.MORE, "更多", AppIcons.More),
         )
-    val current = if (vm.page in bottom.map { it.first }) vm.page else Page.MORE
+    val current =
+        when (vm.page) {
+            in bottom.map { it.first } -> vm.page
+            // Category, programming and the practice picker are entered from the home screen.
+            Page.BROWSE,
+            Page.PROGRAMMING,
+            Page.QUESTION -> Page.HOME
+            else -> Page.MORE
+        }
     // Answering is a focused flow with its own action bar, so the tab bar steps aside.
     // Each Scaffold slot reads this itself so it reacts to page changes on its own.
     fun answering() = vm.ready && vm.page == Page.QUESTION && vm.queue.isNotEmpty()
@@ -199,23 +211,15 @@ private fun MoreScreen(vm: QuizViewModel) {
         contentPadding = PaddingValues(bottom = 24.dp),
     ) {
         item { Heading("更多") }
-        listOf(
-                Page.BROWSE,
-                Page.PROGRAMMING,
-                Page.EXAM,
-                Page.NOTES,
-                Page.WORKBENCH,
-                Page.STATISTICS,
-                Page.COSTS,
-                Page.SETTINGS,
-            )
+        // Category, programming and exam now live on the home screen and the tab bar.
+        listOf(Page.NOTES, Page.WORKBENCH, Page.STATISTICS, Page.COSTS, Page.SETTINGS)
             .forEach { page ->
                 item {
                     OutlinedButton(
                         onClick = { vm.navigate(page) },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                     ) {
-                        Text(page.label)
+                        Text(if (page == Page.NOTES) "全局标签 / 便签" else page.label)
                     }
                 }
             }

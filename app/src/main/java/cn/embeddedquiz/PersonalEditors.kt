@@ -8,29 +8,43 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+/**
+ * Perceived difficulty for one question; a tap saves right away. The selection always mirrors the
+ * stored value, so nothing stale is written back and switching questions cannot leak a choice.
+ */
 @Composable
-fun PersonalMarksEditor(vm: QuizViewModel, q: Question, showHeading: Boolean = true) {
-    val meta = vm.learning.metadata[q.id] ?: QuestionPersonal(q.id)
-    var tags by rememberSaveable(q.id, meta.tags) { mutableStateOf(meta.tags) }
-    var difficulty by
-        rememberSaveable(q.id, meta.perceivedDifficulty) {
-            mutableStateOf(meta.perceivedDifficulty)
+fun PerceivedDifficultyChips(vm: QuizViewModel, q: Question) {
+    val stored = vm.learning.metadata[q.id]?.perceivedDifficulty.orEmpty()
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("我感觉的难度", style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("" to "未设置", "易" to "易", "中" to "中", "难" to "难").forEach { (value, label) ->
+                val chosen = value == stored
+                FilterChip(
+                    selected = chosen,
+                    onClick = { if (!chosen) vm.savePerceivedDifficulty(q.id, value) },
+                    enabled = !vm.busy,
+                    label = { Text(label) },
+                    leadingIcon =
+                        if (chosen) {
+                            { Icon(AppIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        } else null,
+                    shape = MaterialTheme.shapes.small,
+                    colors =
+                        FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.primary,
+                            selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    modifier = Modifier.heightIn(min = 40.dp),
+                )
+            }
         }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (showHeading) Heading("我的题目标记")
-        Text("原题难度：${q.difficulty}。个人感受单独保存，不代表官方难度。")
-        OutlinedTextField(
-            value = tags,
-            onValueChange = { tags = it },
-            label = { Text("自定义标签（逗号分隔）") },
-            modifier = Modifier.fillMaxWidth(),
+        Text(
+            "原题难度：${q.difficulty}。点选即保存，个人感受不代表官方难度。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Picker("我感觉的难度", difficulty.ifBlank { "未设置" }, listOf("未设置", "易", "中", "难")) {
-            difficulty = if (it == "未设置") "" else it
-        }
-        Action("保存个人标记", !vm.busy) {
-            vm.saveMetadata(meta.copy(tags = tags, perceivedDifficulty = difficulty))
-        }
     }
 }
 
@@ -67,7 +81,7 @@ fun VerifiedSolutionEditor(vm: QuizViewModel, q: Question, showHeading: Boolean 
                 Text("我已自行核对此解法", Modifier.padding(top = 14.dp))
             }
             Action("保存个人参考解法", !vm.busy) {
-                vm.saveMetadata(meta.copy(verifiedCode = code, codeVerified = verified))
+                vm.saveVerifiedSolution(q.id, code, verified)
             }
         }
     }

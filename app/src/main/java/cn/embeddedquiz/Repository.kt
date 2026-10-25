@@ -70,9 +70,12 @@ class QuizRepository(val db: QuizDatabase) {
     suspend fun update(id: String, transform: (Progress) -> Progress) =
         db.withTransaction { dao.putProgress(transform(dao.getProgress(id) ?: Progress(id))) }
 
-    /** Read the latest row so changing difficulty preserves other personal fields. */
+    /** Field-specific saves read the latest row and preserve unrelated personal fields. */
     suspend fun savePerceivedDifficulty(id: String, difficulty: String) =
         updatePersonalMetadata(id) { it.copy(perceivedDifficulty = difficulty) }
+
+    suspend fun saveVerifiedSolution(id: String, code: String, verified: Boolean) =
+        updatePersonalMetadata(id) { it.copy(verifiedCode = code, codeVerified = verified) }
 
     private suspend fun updatePersonalMetadata(
         id: String,

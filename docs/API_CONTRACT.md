@@ -1,5 +1,50 @@
 # Android 业务接口契约
 
+## 2026-10-25（第二轮）· 参考解法增量保存与旧题目标签兼容口径
+
+### `vm.saveVerifiedSolution(id: String, code: String, verified: Boolean): Unit`
+
+用途：工作台及编程区的个人参考解法编辑器保存**当前题的解法与人工核对状态**，避免从旧 `QuestionPersonal` 快照整体写回，盖掉刚更新的难度或旧标签。调用方在主线程调用；前端只替换保存命令，不自行读写 DAO。
+
+| 输入 | 约束与含义 |
+| --- | --- |
+| `id: String` | 已存在题目 ID，不可为空白；缺题时失败，不创建悬空个人资料 |
+| `code: String` | 原样保存（包括缩进、换行与首尾空白），不执行代码、不调用 AI；`""` 配合 `verified=false` 可清除解法 |
+| `verified: Boolean` | 用户明确人工核对的标记；为 true 时要求 `code.isNotBlank()`；非空解法可保存为 false，空白解法不可标记为已核对 |
+
+返回 `Unit`，**不表示已经保存成功**。遵循现有 `launchTask`：调用时若 `busy=true` 则忽略，正常开始后立即 `busy=true`，IO 写入完成后恢复 false。成功通知 `notice="个人参考解法已保存"`；校验 / 缺题 / 数据库异常由既有任务处理设置 `notice="操作未完成：…"`，并记录脱敏错误。UI 需禁用忙时保存；不要在同一次点击中连续调用解法和难度两个命令并假定两次都执行。
+
+内部 `suspend QuizRepository.saveVerifiedSolution(id: String, code: String, verified: Boolean): Unit` 复用难度保存的 Room 事务：读取数据库**最新** `QuestionPersonal`（不存在则构造默认值），仅 `copy(verifiedCode=code, codeVerified=verified)`，经 `LearningCodec` 校验后写入。校验失败抛 `IllegalArgumentException`，数据库异常向调用方传播；事务回滚，连默认行也不落盘。Repository 自身不维护 `busy/notice`。
+
+成功后的状态：`learning.metadata` 现有 Flow 发布新值；保留 `tags/perceivedDifficulty`，不写 `Progress.notes/code`、全局便签、原题答案或原始 JSON，不影响页面、练习队列、成绩、SRS、考试状态。并发使用 Repository 的解法 / 难度增量接口时，事务串行读取最新行，两者互不覆盖。ViewModel 的并发命令仍受上述全局 busy 约束，不能据 Repository 并发能力推断 UI 命令都会入队。
+
+前端替换 `VerifiedSolutionEditor` 中的：
+
+```kotlin
+vm.saveVerifiedSolution(q.id, code, verified)
+```
+
+难度继续调用 `vm.savePerceivedDifficulty(q.id, value)`（未设置传 `""`）。两者只负责各自字段。
+
+### `QuestionPersonal.tags`：保留为只读兼容数据
+
+决策：不删除字段、不清空历史值、不转换成全局便签；当前产品入口停止新增或编辑题目级标签。原因是数据库 4 和备份 3 已有该字段，清空 / 拒绝旧值会造成用户数据丢失或旧备份恢复失败，而把题目标记转成全局标签会混淆两种不同数据。
+
+**“只读”指新产品入口的使用政策，不是修改数据库列权限。** 为保持向后兼容，旧 `vm.saveMetadata(value: QuestionPersonal)` 继续执行校验后的整行替换，仍接受含 tags 的合法旧对象；备份恢复也仍能写入历史 tags。新功能没有题目标签写接口，不能继续使用 `saveMetadata(meta.copy(...))`。本轮没有改变其签名、busy/notice、错误或整行替换语义；遗留调用方若不迁移，仍存在旧快照覆盖风险。
+
+| 依赖 | 调整后的口径 |
+| --- | --- |
+| `searchQuestions` / Repository 搜索 | 保留旧 tags 的关键词检索和命中片段以兼容历史数据；“个人标签”明确指**旧版题目标记**，不是顶部全局标签。SQL、排序、AND 关键词与筛选行为不变。全局便签标题 / 正文仍仅由 `searchNotes` 查询，不按题号关联 |
+| 分类题目卡片 | 不再显示题目级“标签：…”这项；只保留难度感受。当前 `BrowseScreen.kt` 仍有历史标签展示，须 Claude 删除生成 `"标签：$tags"` 的分支。搜索命中片段可能仍包含旧标记文字，这是历史搜索兼容行为，不代表全局标签绑定题目 |
+| 全量备份 3 | `questionPersonal[].tags` 原样导出 / 恢复，包括非空旧值；保存新解法或难度后再备份也不丢旧值。全局独立内容继续在 `stickyNotes`，不与 tags 相互迁移 |
+| 旧备份 1 / 2 | 按已有规则读取；它们没有 v3 个人资料块，恢复时继续保留本地已有个人资料。v1 没有独立便签时保留本地便签，v2 仍按原有规则恢复便签 |
+| 独立个人答案导入 / 导出 | 原本只覆盖个人核对答案，不包含 tags / 参考解法；保持原样，不与全量备份混淆 |
+| `LearningCodec` | 保持原格式与校验：tags 字符串原样读写；题号非空、难度为 `""/易/中/难`、已核对解法非空。不得新增 `tags.isEmpty()` 限制或自动清空；v3 按原要求包含 tags，v1/2 不走该个人资料块解析 |
+
+数据库仍为 **4**，备份仍为 **3**；没有迁移、字段变化或破坏性接口修改。Compose 展示与调用替换由 Claude 实施，见本轮交接。
+
+---
+
 ## 2026-10-25 增补：仅更新每题难度感受
 
 ### `vm.savePerceivedDifficulty(id: String, difficulty: String): Unit`
@@ -67,7 +112,7 @@
 | `difficulty` | `全部` | 原题难度，不使用个人感受代替 |
 | `group` | `错题` | 仅错题页使用：`错题`、`不会`、`收藏`、`待核对` |
 
-搜索覆盖题干、选项、答案、解析、参考代码、题目笔记、代码草稿和个人标签。独立便签另查 `searchNotes`。`不会` 要求当前仍错且最近一次评估为 `UNKNOWN`；待核对沿用题库标记或用户标记的现有规则。
+搜索覆盖题干、选项、答案、解析、参考代码、题目笔记、代码草稿和旧版题目标记 `QuestionPersonal.tags`（只读历史兼容）。顶部全局标签 / 独立便签另查 `searchNotes`，不属于题目标签。`不会` 要求当前仍错且最近一次评估为 `UNKNOWN`；待核对沿用题库标记或用户标记的现有规则。
 
 返回结果按题目 ID 升序；空集合是成功结果。`QuestionSummary` 是轻量摘要，不含原始 JSON、完整题干、图片和选项正文：
 

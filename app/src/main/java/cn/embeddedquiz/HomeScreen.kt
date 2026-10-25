@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontFamily
@@ -36,6 +37,7 @@ fun Home(vm: QuizViewModel, today: LocalDate) {
     fun daily() = vm.questions.filter { it.daily }
     fun unseen() = daily().filter { vm.p(it.id).seen == 0 }
     LazyColumn(
+        modifier = Modifier.testTag("home-list"),
         verticalArrangement = Arrangement.spacedBy(14.dp),
         contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
     ) {
@@ -137,6 +139,14 @@ fun Home(vm: QuizViewModel, today: LocalDate) {
                         Modifier.weight(1f),
                         vm::startWeakPractice,
                     )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ModeTile(AppIcons.Folder, "分类练习", "按分类与来源筛选", Modifier.weight(1f)) {
+                        vm.navigate(Page.BROWSE)
+                    }
+                    ModeTile(AppIcons.Code, "编程专区", "编程题，不进日常复习", Modifier.weight(1f)) {
+                        vm.navigate(Page.PROGRAMMING)
+                    }
                 }
             }
         }

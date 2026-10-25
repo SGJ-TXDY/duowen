@@ -287,4 +287,50 @@ class FrontendQueryContractTest {
         assertEquals(examQueue, model.queue)
         assertEquals(deadline, model.examDeadline)
     }
+
+    @Test
+    fun verifiedSolutionCommandPublishesChangesAndReportsInvalidInput() {
+        val model = model()
+        val original = QuestionPersonal("a", "旧标签", "难", "old solution", false)
+        runBlocking { model.repo.dao.putPersonalMetadata(original) }
+        model.saveVerifiedSolution("a", "confirmed solution", true)
+        await {
+            !model.busy && model.learning.metadata["a"]?.verifiedCode == "confirmed solution"
+        }
+        val expected = original.copy(verifiedCode = "confirmed solution", codeVerified = true)
+        assertEquals(expected, model.learning.metadata["a"])
+        assertEquals("个人参考解法已保存", model.notice)
+        model.saveVerifiedSolution("a", "", true)
+        await { !model.busy }
+        assertTrue(model.notice.startsWith("操作未完成"))
+        assertEquals(expected, runBlocking { model.repo.dao.personalMetadata("a") })
+        model.saveVerifiedSolution("missing", "solution", false)
+        await { !model.busy }
+        assertTrue(model.notice.startsWith("操作未完成"))
+        assertNull(runBlocking { model.repo.dao.personalMetadata("missing") })
+    }
+
+    @Test
+    fun legacyWholeRowSaveRemainsCompatibleAndBusyCommandsAreIgnored() {
+        val model = model()
+        val legacy = QuestionPersonal("a", "旧调用方标签", "中", "legacy solution", true)
+        val gate = CompletableDeferred<Unit>()
+        model.launchTask { gate.await() }
+        assertTrue(model.busy)
+        model.saveVerifiedSolution("a", "must not be written while busy", true)
+        gate.complete(Unit)
+        await { !model.busy }
+        assertNull(runBlocking { model.repo.dao.personalMetadata("a") })
+        model.saveMetadata(legacy)
+        await { !model.busy && model.learning.metadata["a"] == legacy }
+        model.saveVerifiedSolution("a", "new solution", false)
+        await { !model.busy && model.learning.metadata["a"]?.verifiedCode == "new solution" }
+        assertEquals(legacy.copy(verifiedCode = "new solution", codeVerified = false), model.learning.metadata["a"])
+        model.saveMetadata(legacy.copy(tags = "兼容整行替换", perceivedDifficulty = "易"))
+        await { !model.busy && model.learning.metadata["a"]?.tags == "兼容整行替换" }
+        assertEquals(
+            legacy.copy(tags = "兼容整行替换", perceivedDifficulty = "易"),
+            runBlocking { model.repo.dao.personalMetadata("a") },
+        )
+    }
 }

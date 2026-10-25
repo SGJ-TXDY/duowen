@@ -76,5 +76,7 @@ object AppIcons {
     val ListOrder = stroke("list", "M9 6h11", "M9 12h11", "M9 18h11", "M4 6h.01", "M4 12h.01", "M4 18h.01")
     val Target = stroke("target", circle(12f, 12f, 9f), circle(12f, 12f, 5f), "M12 12h.01")
     val Book = stroke("book", "M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2z", "M9 8h7")
+    val Exam = stroke("exam", roundRect(5f, 4f, 14f, 17f, 2f), "M9 3h6v3H9z", "M8.5 13l2.5 2.5 4.5-4.5")
+    val Folder = stroke("folder", "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z")
     val Flame = stroke("flame", "M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-4 2.5-5 .3 1.6 1 2.6 2 3 0-3 .5-5.5.5-8z")
 }

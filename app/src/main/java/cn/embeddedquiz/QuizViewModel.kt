@@ -486,6 +486,12 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         notice = "难度感受已保存"
     }
 
+    fun saveVerifiedSolution(id: String, code: String, verified: Boolean) = launchTask {
+        repo.saveVerifiedSolution(id, code, verified)
+        notice = "个人参考解法已保存"
+    }
+
+    /** Legacy whole-row replacement; new editors must use field-specific save commands. */
     fun saveMetadata(value: QuestionPersonal) = launchTask {
         LearningCodec.parseMetadata(LearningCodec.metadata(value))
         repo.dao.putPersonalMetadata(value)

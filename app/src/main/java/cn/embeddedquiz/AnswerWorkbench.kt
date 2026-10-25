@@ -147,6 +147,7 @@ private fun PersonalAnswerEditor(vm: QuizViewModel, q: Question, onBack: () -> U
                     Text("移除个人核对答案")
                 }
             }
-        item { PersonalMarksEditor(vm, q) }
+        // Tags are global notes now; only the per-question difficulty stays here.
+        item { PerceivedDifficultyChips(vm, q) }
     }
 }

@@ -117,7 +117,7 @@ class NotesAndScoringUiTest {
     fun choiceSurvivesNotesAndSubmissionRecordsExactlyOnce() {
         start("ui-choice")
         option("选项乙").performClick()
-        navButton("打开便签").performClick()
+        navButton("打开全局标签").performClick()
         ui.onNodeWithText("新建便签").performClick()
         ui.onNodeWithText("便签标题").performTextInput("复习要点")
         ui.onNodeWithText("记下思路、易错点或待办").performTextInput("检查指针的生命周期")
@@ -251,6 +251,13 @@ class NotesAndScoringUiTest {
         ui.onNodeWithText("保存个人核对答案").performClick()
         await { vm.learning.answers.containsKey("ui-pending") && !vm.busy }
         // The confirmation snackbar is transient; let it close before tapping underneath it.
+        await { vm.notice.isEmpty() }
+        // Tags are global now: the workbench only keeps the per-question difficulty.
+        ui.onNodeWithText("自定义标签（逗号分隔）").assertDoesNotExist()
+        val medium = hasText("中") and hasClickAction()
+        ui.onNodeWithTag("workbench-editor").performScrollToNode(medium)
+        ui.onNode(medium).performClick()
+        await { vm.learning.metadata["ui-pending"]?.perceivedDifficulty == "中" && !vm.busy }
         await { vm.notice.isEmpty() }
         start("ui-pending")
         option("选项乙").performClick()

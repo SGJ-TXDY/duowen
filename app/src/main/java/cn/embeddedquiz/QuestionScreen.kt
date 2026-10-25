@@ -91,7 +91,6 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
     val answerKeys = personal?.selected ?: if (q.autoGradable) q.correct else emptySet()
     val aiForQuestion = vm.aiEntries.filter { it.questionId == q.id }
     var notesOpen by rememberSaveable { mutableStateOf(false) }
-    var marksOpen by rememberSaveable { mutableStateOf(false) }
     var aiOpen by rememberSaveable { mutableStateOf(false) }
     var infoOpen by rememberSaveable { mutableStateOf(false) }
     var confirmFinish by remember { mutableStateOf(false) }
@@ -397,13 +396,23 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                     item { SectionCard { VerifiedSolutionEditor(vm, q) } }
                 }
                 item {
+                    val difficulty = vm.learning.metadata[q.id]?.perceivedDifficulty.orEmpty()
+                    // Notes and difficulty are separate saves; global tags live behind the top bar icon.
                     ExpandableSection(
                         icon = AppIcons.Pencil,
-                        title = "我的笔记",
-                        summary = notes.lineSequence().firstOrNull { it.isNotBlank() } ?: "未填写",
+                        title = "笔记与难度感受",
+                        summary =
+                            listOfNotNull(
+                                    notes.lineSequence().firstOrNull { it.isNotBlank() },
+                                    difficulty.takeIf { it.isNotBlank() }?.let { "感觉$it" },
+                                )
+                                .joinToString(" · ")
+                                .ifBlank { "未填写" },
                         expanded = notesOpen,
                         onToggle = { notesOpen = !notesOpen },
                     ) {
+                        PerceivedDifficultyChips(vm, q)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         OutlinedTextField(
                             value = notes,
                             onValueChange = {
@@ -415,25 +424,9 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                             shape = MaterialTheme.shapes.medium,
                             minLines = 3,
                         )
-                        Action("保存代码与笔记", !vm.busy) { vm.saveNotes(q.id, code, notes) }
-                    }
-                }
-                item {
-                    val meta = vm.learning.metadata[q.id]
-                    ExpandableSection(
-                        icon = AppIcons.Tag,
-                        title = "标签与难度感受",
-                        summary =
-                            listOfNotNull(
-                                    meta?.tags?.takeIf { it.isNotBlank() },
-                                    meta?.perceivedDifficulty?.takeIf { it.isNotBlank() },
-                                )
-                                .joinToString(" · ")
-                                .ifBlank { "未设置" },
-                        expanded = marksOpen,
-                        onToggle = { marksOpen = !marksOpen },
-                    ) {
-                        PersonalMarksEditor(vm, q, showHeading = false)
+                        Action(if (q.daily) "保存笔记" else "保存代码与笔记", !vm.busy) {
+                            vm.saveNotes(q.id, code, notes)
+                        }
                     }
                 }
                 item {
@@ -591,7 +584,7 @@ private fun QuestionTopBar(
             }
         }
         IconButton(onClick = onNotes, modifier = Modifier.size(48.dp)) {
-            Icon(AppIcons.Note, contentDescription = "打开便签")
+            Icon(AppIcons.Note, contentDescription = "打开全局标签")
         }
         if (showMarks) {
             IconButton(onClick = onFavorite, modifier = Modifier.size(48.dp)) {

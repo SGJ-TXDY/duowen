@@ -37,11 +37,16 @@ fun StickyNotesScreen(vm: QuizViewModel) {
     }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Heading("便签")
+            Heading("全局标签")
             if (vm.queue.isNotEmpty())
                 OutlinedButton(onClick = { vm.page = Page.QUESTION }) { Text("继续答题") }
             else TextButton(onClick = vm::leaveStickyNotes) { Text("返回") }
         }
+        Text(
+            "独立于题目，所有题目共用同一份；换题不会改变这里的内容。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (vm.mode == "模拟考试" && !vm.examFinished && vm.queue.isNotEmpty())
             Text("考试仍在计时，作答进度已保留。", color = MaterialTheme.colorScheme.error)
         if (vm.noteSaveError.isNotBlank()) {

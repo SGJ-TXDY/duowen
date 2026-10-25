@@ -269,6 +269,23 @@ private fun ResultCount(questions: Int, notes: Int, modifier: Modifier) {
 private fun ExamSetup(vm: QuizViewModel, filtered: List<QuestionSummary>, searching: Boolean) {
     var count by rememberSaveable { mutableStateOf("20") }
     var minutes by rememberSaveable { mutableStateOf("30") }
+    // An unsubmitted exam is resumed, never restarted, so its queue, answers and deadline survive.
+    if (vm.mode == "模拟考试" && !vm.examFinished && vm.queue.isNotEmpty()) {
+        SectionCard(title = "有未交卷的考试") {
+            Text(
+                "已答 ${vm.examAnswers.count { it.value.isNotEmpty() }} / ${vm.queue.size} 题，倒计时仍在进行。交卷后才能开始新的考试。",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(
+                onClick = { vm.page = Page.QUESTION },
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+            ) {
+                Text("继续考试", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+        return
+    }
     SectionCard(title = "考试设置") {
         Text("题量", style = MaterialTheme.typography.labelLarge)
         ChoiceChips(listOf("10", "20", "50"), count) { count = it }
@@ -357,18 +374,13 @@ private fun QuestionRow(vm: QuizViewModel, q: QuestionSummary, search: String, o
                         HighlightedText(q.matchSnippet, search, 3)
                     }
                 }
-            meta?.let {
-                val personal =
-                    listOfNotNull(
-                        it.tags.takeIf { tags -> tags.isNotBlank() }?.let { tags -> "标签：$tags" },
-                        it.perceivedDifficulty.takeIf { d -> d.isNotBlank() }?.let { d -> "我感觉：$d" },
-                    )
-                if (personal.isNotEmpty())
-                    Text(
-                        personal.joinToString(" · "),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+            // Legacy per-question tags stay searchable but are no longer shown; tags are global now.
+            meta?.perceivedDifficulty?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    "我感觉：$it",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
             Text(
                 listOfNotNull(
