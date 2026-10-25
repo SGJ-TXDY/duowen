@@ -58,6 +58,14 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     private val fullQuestionCache = android.util.LruCache<String, Question>(8)
     val notesState = NotesStateHolder(viewModelScope, repo)
+    val quickNotes = QuickNotesStateHolder(
+        viewModelScope,
+        QuickNotesRepository(java.io.File(app.filesDir, "quicknotes-v1")),
+        app,
+    )
+
+    fun openQuickNotes() = quickNotes.enter()
+
     val stickyNotes
         get() = notesState.stickyNotes
 
@@ -540,6 +548,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     override fun onCleared() {
         codeDrafts.writer.close()
         notesState.shutdown()
+        quickNotes.shutdown()
         db.close()
     }
 }

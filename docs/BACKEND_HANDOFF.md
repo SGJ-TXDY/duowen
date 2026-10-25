@@ -1,5 +1,125 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-10-25（第五轮）· WebView 故障复盘、最终 APK 与提交（Codex）
+
+用户反馈“修的好”，并明确要求记录 Codex 改动与 Opus 的问题，授权生成最终 APK 并提交 GitHub。本节为最新交付状态，下面各轮“未提交 / 待接入”保留为当时的历史记录，不代表当前状态。源码本轮没有再改动；只补全文档、整理最终产物并提交已有功能。
+
+### Opus 实现中的具体问题
+
+1. **请求分类错误。** `QuickNoteReader.kt` 原 `ReaderClient.shouldInterceptRequest` 只识别 `/quicknotes/{id}/assets/` 图片路径，其余统一返回 HTTP 404；没有先识别阅读正文的主框架请求。与此同时 `ReaderWeb.load` 使用 `loadDataWithBaseURL`，Android WebView 的内部 `data:` 引导请求也会经过拦截器，于是正文被本应用自己拒绝。用户看到 `data:text/html;charset=utf-8;base64,` 和 `ERR_HTTP_RESPONSE_CODE_FAILURE`。
+2. **测试覆盖没有到加载协议。** 原 `QuickNotesUiTest` 检查阅读页容器、目录弹层和 HTML 文本 / CSS，并不验证 WebView 正文请求实际得到成功响应。Robolectric 本身不执行真正 Chromium 的页面加载和脚本，所以“页面外壳可见 + 编译 / lint 通过”未能发现正文 404。这是验证范围的缺口，不应据此宣称真实阅读已经验收。
+3. **交接规则也有遗漏。** Codex 最初的渲染交接将未匹配资源拒绝规则写得不完整，没有明确正文请求例外；本轮已在 API_CONTRACT 和 QUICK_NOTES_RENDERING 中一起勘误。不能只把错误归结为用户文档或全部归给前端一方。
+
+### Codex 已做的修复
+
+- `ReaderWeb` 新增固定本地正文地址 `https://appassets.androidplatform.net/quicknotes/{id}/document.html` 和 volatile UTF-8 内存快照；改用 `loadUrl` 打开这一个地址，避免 data: 引导与资源拦截混用。
+- `ReaderClient` 在图片分支前，仅对**精确匹配当前文档地址且为主框架**的请求返回 `200 / text/html / utf-8`，正文来自内存，不访问网络。
+- 原图片 readAsset 分支保持；未知 / 跨域 / 跨文档 / data / file / content 和子框架索取正文继续拒绝。没有粗暴放开全部主请求或全部 HTTPS。
+- 未改 Compose 布局、CSS、主题、字号、CSP、nonce、复制与位置脚本；未修改题库、速记存储、阅读位置、数据库版本、备份格式、App 版本或签名。修复是在用户明确授权本次最小前端修复后接入的。
+- 新增 `QuickNoteWebTransportTest`，修订接口与渲染约定，保留可复查补丁和验证记录；既有导入文档可继续读，不用重新导入或重置数据。
+
+### 验证与后续验收口径
+
+- 请求路由回归在 Android API 28 / 33 各 6 项，共 12 项；既有速记 UI 测试 5 项，**合计 17 项全过**。覆盖实际 Linux 文档 UTF-8 正文、固定主 URL、主题重载、片段锚点、图片、缺图以及外部 / 跨文档 / 子框架拒绝。
+- `assembleDebug`、`lintDebug` 通过，lint 0 错误、5 条已有提示。速记后端另有上一轮 37 项相关测试记录，两组分开执行，不宣称重复跑过完整套件。
+- 用户已认可这次正文加载修复；Codex 未执行真实手机的完整设备 / 主题 / 字号矩阵。后续前端仍须在真实 WebView 验收脚本、目录跳转、代码复制、横向滚动与阅读位置；不要把 Robolectric 路由测试等同完整浏览器验收。
+- working 时 leave 被拒绝、操作完成结果不明确、TalkBack 滚动记录和既有通知测试时序问题仍按 FRONTEND_HANDOFF 保留为后续事项，本轮不顺手扩展修复。
+
+### 最终 APK 与源码交付
+
+- 最终交付：项目上级目录 `EmbeddedQuiz-1.5.0-quicknotes-final-20261025-debug.apk`；与用户认可的 webfix 包逐字节相同。当前源码与产生该验证包的副本一致，本轮只有文档变化，因此另存已验证二进制，不重复无意义的构建 / 测试。
+- 包名 `cn.embeddedquiz`，版本 1.5.0 / versionCode 6；签名 SHA-256 `2c73c905e6d127dd92fbfaf5351058572cb8e78e98beb477eb1a0f37ee43b151`，与原版本一致，可覆盖安装并保留数据。
+- APK SHA-256：`7ff99df7ba02ea1f4ed62b9bc966fdcd917b65b61025cd4809549d92b65b0205`，旁有同名 `.apk.sha256` 文件；旧试装包 / 稳定包均保留。APK 二进制不放进 Git 源码历史。
+- 本次源码提交包括先前尚未提交的速记后端、Opus 前端及本次加载修复，避免仅提交修复文件而遗漏模块依赖。贡献说明：速记 Compose 前端由 Claude Opus 实现；速记后端、渲染引擎、加载修复及本轮回归由 Codex（OpenAI）实现。
+- GitHub 提交 / 推送状态在最终回复报告；本节的提交授权取代此前各轮的“暂不提交”限制。
+
+署名：**Codex（OpenAI）**。
+
+---
+
+## 2026-10-25（第四轮）· 速记导入后 WebView 正文 404 故障（Codex）
+
+### 复现、原因与分工
+
+用户报告：导入实际 Linux 示例 Markdown 并打开后，WebView 显示 `data:text/html;charset=utf-8;base64,`，错误 `net::ERR_HTTP_RESPONSE_CODE_FAILURE`。
+
+核查当前前端 `QuickNoteReader.kt`：ReaderWeb.load 使用 loadDataWithBaseURL；ReaderClient.shouldInterceptRequest 只返回 assets 图片，未命中一律 404，包括正文引导请求。Android 官方文档明确该回调也接收 data: 请求，见 [WebViewClient API](https://developer.android.com/reference/android/webkit/WebViewClient#shouldInterceptRequest(android.webkit.WebView,%20android.webkit.WebResourceRequest))。这个确定的拦截缺陷与用户报错吻合；并非 UTF-8、Markdown 表格、题库或速记导入损坏。此前后端渲染交接“未匹配资源返回 404”没有写清正文例外，已同步勘误。
+
+gpt.docx 规定“Claude 负责前端 UI、视觉设计和展示交互。除非我明确授权，否则你不能擅自修改 Claude 负责的前端代码。”因此先在独立构建副本准备并验证最小补丁。随后用户明确授权“本次最小修复”，现已仅将已验证的加载 / 路由改动接入当前 QuickNoteReader.kt，并新增对应回归测试；没有改 Compose 布局 / CSS / 数据。
+
+### 具体修复补丁
+
+`validation/backend-2026-10-25-webview-load/QuickNoteReader-fix.patch`：仅修改 ReaderWeb 的文档加载和 ReaderClient 的请求响应，不修改任何 @Composable 函数、布局、颜色、字号、CSS、文档正文或数据库。
+
+- 当前文档 HTML 转 UTF-8，保存在 volatile 内存快照中；用固定的本地虚拟 document.html 地址加载，不依赖 data: 引导加载。
+- 在图片逻辑前，仅为精确匹配当前文档地址的主框架请求返回 200 / text/html / UTF-8；正文不去网络。
+- 图片继续走 readAsset，未知、跨文档、跨域、file/content/data 和子框架索取正文仍为 404；CSP、nonce、剪贴板和阅读位置脚本不改。
+- 原导入文档和进度可继续使用，无需让用户重新导入或重置数据。
+
+### 回归验证与实际接入状态
+
+隔离副本共 **17 项相关测试通过，0 失败 / 跳过**：新的请求路由回归在 API 28 / 33 各 6 项（共 12），既有 QuickNotesUiTest 5 项。覆盖实际 Linux 文档 UTF-8 正文响应、固定主 URL、主题重载、页内片段、图片、缺图及外部 / 跨文档 / 子框架请求拒绝。首轮检查发现三参数 WebResourceResponse 的状态码未设置，正文已明确返回 200；图片保留原响应语义。没有重复运行完整套件，没有真实手机验证。
+
+用户授权后已应用，当前源码和回归测试与通过 17 项验证的副本逐字节一致，所以未重复运行相同套件。以开发前指纹核对，仅 QuickNoteReader.kt 的已授权加载部分发生变化，另新增 QuickNoteWebTransportTest；其余前端、数据、构建配置、前端交接、历史 APK、Git HEAD 和 index 保持不变。summary.json 记录 patchAppliedToWorkspace=true。独立新试装包已生成：项目上级目录 `EmbeddedQuiz-1.5.0-quicknotes-webfix-20261025-debug.apk`；assembleDebug / lintDebug 通过（0 错误、5 条警告）。版本仍为 1.5.0 / 6，签名 SHA-256 `2c73c905e6d127dd92fbfaf5351058572cb8e78e98beb477eb1a0f37ee43b151` 与原速记包一致，可覆盖安装并保留现有数据。安装包 SHA-256 `7ff99df7ba02ea1f4ed62b9bc966fdcd917b65b61025cd4809549d92b65b0205`。没有覆盖任何旧 APK，没有修改版本或签名，没有提交 / 推送。当时尚未进行完整真机验收；用户后续反馈及源码提交状态见本文件第五轮。已有文档无需重新导入。
+
+署名：Codex（OpenAI）。
+
+---
+
+## 2026-10-25（第三轮）· 独立 Markdown“速记”后端（Codex）
+
+### 范围与结果边界
+
+先阅读项目规则、gpt.docx、现有前后端交接及用户实际 Markdown 后开发。速记与刷题并列且数据隔离，不把文档转题，不计入答题记录、每日目标、成绩、错题或 SRS。本轮只实现后端、语义渲染和业务测试，**底部入口、文档列表、阅读容器仍需 Claude 接入**，不能宣称整套用户界面已完成。
+
+未修改 Compose 页面、UI 测试、正式签名、App 版本号或已有 APK；不提交、不推送 GitHub。构建仅增加固定 CommonMark 核心 / 两个 GFM 扩展的本地 JAR 文件依赖，来源、哈希与 BSD 许可证在 app/libs，便于既有离线工具链构建。
+
+### 已完成
+
+- 独立 `QuickNotesRepository` 内部文件存储与原子索引：.md / 配套 ZIP 导入、UTF-8 / 中文、文档列表、删除、哈希校验、每文档阅读位置与重启读取。
+- 重复正文 / 同源文件名返回明确冲突，支持取消和保留两份，不实现静默覆盖。
+- `QuickNoteMarkdown` 用成熟 CommonMark 解析器生成语义 HTML、中文 / 重复标题目录 ID、复制代码原文与缺图 / 不支持语法警告。表格和代码有语义横向区域标记，不用原始 Markdown 替代阅读正文。
+- `vm.quickNotes` 独立 loading / working / error / 冲突状态、有序位置保存与失败重试；系统 ContentResolver 导入 / 导出适配、系统剪贴板复制接口；不使用刷题 busy / notice。
+- 独立速记 ZIP 备份与原子恢复：默认合并 / 相同内容跳过，用户明确确认后可 replace，只替换速记库。题库 Room 4 和原备份 3 保持不变，旧备份不删除速记。
+- `vm.openQuickNotes()` 只改变模块 visible 状态；保留 Page、练习草稿、队列、考试答案 / 截止时间。没有增加 Page 枚举来迫使现有 Compose 改动。
+
+### 实际 Markdown 与支持范围
+
+用户示例审计为 7 个标题、**5 张表格**、1 个 C 围栏代码块，包含转义下划线、实体和中文，没有图片或数学公式。原文嵌入图形只有占位文字，不能还原图形，正文与警告明确说明。审计 SHA 和样本在 validation / 测试资源中，原文不修改。
+
+第一版语义支持标题、段落、粗体 / 强调 / 删除线、引用、列表 / 嵌套列表、分割线、HTTP(S)/mailto 与文档内链接、GFM 表格、行内代码、围栏 / 缩进代码、包内 PNG/JPEG/GIF/WebP 图片。无公式排版、语法高亮、Mermaid / 原始 HTML 布局、SVG / 自动远程图片、跨 Markdown 文件导航等扩展承诺。详见 `QUICK_NOTES_RENDERING.md`，不能把语法引擎测试说成 Android 页面已完成视觉验收。
+
+### Claude 接入清单
+
+1. `AppNavigation.kt`：底部五项改为 **首页、模拟考试、速记、错题、更多**，只把原“复习”槽换成速记，不删除 Page.REVIEW、首页复习入口、ReviewScreen 或提醒。由于 Page 枚举本轮不改，可为速记槽单独调用 `vm.openQuickNotes()`，以 `quickNotes.state.visible` 高亮并在内容区选择独立模块。其他底部项先 `quickNotes.leave { vm.navigate(target) }`。复习页面可归首页高亮。
+2. 保持 QuizLayout 的日期刷新、通知与考试计时 effects 挂载，**不要为了切换速记把整个考试计时外壳移出组合**。只切换内容；到期时间依旧按墙钟推进，阅读文档不能暂停或重建考试。
+3. 文档列表读取 state.documents，展示标题与打开 / 删除 / 导入；SAF OpenDocument 接受 .md / 配套 .zip，取消不调用后端。明确区分配套文档 ZIP 与独立速记备份。loading / working / error / retry 各有反馈。
+4. 冲突 state.conflict 非空时显示明确选择：取消 → cancelImport，保留两份 → confirmKeepBoth。不得默认覆盖。删除须说明会删除该文档的正文、图片与阅读位置。
+5. 阅读页显示 rendered.htmlBody，提供返回（closeDocument）和目录（headings）；代码本地动作调用 copyCode，图片按 readAsset 拦截。**不可只用 Text 显示 Markdown**。横向表格 / 代码、浅深主题和大字号要求按渲染文档实施。
+6. 阅读位置按 anchor + CSS offset + fraction 节流入队；离页 / 后台先提交最后位置并等待已有队列，失败提示 / 重试，不能把布局变化误存成新位置。图片与布局稳定后恢复，字号变化时锚点优先、比例回退。
+7. 加入独立“导出 / 恢复速记备份”操作。默认合并；replace=true 必须明确确认，解释只替换速记库。明确原刷题备份不包含速记，避免用户误以为原备份会保护这些文件。
+8. 按 renderer 文档限制 WebView 导航 / 资源来源，禁止原始脚本或 file:// 通用访问；缺图、损坏图片、无效锚点和不支持扩展需可见提示。
+
+### 前端验收建议
+
+使用用户实际 Linux 文档和 syntax.md：核对中文与 5 张表格、C 代码缩进 / 原样复制；小屏大字号横向查看宽表格 / 长代码；中文 / 重复标题目录跳转；单 .md 缺图提示与配套 ZIP 图文导入；重启 / 切文档位置恢复；取消 / 保留两份；默认合并和明确替换恢复；浅色 / 深色；从未交卷考试切入速记再返回、考试到时交卷；首页复习和到期提醒仍可用。
+
+### 测试与已知限制
+
+最终通过 **37 项相关测试，0 失败 / 跳过**：QuickNoteMarkdownTest 6、QuickNotesRepositoryTest 8、QuickNotesIsolationTest 4、既有 FrontendQueryContractTest 10、LearningDataTest 7，以及 ReviewReminderTest 的到期通知 / 通知权限两个方法。新增 18 项；未运行完整套件或既有 Compose UI 测试。新增离线 JAR 的 `mergeExtDexDebug` 与 `mergeDebugJavaResource` 也通过，未执行 APK 生成 / 签名。
+
+首轮发现字符转义的编译错误；随后实际验收发现 GFM 表格扩展抢先渲染导致横向容器缺失，已修正注册顺序。新测试曾在主线程阻塞旧 loadQuestion，并遇到 Robolectric 内容流注册差异，均只修正新测试。对应诊断与日志保留。完整相关组完成后，仅补跑文件适配所在类和长标题边界所在渲染类，没有重复跑完整套件。
+
+另外使用独立 Edge HTML 验证外壳验证浅色、深色 / 大字号和语法样例共 3 个场景：390px 宽正文不横向溢出，实际文档 5 张表格和长代码区域可独立横向滚动，中文目录 / 位置几何恢复和样例图片加载成功。参考图与结果在 validation 的 reference-html-check，测试 CSS 不属于产品前端；此结果不能替代 Claude 的 Android WebView / Compose 接入与真机验收。
+
+开发前指纹核对表明，只变更 5 个既有文件（ViewModel、app 的离线依赖声明、依赖说明、两份后端文档），其余为新模块 / 测试 / 文档 / 依赖 / 验证文件。Compose、UI 测试、前端交接、原始 Markdown、Room schema、App 版本与签名、已有 APK / 源码包均未改；实际构建输入与当前源码一致。Git HEAD 和 index 未变，没有暂存、提交或推送，也未执行 assemble / APK 签名任务。验证汇总在 `validation/backend-2026-10-25-quicknotes/summary.json`。
+
+已知限制：前端未接入前不能在现有 App 中直接点到此模块；Android 容器的视觉、实际滚动采集与恢复、横向滚动手势仍待 Claude / 真机验证。已完成的原子位置写入可重启恢复，尚未入队 / 未完成的最后一小段滚动在立即杀进程时可能丢失。
+
+署名：Codex（OpenAI）。
+
+---
+
 ## 2026-10-25（第二轮）· 修复参考解法的过期快照覆盖风险（Codex）
 
 ### 本轮范围与现状核查

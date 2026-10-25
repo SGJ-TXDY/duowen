@@ -1,0 +1,16 @@
+{
+  "file": "嵌入式 Linux 面试复习：启动流程、根文件系统与驱动.md",
+  "sha256": "ef235ba0fee84696c1b221199cf0d5683a91bcda65226b731b8240e17fd47665",
+  "encoding": "UTF-8",
+  "headings": 7,
+  "tables": 5,
+  "fencedCodeBlocks": 1,
+  "markdownImages": 0,
+  "mathDetected": false,
+  "embeddedPlaceholder": true,
+  "escapesAndEntities": [
+    "escaped underscores",
+    "&#91;",
+    "angle placeholders <类>/<设备>"
+  ]
+}

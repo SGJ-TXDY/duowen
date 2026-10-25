@@ -1,0 +1,62 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+  *{box-sizing:border-box}body{margin:0;padding:16px;font-family:system-ui,sans-serif;font-size:18px;line-height:1.65;color:#19251e;background:#f7faf8;overflow-wrap:anywhere}
+  h1{font-size:1.6em}h2{font-size:1.35em}a{color:#176c57}
+  .qn-table-scroll,.qn-code-scroll{max-width:100%;overflow-x:auto;margin:12px 0}
+  table{border-collapse:collapse;width:max-content;min-width:100%}th,td{border:1px solid #78877e;padding:8px;max-width:34em}
+  pre{white-space:pre;margin:0;width:max-content;min-width:100%;overflow-wrap:normal;font-family:monospace;font-size:.9em}
+  pre code{white-space:pre;overflow-wrap:normal}img{max-width:100%}.qn-missing-image{display:block;padding:8px;border:1px dashed #8a7e62}
+  </style><body><h1 id="语法验收">语法验收</h1>
+<p>中文段落，<strong>粗体</strong>、<em>强调</em>、<del>删除线</del>，行内代码 <code>x &lt; y</code>。</p>
+<blockquote>
+<p>引用第一行</p>
+<ul>
+<li>引用中的列表</li>
+</ul>
+</blockquote>
+<ul>
+<li>一级无序
+<ul>
+<li>二级无序
+<ol>
+<li>三级有序</li>
+</ol>
+</li>
+</ul>
+</li>
+</ul>
+<ol>
+<li>有序第一项</li>
+<li>有序第二项</li>
+</ol>
+<hr />
+<p><a href="https://example.com/path?q=1" rel="noopener noreferrer">外部链接</a> · <a href="#%E9%87%8D%E5%A4%8D%E6%A0%87%E9%A2%98-1" rel="noopener noreferrer">跳到重复标题</a></p>
+<div class="qn-table-scroll" role="region" aria-label="表格，可横向查看"><table>
+<thead>
+<tr>
+<th align="left">左列</th>
+<th align="right">右列</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left">中文</td>
+<td align="right">非常非常非常非常非常非常非常非常非常非常宽的单元格</td>
+</tr>
+</tbody>
+</table></div>
+<div class="qn-code-block"><a href="quicknote-copy:code-0" class="qn-copy" role="button">复制代码</a><div class="qn-code-scroll" role="region" aria-label="代码，可横向查看"><pre><code>static int example(void)
+{
+    // 保留四个空格和换行
+        return 42;
+}
+</code></pre></div></div>
+<div class="qn-code-block"><a href="quicknote-copy:code-1" class="qn-copy" role="button">复制代码</a><div class="qn-code-scroll" role="region" aria-label="代码，可横向查看"><pre><code>indented code
+    more indentation
+</code></pre></div></div>
+<p><img src="https://appassets.androidplatform.net/quicknotes/preview/assets/assets%2F%E7%A4%BA%E4%BE%8B%E5%9B%BE.png" alt="包内图" /></p>
+<p><span class="qn-missing-image" role="note">图片未载入：缺失图（assets/missing.png）。本地图片请连同 Markdown 打包 ZIP 导入；网络或 SVG 图片第一版不自动载入。</span></p>
+<h2 id="重复标题">重复标题</h2>
+<p>第一段。</p>
+<h2 id="重复标题-1">重复标题</h2>
+<p>第二段。</p>
+</body></html>

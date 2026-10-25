@@ -1,5 +1,80 @@
 # Android 业务接口契约
 
+## 2026-10-25 故障勘误：速记正文请求不能按未知图片请求拒绝
+
+用户导入示例后出现 `data:text/html;charset=utf-8;base64,` / `ERR_HTTP_RESPONSE_CODE_FAILURE`。当前 ReaderClient 只服务 assets 路径，其他请求统一 404；这个规则没有区分正文主请求，属于阅读容器层面的集成缺陷，不需要更改 Markdown、导入存储或任何数据库。
+
+建议最小修复：将当前文档可信 HTML 放在内存，`loadUrl` 打开固定虚拟地址 `https://appassets.androidplatform.net/quicknotes/{id}/document.html`；该精确主框架请求返回 `text/html; utf-8` / 200，其余图片仍走既有 readAsset。未知地址、其他文档、跨域、data/file/content、非主框架索取正文继续拒绝。不要简单放行所有 https 或所有主请求。
+
+公开后端接口、数据 / 备份格式与资源 URL 不变。本轮补丁已在用户明确授权后接入，只调整阅读容器的加载 / 路由，不改 Compose 布局；验证及独立试装包状态见 BACKEND_HANDOFF 最新节。
+
+---
+
+## 2026-10-25（第三轮）· 独立速记模块
+
+### 独立性与导航接口
+
+`vm.quickNotes: QuickNotesStateHolder` 为新模块门面。`vm.openQuickNotes(): Unit` 仅设置 `quickNotes.state.visible=true`；`vm.quickNotes.leave(onLeft: () -> Unit = {}): Unit` 异步等待位置写入后隐藏模块并在主线程回调。两者不改变 `vm.page/queue/index/mode/practiceSession/examAnswers/examDeadline`，不清空题目草稿。模块与 Room / QuizRepository / SRS 无关系，使用独立内部文件存储。
+
+本轮不增加 `Page` 枚举项，避免单方面破坏 Compose 的穷尽 when；Claude 用独立 visible 状态选择内容和导航高亮。底部“复习”换成“速记”，原 `Page.REVIEW`、首页复习入口与到期提醒不变。换其他底部项先 `quickNotes.leave { vm.navigate(target) }`，不要直接隐藏未保存位置。
+
+### 状态与返回模型
+
+`vm.quickNotes.state: QuickNotesState` 为只读 Compose 可观察快照：
+
+| 字段 | 类型 | 含义 |
+| --- | --- | --- |
+| visible | Boolean | 是否显示速记模块，初始 false，非持久化导航状态 |
+| loading | Boolean | 初次 / 重试读取文档索引中，初始 true |
+| working | Boolean | 文档打开、导入、删除、备份 / 恢复、离页等异步操作中 |
+| documents | List<QuickNoteSummary> | 成功读取的文档列表，按导入时间降序；空集合可以是成功空库，不应在 loading 时宣称空库 |
+| reader | QuickNoteDocument? | 当前打开的文档；null 表示列表，载入失败保留旧成功内容 |
+| conflict | List<QuickNoteSummary> | 重复内容或同源文件名的已有文档，非空时让用户选择取消 / 保留两份 |
+| error | String | 可展示错误；新操作开始清空，失败保留已有数据，不自动重置索引 |
+
+`QuickNoteSummary`：`id/title/sourceName/contentHash: String`，分别为 UUID、首个 H1 / 文件名推导标题（重名加序号）、原 .md 文件名、正文与图片组成的内容指纹；`importedAt: Long` 为毫秒时间戳；`position: QuickNotePosition` 为该文档位置。
+
+`QuickNotePosition(anchor: String="", offset: Double=0.0, fraction: Double=0.0)`：标题 ID、标题内 CSS 像素偏移、滚动比例。非空 anchor 必须是此文档目录中的 ID；offset 有限且在 0..10000000，fraction 有限且在 0..1。精确采集与恢复流程见 `QUICK_NOTES_RENDERING.md`，不能直接把设备像素当 CSS 像素。
+
+`QuickNoteDocument(summary: QuickNoteSummary, rendered: QuickNoteRendered)`；`rendered` 提供 `htmlBody: String`、`headings: List<QuickNoteHeading(id:String,level:Int,title:String)>`、`codeBlocks: Map<String,String>` 和 `warnings: List<String>`。HTML 是 CommonMark + 表格 / 删除线的语义正文，不是整张阅读页面；颜色 / 字号 / 横向滚动容器由 Claude 接入。警告包含缺图、无效锚点、网络 / SVG 图片、已识别的数学公式和嵌入内容占位限制，不得静默隐藏；不保证自动识别所有第三方扩展。
+
+### 前端命令
+
+以下非 suspend 命令在主线程调用，返回 Unit；由 ViewModel 的生命周期协程执行 IO。working / loading 时新普通命令不入队，并设置“速记正在处理，请稍后重试”；UI 应禁用相应操作。成功后更新模块 state，不使用刷题 `busy/notice`；异常显示在 `state.error`。取消继续传播，不伪装成成功。错误不删除旧文档或读取失败的索引。
+
+| 接口 | 输入与行为 |
+| --- | --- |
+| `quickNotes.reload()` | 无参数；重新加载列表，loading / working → 成功列表或 error；可用于错误重试，working 时不重复加载 |
+| `quickNotes.importUri(uri: Uri)` | 系统 SAF 选到的 .md / Markdown 配套 .zip；按 DISPLAY_NAME 判断扩展，在 IO 有界读取并立刻复制正文与资源到内部；流会关闭，无长期 URI 权限依赖；选择器取消不调用 |
+| `quickNotes.importPackage(pack: QuickNotePackage)` | 非 UI 适配 / 测试入口；pack 含 sourceName/markdownPath:String、markdown:ByteArray、images:Map<String,ByteArray>，输入不可并发修改；同样执行大小、编码与图片校验 |
+| `quickNotes.confirmKeepBoth()` | 用户明确选择保留两份后调用，使用已复制到内存的待定导入包，生成新 UUID / 可区分标题，不覆盖旧文档或位置；无待定冲突时报错 |
+| `quickNotes.cancelImport()` | 非 working 时清除冲突与待定包，不改库 |
+| `quickNotes.openDocument(id: String)` | 等此前位置写入完成，验证正文并渲染，成功更新 reader；文档不存在 / 文件损坏时 error，保留旧成功内容 |
+| `quickNotes.closeDocument()` | 等此前位置写入后 reader=null，返回文档列表；失败保留阅读页并提示 |
+| `quickNotes.deleteDocument(id: String)` | 删除此文档、资源和阅读位置；缺文档时失败。先提交索引再清理资源，失败 / 崩溃残留的未引用文件夹在下次成功读取列表时清理，不影响其他模块 |
+| `quickNotes.savePosition(id: String, position: QuickNotePosition)` | 入独立有序队列，不占 working；working 时或文档已不在列表时忽略迟到回调。前端离页前先入队最后位置；非法值 / IO 失败记录 positionSaveError，不伪称保存成功 |
+| `quickNotes.retryPositionWrites()` | 重试位置保存失败项 |
+| `quickNotes.exportBackupUri(uri: Uri)` | 系统 CreateDocument 目的 URI；先 flush 位置，写独立速记 ZIP，流关闭才算完成；写目标失败不改本地文档，部分外部文件应让用户重试导出 |
+| `quickNotes.restoreBackupUri(uri: Uri, replace: Boolean=false)` | 独立备份 ZIP；默认合并、内容相同跳过，保留现有较新的阅读位置；不同内容复制为新文档，保留备份位置。只有用户明确确认后才传 replace=true 替换速记库；不触碰刷题库 |
+
+`quickNotes.pendingPositionWrites: Int`、`quickNotes.positionSaveError: String` 独立反映写入队列。`suspend quickNotes.flushPositions(): Unit` 等待此前队列完成；失败抛异常，调用者显示错误 / 重试，不能忽略。`leave/closeDocument/删除/备份` 已内部等待，不要在主线程 runBlocking。队列未完成就杀进程可能丢失最后一小段滚动，已成功原子落盘的位置可重启恢复。
+
+`quickNotes.copyCode(blockId: String): Boolean` 同步复制当前 reader 的 codeBlocks 原文到系统剪贴板（保留缩进与换行），找到返回 true，未知 ID / 无 reader 返回 false，不执行代码，不改变文档或刷题状态。HTML 的 `quicknote-copy:code-N` 需前端拦截调用它。
+
+`suspend quickNotes.readAsset(id: String, encodedPath: String): QuickNoteAsset?` 在 IO 从该文档资源索引取 PNG/JPEG/GIF/WebP。返回 `bytes: ByteArray` 与 `mimeType: String`；未知文档 / 图片返回 null，非法路径、超限或校验失败抛异常。编码路径来自 HTML 的单段 URL 编码逻辑路径；资源回调用 `request.url.encodedPath.substringAfter("/assets/")`，不要预先解码后再传入。前端后台资源拦截回调把 null / 错误转成明确的缺图响应，不允许资源请求回退到网络或通用文件访问。
+
+### Repository 与持久化
+
+`QuickNotesRepository(File(context.filesDir,"quicknotes-v1"))` 的所有读写均为 suspend 并内部切 IO，通过自身 Mutex 串行操作。一个应用使用同一实例。核心入口：`listDocuments():List<QuickNoteSummary>`、`importDocument(pack,keepBoth=false):QuickNoteImportResult`（Imported / Conflict）、`openDocument(id):QuickNoteDocument`、`savePosition(id,position):Unit`、`deleteDocument(id):Unit`、`readAsset(id,encodedPath):QuickNoteAsset?`、`exportBackup():ByteArray`、`restoreBackup(bytes,replace=false):Int`（新恢复文档数）。静态 `parsePackage(name,bytes):QuickNotePackage` 支持 .md / 配套 ZIP，不读题库，不执行文档内容。直接 Repository 调用不产生 UI 状态，异常向上传递。
+
+存储由独立 `index.json`（quickNotesVersion=1）、UUID 文档文件夹和按哈希映射的图片组成；AtomicFile 提交索引，导入 / 恢复先准备完整文件，再一次性更新索引，失败回滚新文件；损坏索引不会被当空库覆盖。有效备份加明确 replace=true 可恢复损坏索引。正文及资源读取有哈希核对。
+
+正文 ≤4 MiB，有效 UTF-8（可带 BOM）；正文与图片 ≤32 MiB，最多 512 个 ZIP 条目；库最多 200 份文档；独立备份 ≤64 MiB / 512 条目。相对图片通过保留目录的 ZIP 导入，包内路径可规范化但不允许越出包；文件头与扩展名匹配。SVG / 网络图不自动载入，缺失时返回正文占位和警告。
+
+题库数据库仍为 **4**，刷题备份仍为 **3**，没有结构迁移或字段复用。刷题备份不包含速记，旧版备份恢复不删除速记；速记使用上面的**独立备份**保存正文、图片、标题和位置，不把版本数字当作 Room 迁移。更完整的渲染范围、限制和前端容器要求见 `QUICK_NOTES_RENDERING.md`。
+
+---
+
 ## 2026-10-25（第二轮）· 参考解法增量保存与旧题目标签兼容口径
 
 ### `vm.saveVerifiedSolution(id: String, code: String, verified: Boolean): Unit`

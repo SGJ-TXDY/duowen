@@ -78,5 +78,9 @@ object AppIcons {
     val Book = stroke("book", "M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2z", "M9 8h7")
     val Exam = stroke("exam", roundRect(5f, 4f, 14f, 17f, 2f), "M9 3h6v3H9z", "M8.5 13l2.5 2.5 4.5-4.5")
     val Folder = stroke("folder", "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z")
+    val QuickNotes =
+        stroke("quick-notes", "M6 3h9l4 4v14H6z", "M14 3v5h5", "M9 12h7", "M9 16h5")
+    val Trash = stroke("trash", "M4 7h16", "M10 11v6", "M14 11v6", "M6 7l1 13h10l1-13", "M9 7V4h6v3")
+    val Import = stroke("import", "M12 4v11", "M7 10l5 5 5-5", "M5 20h14")
     val Flame = stroke("flame", "M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-4 2.5-5 .3 1.6 1 2.6 2 3 0-3 .5-5.5.5-8z")
 }

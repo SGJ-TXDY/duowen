@@ -1,0 +1,35 @@
+--- a/app/src/main/java/cn/embeddedquiz/QuickNoteReader.kt
++++ b/app/src/main/java/cn/embeddedquiz/QuickNoteReader.kt
+@@ -229,6 +229,9 @@
+ private class ReaderWeb(val documentId: String, private val anchors: Set<String>, start: QuickNotePosition) {
+     var view: WebView? = null
+     private var loaded: String? = null
++    val documentUrl = "https://$ASSET_HOST/quicknotes/$documentId/document.html"
++    @Volatile var pageContent: ByteArray? = null
++        private set
+     /** Scroll events only count as reading once the saved position has been applied. */
+     var restored = false
+     /** Last touch, key or table-of-contents jump: scrolls without one are layout changes, not reading. */
+@@ -241,7 +244,8 @@
+         loaded = html
+         restored = false
+         view.setBackgroundColor(background)
+-        view.loadDataWithBaseURL("https://$ASSET_HOST/quicknotes/$documentId/", html, "text/html", "utf-8", null)
++        pageContent = html.toByteArray(Charsets.UTF_8)
++        view.loadUrl(documentUrl)
+     }
+ 
+     fun restore() {
+@@ -373,6 +377,12 @@
+ 
+     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
+         val url = request.url
++        // Serve the trusted top-level document ourselves; never return 404 for its bootstrap.
++        if (request.isForMainFrame && url.toString().substringBefore('#') == web.documentUrl) {
++            web.pageContent?.let { body ->
++                return WebResourceResponse("text/html", "utf-8", 200, "OK", emptyMap(), ByteArrayInputStream(body))
++            }
++        }
+         val prefix = "/quicknotes/${web.documentId}/assets/"
+         val path = url.encodedPath.orEmpty()
+         if (url.scheme == "https" && url.host == ASSET_HOST && path.startsWith(prefix)) {

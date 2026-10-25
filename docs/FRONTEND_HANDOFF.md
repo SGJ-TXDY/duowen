@@ -1,6 +1,85 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-10-25（第五轮）· Opus 阅读加载缺陷与 Codex 修复同步
+
+本节由 Codex 按用户要求回填，记录已获用户授权并获认可的最小修复；原前端设计与样式不变。完整补丁、复盘和最终 APK 信息见 BACKEND_HANDOFF 第五轮。
+
+- **原问题位置**：QuickNoteReader.kt 的 ReaderWeb.load 与 ReaderClient.shouldInterceptRequest。原实现 loadDataWithBaseURL 的正文引导请求也经过“仅图片放行、其他全 404”的拦截器；正文没有主请求例外，导致用户打开已导入的 Markdown 后出现 data: / ERR_HTTP_RESPONSE_CODE_FAILURE。
+- **原测试遗漏**：阅读容器出现、目录弹层和 HTML / CSS 文本断言不代表 WebView 正文成功加载。Robolectric 不真正加载 Chromium 页面；必须补充请求响应测试和真实 WebView 验收。
+- **已改动**：固定本地 document.html URL + 内存 UTF-8 HTML，仅精确当前文档主请求返回显式 200；图片、拒绝策略、CSP、nonce、Compose / CSS / 主题 / 字号和存储均保持。旧第四轮“其余一律 404”的描述只适用于未知请求，不能再用于正文。
+- **责任说明**：Opus 的容器实现没有区分正文与图片；Codex 先前接口交接也没有把正文例外写清，已经共同补齐契约。不是要求用户修改 / 重导入示例文档。
+- **验证**：新增路由测试 API 28 / 33 共 12 项，原 QuickNotesUiTest 5 项，全过；assembleDebug / lintDebug 通过。用户已认可此次修复，不将此反馈扩展为所有设备、主题和辅助功能的全面验收。
+- **后续不得回退**：保留正文 / 资源分类，禁止改成无条件 404 或无条件网络放行；新增 loading 方式时验证主请求 200、图像 / 缺图、跨文档拒绝和中文。真实 WebView 继续验收目录、脚本、复制、横向滚动和位置恢复。
+
+未处理的操作结果、working 时 leave、TalkBack 和通知测试时序问题仍是第四轮列出的后续事项。
+
+署名：Codex（OpenAI）；原速记 Compose 前端贡献：Claude Opus。
+
+---
+
 前端（Claude）负责 Jetpack Compose 界面；后端（GPT/Codex）负责数据库、复习算法、后台任务、网络和 ViewModel 业务逻辑。本文件记录每次前端改动和需要后端处理的事项，最新一次放在最上面。
+
+---
+
+## 2026-10-25（第四轮）· 速记模块前端（Claude）
+
+依据 `BACKEND_HANDOFF.md`（2026-10-25 第三轮）“Claude 接入清单” 8 项、`API_CONTRACT.md` 速记一节和 `QUICK_NOTES_RENDERING.md` 实现。只写 Compose 页面、阅读容器和 UI 测试；Codex 的 `QuickNote*.kt`、`QuickNotes*.kt`、`QuizViewModel.kt`、`build.gradle.kts`、`app/libs` 和后端测试都没有动，工作区里 Codex 未提交的改动原样保留。
+
+### 本次修改的文件
+
+| 文件 | 改动 |
+| --- | --- |
+| `AppNavigation.kt` | 底部五项改为 **首页、模拟考试、速记、错题、更多**。速记槽调用 `vm.openQuickNotes()`，以 `quickNotes.state.visible` 高亮；在速记里点其他项时，先取阅读页的最后位置，再 `quickNotes.leave { vm.navigate(target) }`。内容区在 visible 时换成速记页，**日期刷新、通知和考试计时的 effects 仍在 QuizLayout 中挂着**，考试倒计时不受影响。`vm.page` 被外部改变（例如点了复习提醒通知）时自动 `leave()`，跟随到新页面。“更多”列表加入“智能复习”（`Page.REVIEW`），因为它不再在底部栏；复习角标随底部“复习”项一起去掉，首页主按钮仍显示到期数。 |
+| `QuickNotesScreen.kt`（新增） | 文档列表：标题、来源文件名、导入日期、“读到 N%” / “尚未阅读”，点卡片打开，垃圾桶图标删除。主按钮“导入 Markdown 或配套 ZIP”（SAF `OpenDocument`，取消不调用后端）。右上角菜单“导出速记备份”（`CreateDocument`）、“恢复速记备份”。读取中显示“正在读取速记…”，处理中显示进度条，错误显示 `state.error` 和“重新读取列表”，位置保存失败显示“重试保存阅读位置”。读取中或读取失败时不显示空库提示。底部说明刷题备份不含速记。 |
+| `QuickNoteReader.kt`（新增） | 阅读页：顶部返回 / 标题 / 目录按钮；`warnings` 折叠为“N 条显示提示”；WebView 显示 `htmlBody`。详见下方“阅读容器”。 |
+| `AppIcons.kt` | 新增 `QuickNotes`、`Trash`、`Import` 图标。 |
+| `QuickNotesUiTest.kt`（新增） | 5 项，见“测试结果”。 |
+
+### 交互与对话框
+
+- **重复导入**：`state.conflict` 非空时弹出“已有相同的文档”，列出冲突文档，按钮“取消导入”（`cancelImport`）/“保留两份”（`confirmKeepBoth`），点外面等于取消。不提供覆盖。
+- **删除**：确认框写明“将删除这份文档的正文、图片和阅读位置，无法撤销。刷题数据不受影响。”
+- **恢复备份**：先选文件，再选方式。对话框说明这是速记备份 ZIP，不是要阅读的配套 ZIP；“合并恢复”（推荐，`replace=false`）；“替换…”再弹二次确认，写明会替换全部 N 份文档及阅读位置、不影响刷题，确认后才传 `replace=true`。
+- **成功提示**：后端命令只报告失败，前端在 `working` 结束、`error` 和 `conflict` 都为空时弹 Toast（导入完成 / 已删除 / 已导出 / 已恢复）。
+- **返回键**：阅读页 → 存位置后回列表；列表 → 离开速记回首页。
+
+### 阅读容器（按 `QUICK_NOTES_RENDERING.md`）
+
+- 外壳 HTML：UTF-8、移动 viewport；颜色取当前 Material 主题（浅色 / 深色），`color-scheme` 同步，WebView 背景同色，不会白闪。字号用 `textZoom = fontScale × 100`，跟随系统和应用内字号设置；字号变化后按锚点重新定位，不把这次跳动存成新位置。
+- `.qn-table-scroll`、`.qn-code-scroll` 各自 `overflow-x:auto; max-width:100%`；`pre` 为 `white-space:pre`，不截断、不去缩进；单元格最小宽度 5.5em，宽表格横向滑动。
+- **安全**：CSP `default-src 'none'`，只允许带随机 nonce 的应用脚本、内联样式和 `https://appassets.androidplatform.net` 的图片；`allowFileAccess / allowContentAccess / domStorage / 多窗口` 全关，没有 `addJavascriptInterface`。`shouldInterceptRequest` 只把 `/quicknotes/{id}/assets/` 交给 `readAsset`（后台线程里等待），其余一律 404，不走网络或 file://。`quicknote-copy:` → `copyCode` + Toast；页内 `#锚点` 留在本页；http / https / mailto 交给系统应用；其他 scheme 拦截并提示。渲染进程崩溃时关闭阅读页并提示，不让整个应用崩溃。
+- 图片 `onerror` / 已损坏的图片替换成“图片无法显示：…”提示块，不留破图标。
+- **目录**：底部弹出，按级别缩进，点击滚到对应 `id`。
+- **阅读位置**：页面脚本算出 `anchor + offset(CSS px) + fraction`，Kotlin 端校验（未知锚点回退到空锚点和比例，数值夹到契约范围）。滚动后最多每秒 2 次入队，停止滚动后补一次；离开阅读页、切换底部项、应用进入后台（ON_PAUSE）都先取最后位置。只有在恢复完成后、且最近有触摸 / 按键 / 目录跳转时的滚动才保存，避免把布局变化存成新位置。恢复在 `onPageFinished` 后执行，若图片仍在加载则等 `load` 事件；锚点优先，找不到时按比例。
+
+### 已对接的后端接口
+
+`vm.openQuickNotes`、`quickNotes.state`（visible / loading / working / documents / reader / conflict / error）、`leave`、`reload`、`importUri`、`confirmKeepBoth`、`cancelImport`、`openDocument`、`closeDocument`、`deleteDocument`、`savePosition`、`positionSaveError`、`retryPositionWrites`、`copyCode`、`readAsset`、`exportBackupUri`、`restoreBackupUri`。
+
+### 需要 GPT/Codex 新增或调整的接口（都不阻塞当前功能）
+
+1. **操作结果。** 命令只在失败时写 `error`，前端靠“working 结束且无错误”推断成功。若能提供明确的完成结果（例如最近一次操作类型 + 成功 / 失败），或把 `restoreBackup` 已返回的“新恢复文档数”放进状态，提示可以更准确（如“恢复了 3 份”）。
+2. **`leave()` 在 working 时被拒绝。** 如果正在导入 / 打开文档时用户点了别的底部项，或者通知把页面切走，`leave()` 只设置“速记正在处理”，速记仍然盖在页面上。建议 `leave()` 排在当前操作之后执行，而不是直接拒绝。
+3. **`ReviewReminderTest.notificationReviewEntryWinsAfterUnfinishedExamIsRestored` 时序不稳定**（本轮单独跑两次都通过，和其他类一起跑时偶尔失败，上午已记录）。属于通知入口测试，建议给断言加等待。
+
+### 尚未完成 / 已知限制
+
+- **真实 WebView 没有在真机上验证。** Robolectric 不渲染 WebView、不执行脚本，所以表格 / 代码横向滑动、深色配色、图片加载、复制代码、目录跳转、位置恢复都只经过编译和代码审查，需要真机按 Codex 的验收清单检查（实际 Linux 文档 5 张表格、C 代码复制、中文目录、缺图提示、配套 ZIP、重启后位置、浅深色、大字号）。
+- 只用读屏手势（TalkBack）滚动时，阅读位置不会保存（没有触摸事件），离开时取的最后位置也不更新。
+- 进程被立即杀死时，最后一小段滚动可能丢失（后端已说明）。
+- 底部栏的复习到期角标没有了，是否要在“更多 → 智能复习”或首页别处补一个角标，需要你决定。
+
+### 测试结果
+
+- `assembleDebug`、`lintDebug` 通过；lint 0 错误，5 个警告与之前相同，新文件没有警告。
+- 受影响测试类：`QuickNotesUiTest` 5、`NotesAndScoringUiTest` 8、`PracticeEntriesUiTest` 4、Codex 的 `QuickNotesIsolationTest` 4 **全部通过**；`ReviewReminderTest` 4 项中 `notificationReviewEntryWinsAfterUnfinishedExamIsRestored` 在一起跑时失败一次，单独在含 / 不含本轮前端改动的两份源码里各跑两次都通过，判断为已知的时序问题，和速记无关。
+  - `QuickNotesUiTest` 覆盖：底部没有“复习”；未交卷考试时进入速记再离开，`examDeadline`、队列和答案都不变，`page` 没变；“更多”能进智能复习；导入实际 Linux 文档后打开，阅读容器和“N 条显示提示”出现，目录能打开并点击跳转后关闭，返回键先回列表、再回首页；重复导入弹窗，取消后仍 1 份、保留两份后 2 份；删除确认文字；HTML 外壳的 CSP / nonce / 横向滚动 CSS，以及位置解析的校验和夹值。
+- **测试环境问题**：第一次在共享构建目录里把 assemble、lint 和 5 个测试类一起跑，所有 Compose UI 测试（包括之前稳定的旧测试）都报 `AppNotIdleException`，每项等 60 秒。逐步排查：去掉本轮前端改动后单测通过；加回改动后单测也通过；在干净的源码副本里只跑测试（不同时跑 lint），全部通过。结论是共享构建目录 / 与 lint 并行时的环境问题，不是代码 Bug。最终结果都来自干净副本，构建源码与工作区一致。
+- 试装包：`复习软件\EmbeddedQuiz-1.5.0-quicknotes-20261025-debug.apk`（新文件，没覆盖已有 APK），包含 Codex 的速记后端和本轮前端。版本 1.5.0 / 6，签名证书 SHA-256 `2c73c905…b151`，与之前一致，可覆盖安装；文件 SHA-256 `8290de6f…0b9d`。
+
+### 本次未做
+
+没有提交或推送 GitHub，没有修改版本号、签名、构建配置或依赖，没有覆盖已有 APK。
 
 ---
 

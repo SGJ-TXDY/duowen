@@ -1,0 +1,73 @@
+{
+  "scope": "Reference HTML harness only; Android Compose/WebView integration is pending.",
+  "results": [
+    {
+      "case": "linux-light",
+      "title": "嵌入式 Linux 面试复习：启动流程、根文件系统与驱动",
+      "headings": [
+        "嵌入式-linux-面试复习启动流程根文件系统与驱动",
+        "q1sysdevproc-是什么是文件吗存在哪里",
+        "q2介绍嵌入式-linux-根文件系统的目录结构",
+        "q3arm-linux-开发板的启动流程",
+        "q4platform-驱动从设备树到-dev-节点的完整过程",
+        "q5什么是字符设备为什么要注册它说说字符设备驱动的完整流程",
+        "速记四题串成一条线"
+      ],
+      "tables": 5,
+      "bodyFits": true,
+      "wideAreas": 6,
+      "allCanScroll": true,
+      "code": "static ssize_t led_write(struct file *filp, const char __user *buf,\n                         size_t cnt, loff_t *off)\n{\n    if (copy_from_user(kbuf, buf, cnt))   /* 用户空间 → 内核空间 */\n        return -EFAULT;\n    /* 根据 kbuf 操作硬件 */\n    return cnt;\n}\nstatic const struct file_operations led_fops = {\n    .owner = THIS_MODULE, .open = led_open,\n    .write = led_write,   .release = led_release,\n};\n",
+      "images": 0,
+      "imageLoaded": true,
+      "restore": {
+        "anchorVisible": true,
+        "fraction": 0.29753632343651293
+      }
+    },
+    {
+      "case": "linux-dark-large",
+      "title": "嵌入式 Linux 面试复习：启动流程、根文件系统与驱动",
+      "headings": [
+        "嵌入式-linux-面试复习启动流程根文件系统与驱动",
+        "q1sysdevproc-是什么是文件吗存在哪里",
+        "q2介绍嵌入式-linux-根文件系统的目录结构",
+        "q3arm-linux-开发板的启动流程",
+        "q4platform-驱动从设备树到-dev-节点的完整过程",
+        "q5什么是字符设备为什么要注册它说说字符设备驱动的完整流程",
+        "速记四题串成一条线"
+      ],
+      "tables": 5,
+      "bodyFits": true,
+      "wideAreas": 6,
+      "allCanScroll": true,
+      "code": "static ssize_t led_write(struct file *filp, const char __user *buf,\n                         size_t cnt, loff_t *off)\n{\n    if (copy_from_user(kbuf, buf, cnt))   /* 用户空间 → 内核空间 */\n        return -EFAULT;\n    /* 根据 kbuf 操作硬件 */\n    return cnt;\n}\nstatic const struct file_operations led_fops = {\n    .owner = THIS_MODULE, .open = led_open,\n    .write = led_write,   .release = led_release,\n};\n",
+      "images": 0,
+      "imageLoaded": true,
+      "restore": {
+        "anchorVisible": true,
+        "fraction": 0.26873695198329856
+      }
+    },
+    {
+      "case": "syntax-light",
+      "title": "语法验收",
+      "headings": [
+        "语法验收",
+        "重复标题",
+        "重复标题-1"
+      ],
+      "tables": 1,
+      "bodyFits": true,
+      "wideAreas": 1,
+      "allCanScroll": true,
+      "code": "static int example(void)\n{\n    // 保留四个空格和换行\n        return 42;\n}\n",
+      "images": 1,
+      "imageLoaded": true,
+      "restore": {
+        "anchorVisible": true,
+        "fraction": 1
+      }
+    }
+  ]
+}

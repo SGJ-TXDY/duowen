@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-25",
+  "scope": "WebView main-document load failure",
+  "results": [
+    {
+      "class": "cn.embeddedquiz.QuickNotesUiTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.embeddedquiz.QuickNoteWebTransportTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "passed": 17,
+  "failed": 0,
+  "skipped": 0,
+  "androidApiLevels": [
+    28,
+    33
+  ],
+  "realDeviceTested": false,
+  "patchAppliedToWorkspace": true,
+  "approvalRequiredByUserDivision": false,
+  "frontendSourceUnchanged": false,
+  "existingApksUnchanged": true,
+  "patchSha256": "f215c01ca75faf871890bc74d433978057e5586e0dde192ea6062388a2c4cee2",
+  "userAuthorizedMinimalReaderFix": true,
+  "frontendLayoutAndStylesUnchanged": true,
+  "changedExistingSourceFiles": [
+    "app/src/main/java/cn/embeddedquiz/QuickNoteReader.kt"
+  ],
+  "validatedBuildInputsMatchWorkspace": true,
+  "userAuthorization": "授权本次最小修复，并生成新的试装包",
+  "assembleDebug": "passed",
+  "lintDebug": "passed",
+  "lintWarnings": 5,
+  "apk": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz-1.5.0-quicknotes-webfix-20261025-debug.apk",
+  "apkSha256": "7ff99df7ba02ea1f4ed62b9bc966fdcd917b65b61025cd4809549d92b65b0205",
+  "certificateSha256": "2c73c905e6d127dd92fbfaf5351058572cb8e78e98beb477eb1a0f37ee43b151",
+  "userAcceptedFix": true,
+  "userFeedback": "修的好",
+  "userAuthorizedRepositoryCommitAndPush": true,
+  "finalApk": "F:\\学习\\嵌入式学习\\知识总结\\复习软件\\EmbeddedQuiz-1.5.0-quicknotes-final-20261025-debug.apk",
+  "finalApkSha256": "7ff99df7ba02ea1f4ed62b9bc966fdcd917b65b61025cd4809549d92b65b0205",
+  "finalArtifactReusesVerifiedBinary": true,
+  "fullPhysicalDeviceMatrixVerified": false,
+  "gitHeadUnchangedDuringFixValidation": true,
+  "gitIndexUnchangedDuringFixValidation": true,
+  "gitCommitOrPushDuringFixValidation": false,
+  "finalRepositoryPublication": {
+    "authorizedByUser": true,
+    "branch": "main",
+    "scope": "standalone quick notes frontend/backend and WebView loading fix",
+    "commitIdReportedInFinalResponse": true
+  }
+}

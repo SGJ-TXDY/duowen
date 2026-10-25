@@ -25,3 +25,8 @@ WorkManager 使用普通延迟后台任务，不申请精确闹钟权限。按�
 - [Lifecycle 发布说明](https://developer.android.com/jetpack/androidx/releases/lifecycle)
 - [Compose BOM 对照](https://developer.android.com/develop/ui/compose/bom/bom-mapping)
 - [WorkManager 发布说明](https://developer.android.com/jetpack/androidx/releases/work)
+
+
+## 2026-10-25 速记离线 Markdown 引擎
+
+新增 app/libs 下 commonmark、commonmark-ext-gfm-tables、commonmark-ext-gfm-strikethrough，固定为上游 0.24.0，通过 implementation(files(...)) 使用。许可证见 commonmark-LICENSE.txt，官方 Maven 下载地址与 SHA-256 见 commonmark-provenance.json。无需新增运行时网络访问；不修改 Room / 备份版本。更新这些 JAR 时必须同步检查核心和扩展版本一致并重跑 QuickNoteMarkdownTest。

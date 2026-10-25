@@ -26,6 +26,8 @@ android {
 }
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 dependencies {
+    // Pinned upstream CommonMark JARs; provenance and BSD license are in app/libs.
+    implementation(files("libs/commonmark-0.24.0.jar", "libs/commonmark-ext-gfm-tables-0.24.0.jar", "libs/commonmark-ext-gfm-strikethrough-0.24.0.jar"))
     implementation(platform("androidx.compose:compose-bom:2025.01.01"))
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.compose.material3:material3")

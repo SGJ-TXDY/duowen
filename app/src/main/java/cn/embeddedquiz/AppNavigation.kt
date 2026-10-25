@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
@@ -55,23 +56,36 @@ private fun QuizLayout(vm: QuizViewModel) {
             }
         }
     }
+    // 速记 has no Page of its own (page = null): it overlays the content and keeps the quiz session.
     val bottom =
         listOf(
-            Triple(Page.HOME, "首页", AppIcons.Home),
-            Triple(Page.EXAM, "模拟考试", AppIcons.Exam),
-            Triple(Page.REVIEW, "复习", AppIcons.Review),
-            Triple(Page.MISTAKES, "错题", AppIcons.Mistakes),
-            Triple(Page.MORE, "更多", AppIcons.More),
+            Tab(Page.HOME, "首页", AppIcons.Home),
+            Tab(Page.EXAM, "模拟考试", AppIcons.Exam),
+            Tab(null, "速记", AppIcons.QuickNotes),
+            Tab(Page.MISTAKES, "错题", AppIcons.Mistakes),
+            Tab(Page.MORE, "更多", AppIcons.More),
         )
+    val reader = remember { QuickNoteReaderHandle() }
+    // A notification or another flow may switch pages while 速记 is open; follow it there.
+    LaunchedEffect(vm.page) { if (vm.quickNotes.state.visible) vm.quickNotes.leave() }
     val current =
         when (vm.page) {
-            in bottom.map { it.first } -> vm.page
+            in bottom.map { it.page } -> vm.page
             // Category, programming and the practice picker are entered from the home screen.
             Page.BROWSE,
             Page.PROGRAMMING,
             Page.QUESTION -> Page.HOME
             else -> Page.MORE
         }
+    fun select(tab: Tab) {
+        val target = tab.page
+        when {
+            target == null -> vm.openQuickNotes()
+            // Store the last reading position before the module hides.
+            vm.quickNotes.state.visible -> reader.finish { vm.quickNotes.leave { vm.navigate(target) } }
+            else -> vm.navigate(target)
+        }
+    }
     // Answering is a focused flow with its own action bar, so the tab bar steps aside.
     // Each Scaffold slot reads this itself so it reacts to page changes on its own.
     fun answering() = vm.ready && vm.page == Page.QUESTION && vm.queue.isNotEmpty()
@@ -95,25 +109,15 @@ private fun QuizLayout(vm: QuizViewModel) {
             )
         },
         bottomBar = {
-            // Read inside this slot so summary updates only touch the tab bar; hidden while loading.
-            val dueCount =
-                vm.todaySummary?.takeIf { it.day == today.toEpochDay() }?.dueCount ?: 0
+            val notes = vm.quickNotes.state.visible
             if (!answering())
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-                    bottom.forEach { (page, label, icon) ->
+                    bottom.forEach { tab ->
+                        val label = tab.label
                         NavigationBarItem(
-                            selected = current == page,
-                            onClick = { vm.navigate(page) },
-                            icon = {
-                                BadgedBox(
-                                    badge = {
-                                        if (page == Page.REVIEW && dueCount > 0)
-                                            Badge { Text(if (dueCount > 99) "99+" else "$dueCount") }
-                                    }
-                                ) {
-                                    Icon(icon, contentDescription = null)
-                                }
-                            },
+                            selected = if (notes) tab.page == null else tab.page != null && current == tab.page,
+                            onClick = { select(tab) },
+                            icon = { Icon(tab.icon, contentDescription = null) },
                             label = { Text(label) },
                             colors =
                                 NavigationBarItemDefaults.colors(
@@ -165,6 +169,11 @@ private fun QuizLayout(vm: QuizViewModel) {
                         QuestionScreen(vm)
                     }
                 }
+            // Only the content swaps; the date, notification and exam timer effects above stay mounted.
+            else if (vm.quickNotes.state.visible)
+                Box(Modifier.weight(1f)) {
+                    pageState.SaveableStateProvider("quick-notes") { QuickNotesScreen(vm, reader) }
+                }
             else
                 Box(Modifier.weight(1f).padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
                     pageState.SaveableStateProvider(vm.page.name) {
@@ -212,7 +221,8 @@ private fun MoreScreen(vm: QuizViewModel) {
     ) {
         item { Heading("更多") }
         // Category, programming and exam now live on the home screen and the tab bar.
-        listOf(Page.NOTES, Page.WORKBENCH, Page.STATISTICS, Page.COSTS, Page.SETTINGS)
+        // The review page left the tab bar for 速记; it stays reachable here and from notifications.
+        listOf(Page.REVIEW, Page.NOTES, Page.WORKBENCH, Page.STATISTICS, Page.COSTS, Page.SETTINGS)
             .forEach { page ->
                 item {
                     OutlinedButton(
@@ -225,3 +235,5 @@ private fun MoreScreen(vm: QuizViewModel) {
             }
     }
 }
+
+private data class Tab(val page: Page?, val label: String, val icon: ImageVector)
