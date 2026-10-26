@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.NotificationEntryUiTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-26T14:59:51" hostname="LAPTOP-0JLS131B" time="1.069">
+  <properties/>
+  <testcase name="runningNotificationsSwitchToReviewAndRecreationDoesNotReplayThem" classname="cn.embeddedquiz.NotificationEntryUiTest" time="0.241"/>
+  <testcase name="restoredActivityIgnoresTheStaleLaunchNotification" classname="cn.embeddedquiz.NotificationEntryUiTest" time="0.195"/>
+  <testcase name="coldNotificationOpensReviewThenUnfinishedExamResumesFromHome" classname="cn.embeddedquiz.NotificationEntryUiTest" time="0.233"/>
+  <testcase name="ordinaryStartRestoresUnfinishedExamOnQuestionScreen" classname="cn.embeddedquiz.NotificationEntryUiTest" time="0.173"/>
+  <testcase name="notificationWithoutExamOpensReviewAndOrdinaryStartStaysHome" classname="cn.embeddedquiz.NotificationEntryUiTest" time="0.227"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

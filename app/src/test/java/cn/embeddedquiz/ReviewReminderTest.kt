@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Looper
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
@@ -18,6 +19,7 @@ import androidx.work.testing.WorkManagerTestInitHelper
 import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -28,6 +30,8 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class ReviewReminderTest {
+    // MainActivity's window composes under this rule's recomposer, which the rule shuts down.
+    @get:Rule val compose = createEmptyComposeRule()
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
     private fun initialize() {
@@ -144,6 +148,8 @@ class ReviewReminderTest {
         db.close()
         val intent =
             Intent(context, MainActivity::class.java).putExtra(ReviewReminders.OPEN_REVIEW, true)
+        resetDefaultViewModelFactory()
+        val recomposers = runningRecomposers()
         val controller =
             Robolectric.buildActivity(MainActivity::class.java, intent).create().start().resume()
         try {
@@ -154,7 +160,7 @@ class ReviewReminderTest {
             }
             assertTrue(vm.notice, vm.ready)
             controller.visible()
-            shadowOf(Looper.getMainLooper()).idle()
+            compose.waitForIdle()
             assertEquals(Page.REVIEW, vm.page)
             assertEquals(
                 "考试快照：${prefs.getString("exam",null)}；提示：${vm.notice}",
@@ -170,9 +176,12 @@ class ReviewReminderTest {
                     .isAppearanceLightStatusBars
             )
         } finally {
-            controller.pause().stop().destroy()
-            prefs.writeDurably { remove("exam") }
-            context.deleteDatabase("embeddedquiz.db")
+            try {
+                controller.destroyAndAwaitRecomposers(recomposers)
+            } finally {
+                prefs.writeDurably { remove("exam") }
+                context.deleteDatabase("embeddedquiz.db")
+            }
         }
     }
 }

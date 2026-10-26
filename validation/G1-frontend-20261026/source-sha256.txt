@@ -1,0 +1,4 @@
+﻿fd5a8d85884357b306159a75f0994060514ed9875074f2b40cf1947962ee3eb0  app/src/main/java/cn/embeddedquiz/MainActivity.kt
+dd9b79c46bcb1e2469e35b781bcd87a491c4be69fac88774ed82abae8fb0d774  app/src/test/java/cn/embeddedquiz/ActivityTestSupport.kt
+62d9fc082bae4cc34fcc7ed07d463f76c70a0acc6320b88829d257ba273eadfe  app/src/test/java/cn/embeddedquiz/ReviewReminderTest.kt
+ef2888d40327bf050ceec25c5abe05cf4254a3bf2e097afa21f053744807c21a  app/src/test/java/cn/embeddedquiz/NotificationEntryUiTest.kt

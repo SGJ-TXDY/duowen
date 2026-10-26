@@ -6,25 +6,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.runtime.*
 
 class MainActivity : ComponentActivity() {
     private val vm: QuizViewModel by viewModels()
-    private var reviewAfterLoad by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        openNotification(intent)
-        setContent {
-            LaunchedEffect(vm.ready, reviewAfterLoad) {
-                if (vm.ready && reviewAfterLoad) {
-                    vm.page = Page.REVIEW
-                    reviewAfterLoad = false
-                }
-            }
-            QuizApp(vm)
-        }
+        // A restored activity still carries its launch intent; the review it asked for was already handled.
+        if (savedInstanceState == null) openNotification(intent)
+        setContent { QuizApp(vm) }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -33,11 +24,11 @@ class MainActivity : ComponentActivity() {
         openNotification(intent)
     }
 
+    /** The ViewModel orders the review against exam restoration; the UI only forwards the tap once. */
     private fun openNotification(intent: Intent?) {
         if (intent?.getBooleanExtra(ReviewReminders.OPEN_REVIEW, false) == true) {
-            reviewAfterLoad = true
-            vm.page = Page.REVIEW
             intent.removeExtra(ReviewReminders.OPEN_REVIEW)
+            vm.requestNotificationReview()
         }
     }
 }

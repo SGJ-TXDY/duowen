@@ -1,5 +1,40 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-10-27 · G1 前端：通知入口接入、Activity 测试 Compose 收尾、通知与恢复交互测试（Claude）
+
+起始 HEAD `d21c381`（GPT G1 后端）。接口来自 `API_CONTRACT.md` 顶部 G1 段：`requestNotificationReview()`、`awaitInitialization(): InitializationOutcome`。REPAIR_DISPATCH 尚无 G1 正式派发节，本次按用户指示和 GPT 分析中划给 Claude 的范围（MainActivity 通知接入、Activity 测试收尾、通知 UI 测试）执行；QuizViewModel、API_CONTRACT、REPAIR_DISPATCH 未改。
+
+### 修改的文件与函数
+
+| 文件 | 改动 |
+| --- | --- |
+| `MainActivity.kt` | `openNotification`：先移除 `OPEN_REVIEW` extra，再调用 `vm.requestNotificationReview()`。删除 `reviewAfterLoad` 状态、直接写 `vm.page = REVIEW` 和 `LaunchedEffect(vm.ready, reviewAfterLoad)` 竞态。`onCreate` 只在 `savedInstanceState == null` 时处理启动 Intent（进程重建会带回原启动 Intent，不应再次打开复习）；`onNewIntent` 不变地转发。 |
+| `ActivityTestSupport.kt`（新增，仅测试） | `resetDefaultViewModelFactory()`：清掉 `AndroidViewModelFactory` 静态缓存的旧 Application；`runningRecomposers()` + `destroyAndAwaitRecomposers(before)`：销毁后只检查本 Activity 新增的 Recomposer 已退出。 |
+| `ReviewReminderTest.kt` | 类加 `createEmptyComposeRule()`（Activity 窗口使用规则的重组器，由规则关闭）；G1 用例构建 Activity 前重置工厂，`visible()` 后的单次 `Looper.idle()` 改为 `compose.waitForIdle()`（组合现在由规则时钟驱动），`finally` 改为 `destroyAndAwaitRecomposers` 后再清理偏好与数据库。业务断言（REVIEW、队列、模式、深色状态栏）不变。 |
+| `NotificationEntryUiTest.kt`（新增） | 5 项真实 Activity + UI 测试，见下。 |
+
+### 测试覆盖（NotificationEntryUiTest）
+
+- 冷启动带通知 + 未交卷考试：`Ready(examRestored=true)` 后为 REVIEW，extra 已消费；队列、index、答案、截止时间、偏好快照不变、无学习记录；从首页“继续未交卷考试”进入，回到第 2 题，计时显示，翻回第 1 题原选择仍在。
+- 普通启动：恢复考试直接进入答题页。
+- 运行中 `onNewIntent` 通知：立即 REVIEW；重复通知不改变考试；无 extra 的 Intent 与配置变更（recreate，ViewModel 同一实例）不会重新打开复习。
+- 进程重建（带 savedInstanceState）时原启动 Intent 不再触发复习，正常恢复考试。
+- 无考试：通知打开复习；普通启动留在首页。
+- 等待点一律使用 `awaitInitialization()`，不以 ready 或单次 Looper.idle 作为完成。
+
+### 测试结果（证据：`validation/G1-frontend-20261026/`）
+
+- 定向 7 个类 **50/50 通过**（`--rerun`，真实执行，独立副本自己的 build 目录）。
+- 固定顺序对照“G1 → 下一个 Compose UI 测试”：用 HEAD 的旧收尾时后者 `AppNotIdleException`（60s）失败，交付版本两项都通过。有序 Suite 只在隔离副本中，源码文本已归档。
+- 定位中发现两个测试环境根因（详见证据 README）：`AndroidViewModelFactory` 静态缓存首个测试的 Application，使后续 Activity 测试的 ViewModel 读到旧偏好；窗口 Recomposer 排在其他 Compose 类之后时绑定遗留调度器，单纯等待无法结束。两者都只在测试中修正，不影响生产。
+- 未自行运行完整套件（按 11.3 由 GPT 集成后统一运行）；无真机验证。
+
+### 需要其他执行者 / Architect 注意
+
+- 其他直接用 Robolectric 构建 Activity、且读取 ViewModel 状态的测试也会受静态工厂缓存影响；目前仓库里只有 ReviewReminderTest 与新类，已处理。
+- 初始化 `Failed` 时界面仍停在加载页，没有错误/重试页，属于 T3。
+- 状态：待审查。
+
 ## 2026-10-26 · T1 补充回归：失败后只读翻题与显式重试（Claude，REPAIR_DISPATCH 10.2 / 11.4）
 
 起始 HEAD `8b8a0cd`。只改 `ExamTerminationUiTest.kt`，新增 `failedSubmitAllowsReadOnlyBrowsingAndRetryGradesFrozenAnswersOnce`；生产代码、后端、契约未动。Architect 的未跟踪文档与证据未暂存。
