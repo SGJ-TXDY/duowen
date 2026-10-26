@@ -1,0 +1,107 @@
+Compiled from "RunPreviousFailedFirstTestClassProcessor.java"
+public class org.gradle.api.internal.tasks.testing.processors.RunPreviousFailedFirstTestClassProcessor implements org.gradle.api.internal.tasks.testing.TestClassProcessor {
+  private final java.util.Set<java.lang.String> previousFailedTestClasses;
+
+  private final org.gradle.api.internal.tasks.testing.TestClassProcessor delegate;
+
+  private final java.util.LinkedHashSet<org.gradle.api.internal.tasks.testing.TestClassRunInfo> prioritizedTestClasses;
+
+  private final java.util.LinkedHashSet<org.gradle.api.internal.tasks.testing.TestClassRunInfo> otherTestClasses;
+
+  public org.gradle.api.internal.tasks.testing.processors.RunPreviousFailedFirstTestClassProcessor(java.util.Set<java.lang.String>, org.gradle.api.internal.tasks.testing.TestClassProcessor);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #2                  // class java/util/LinkedHashSet
+       8: dup
+       9: invokespecial #3                  // Method java/util/LinkedHashSet."<init>":()V
+      12: putfield      #4                  // Field prioritizedTestClasses:Ljava/util/LinkedHashSet;
+      15: aload_0
+      16: new           #2                  // class java/util/LinkedHashSet
+      19: dup
+      20: invokespecial #3                  // Method java/util/LinkedHashSet."<init>":()V
+      23: putfield      #5                  // Field otherTestClasses:Ljava/util/LinkedHashSet;
+      26: aload_0
+      27: aload_1
+      28: putfield      #6                  // Field previousFailedTestClasses:Ljava/util/Set;
+      31: aload_0
+      32: aload_2
+      33: putfield      #7                  // Field delegate:Lorg/gradle/api/internal/tasks/testing/TestClassProcessor;
+      36: return
+
+  public void startProcessing(org.gradle.api.internal.tasks.testing.TestResultProcessor);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field delegate:Lorg/gradle/api/internal/tasks/testing/TestClassProcessor;
+       4: aload_1
+       5: invokeinterface #8,  2            // InterfaceMethod org/gradle/api/internal/tasks/testing/TestClassProcessor.startProcessing:(Lorg/gradle/api/internal/tasks/testing/TestResultProcessor;)V
+      10: return
+
+  public void processTestClass(org.gradle.api.internal.tasks.testing.TestClassRunInfo);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field previousFailedTestClasses:Ljava/util/Set;
+       4: aload_1
+       5: invokeinterface #9,  1            // InterfaceMethod org/gradle/api/internal/tasks/testing/TestClassRunInfo.getTestClassName:()Ljava/lang/String;
+      10: invokeinterface #10,  2           // InterfaceMethod java/util/Set.contains:(Ljava/lang/Object;)Z
+      15: ifeq          30
+      18: aload_0
+      19: getfield      #4                  // Field prioritizedTestClasses:Ljava/util/LinkedHashSet;
+      22: aload_1
+      23: invokevirtual #11                 // Method java/util/LinkedHashSet.add:(Ljava/lang/Object;)Z
+      26: pop
+      27: goto          39
+      30: aload_0
+      31: getfield      #5                  // Field otherTestClasses:Ljava/util/LinkedHashSet;
+      34: aload_1
+      35: invokevirtual #11                 // Method java/util/LinkedHashSet.add:(Ljava/lang/Object;)Z
+      38: pop
+      39: return
+
+  public void stop();
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field prioritizedTestClasses:Ljava/util/LinkedHashSet;
+       4: invokevirtual #12                 // Method java/util/LinkedHashSet.iterator:()Ljava/util/Iterator;
+       7: astore_1
+       8: aload_1
+       9: invokeinterface #13,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      14: ifeq          40
+      17: aload_1
+      18: invokeinterface #14,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      23: checkcast     #15                 // class org/gradle/api/internal/tasks/testing/TestClassRunInfo
+      26: astore_2
+      27: aload_0
+      28: getfield      #7                  // Field delegate:Lorg/gradle/api/internal/tasks/testing/TestClassProcessor;
+      31: aload_2
+      32: invokeinterface #16,  2           // InterfaceMethod org/gradle/api/internal/tasks/testing/TestClassProcessor.processTestClass:(Lorg/gradle/api/internal/tasks/testing/TestClassRunInfo;)V
+      37: goto          8
+      40: aload_0
+      41: getfield      #5                  // Field otherTestClasses:Ljava/util/LinkedHashSet;
+      44: invokevirtual #12                 // Method java/util/LinkedHashSet.iterator:()Ljava/util/Iterator;
+      47: astore_1
+      48: aload_1
+      49: invokeinterface #13,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      54: ifeq          80
+      57: aload_1
+      58: invokeinterface #14,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      63: checkcast     #15                 // class org/gradle/api/internal/tasks/testing/TestClassRunInfo
+      66: astore_2
+      67: aload_0
+      68: getfield      #7                  // Field delegate:Lorg/gradle/api/internal/tasks/testing/TestClassProcessor;
+      71: aload_2
+      72: invokeinterface #16,  2           // InterfaceMethod org/gradle/api/internal/tasks/testing/TestClassProcessor.processTestClass:(Lorg/gradle/api/internal/tasks/testing/TestClassRunInfo;)V
+      77: goto          48
+      80: aload_0
+      81: getfield      #7                  // Field delegate:Lorg/gradle/api/internal/tasks/testing/TestClassProcessor;
+      84: invokeinterface #17,  1           // InterfaceMethod org/gradle/api/internal/tasks/testing/TestClassProcessor.stop:()V
+      89: return
+
+  public void stopNow();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field delegate:Lorg/gradle/api/internal/tasks/testing/TestClassProcessor;
+       4: invokeinterface #18,  1           // InterfaceMethod org/gradle/api/internal/tasks/testing/TestClassProcessor.stopNow:()V
+       9: return
+}

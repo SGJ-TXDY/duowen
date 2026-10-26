@@ -1,5 +1,38 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-10-26 · T1 收尾：隔离调查、G1 只读分析与统一集成（GPT，11.4）
+
+任务 ID：T1 收尾（9.3/11.4）；G1 仅只读分析。执行者：GPT。
+
+起始 HEAD：8b8a0cd1e9b4c6c93682e9293e042017870e973a。Claude 收尾独立提交后，固定集成源码 HEAD 为 9a3987dd6daa5f6bec65c20c2815abd21d9e8de7。
+
+交付 commit / 改动说明：本节随独立的调查/集成证据提交交付，最终 SHA 见交付回复；不暂存 Architect 的 REPAIR_DISPATCH、方案稿或审查目录。本轮正式仓库只改本文并新增两个 validation 证据目录，没有生产或正式测试源码补丁。
+
+修改文件与对应函数：BACKEND_HANDOFF 本节；validation/T1-isolation-investigation-20261026（诊断源码文本、固定顺序 XML/日志、G1 事件与修复范围报告）；validation/T1-integrated-20261026（完整结果、源码指纹、Lint）。临时诊断类只在隔离副本编译，不进入产品测试发现。
+
+接口/行为变化：无。正式 G1 修复未实施，推荐 requestNotificationReview 与 awaitInitialization 契约仅为送审建议，不属于当前可调用接口。
+
+是否超出白名单：无。没有改 Claude 文件或原有 ReviewReminderTest；未改通知导航、共享生命周期、构建依赖或 T2。
+
+修复前失败场景与证据：历史 9 项 UI 超时对应运行将上次失败的 Notes/G1 优先执行；本地 Gradle 实现与原始 XML 时间顺序吻合。最小固定 G1→单个 UI 即可复现进入测试体前超时，G1 自身通过且无新增 T1 后端测试参与，不能再凭观察顺序归咎于后端。
+
+修复后测试/调查命令、数量、结果：无正式源码修复，不冒称已修复。隔离对照 01 为 2/3，02 为 2/2，03 为 1/2，04 为 1/2，05 为 2/2，全部 0 错误/跳过。G1 destroy 后 runningRecomposers 仍为 1；只在诊断副本等待其退出至 0，后续同一 UI 测试通过。具体命令及原始失败/通过证据见 [隔离调查](../validation/T1-isolation-investigation-20261026/README.md)。
+
+故障注入/生命周期/并发验证：按原始 3628e88 建立独立源码副本与 app/build；固定嵌套 Suite 顺序，不改原测试断言或 Espresso 超时。取消完成使用明确状态条件；没有全局取消其他重组器。当前未定位到最终 T1 新后端测试需再修的清理缺陷。正式修复点属于旧 G1 Activity/Compose 测试收尾，按授权只给出范围方案。
+
+统一集成验证：只运行一次固定 9a3987d 的 assembleDebug + 完整 testDebugUnitTest --rerun + lintDebug --continue。144 项中 143 通过，唯一失败为 G1 REVIEW/QUESTION；T1 UI 12/12、新后端 28/28、原 9 项 UI 9/9。Debug 构建成功；Lint 0 错误/5 警告，整体命令因 G1 失败非零退出。日志/XML/源码指纹见 [集成证据](../validation/T1-integrated-20261026/README.md)，不得标全绿。
+
+尚未验证：G1 正式修复、所有其他顺序组合、真机小屏/主题/字号/TalkBack、配置变更/进程边界；Python 未改未重跑。诊断对照不是正式产品修复，也不能以本次全套未复现九项超时掩盖隔离缺口。
+
+数据兼容与回退：本轮仅文档/证据，不改变 Room 4、备份 3、题库、签名或稳定 APK；可独立回退本轮报告提交。原 T1/T2 兼容与跨进程窗口说明继续有效，无发布或稳定标签。
+
+需要另一执行者接入的事项：Architect 一次集中审查根因、固定版本结果及 [G1 最小跨层范围/接口建议](../validation/T1-isolation-investigation-20261026/G1-analysis.md)，再明确分配 MainActivity 通知接入、QuizViewModel 初始化/通知完成协议、ReviewReminderTest 断言等待及 Activity 自有重组器收尾的具体函数所有权。Claude 本轮只读翻题补充 12/12 已在集成版本中；本轮不替其改 UI。
+
+状态：待审查；T1 整体未验收，T2 待派发。
+
+---
+
+
 ## 2026-10-26 · T1 考试后端交付（GPT，待审查）
 
 本节按 REPAIR_DISPATCH.md 第 8 节实施裁定交付。方案稿保留原样；本节与 API_CONTRACT 的 T1 段描述当前实现。没有修改 Architect 维护的派发文档或 Claude 的 UI。

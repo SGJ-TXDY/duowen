@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.ExamG1TraceProbeTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-26T08:55:33" hostname="LAPTOP-0JLS131B" time="12.385">
+  <properties/>
+  <testcase name="traceNotificationRestoreAndCompositionFrames" classname="cn.embeddedquiz.ExamG1TraceProbeTest" time="12.385"/>
+  <system-out><![CDATA[G1_TRACE after-create-start-resume ready=false page=REVIEW queue=[] mode=顺序练习 deadline=0 pendingIntent=false
+G1_TRACE ready-before-visible ready=true page=QUESTION queue=[remind] mode=模拟考试 deadline=1793004997985 pendingIntent=false
+G1_TRACE after-visible ready=true page=REVIEW queue=[remind] mode=模拟考试 deadline=1793004997985 pendingIntent=false
+G1_TRACE after-single-idle-as-original-test ready=true page=REVIEW queue=[remind] mode=模拟考试 deadline=1793004997985 pendingIntent=false
+G1_TRACE composition-frame-1 ready=true page=REVIEW queue=[remind] mode=模拟考试 deadline=1793004997985 pendingIntent=false
+G1_TRACE composition-frame-2 ready=true page=REVIEW queue=[remind] mode=模拟考试 deadline=1793004997985 pendingIntent=false
+G1_TRACE composition-frame-3 ready=true page=REVIEW queue=[remind] mode=模拟考试 deadline=1793004997985 pendingIntent=false
+G1_TRACE composition-frame-4 ready=true page=REVIEW queue=[remind] mode=模拟考试 deadline=1793004997985 pendingIntent=false
+G1_TRACE composition-frame-5 ready=true page=REVIEW queue=[remind] mode=模拟考试 deadline=1793004997985 pendingIntent=false
+G1_WINDOWS before-destroy count=1 decorAttached=true recomposers=1 pending=0
+G1_WINDOWS after-destroy count=0 decorAttached=false recomposers=1 pending=0
+G1_DB after-destroy isOpen=false
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

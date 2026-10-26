@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.PracticeEntriesUiTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-26T08:49:34" hostname="LAPTOP-0JLS131B" time="2.203">
+  <properties/>
+  <testcase name="homeEntriesOpenBanksAndTabBarOffersExam" classname="cn.embeddedquiz.PracticeEntriesUiTest" time="2.203"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

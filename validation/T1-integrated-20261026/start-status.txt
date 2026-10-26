@@ -1,0 +1,6 @@
+?? docs/REPAIR_DISPATCH.md
+?? docs/T1_BACKEND_PROPOSAL.md
+?? validation/T1-architect-review-20261026/
+?? validation/T1-frontend-architect-review-20261026/
+?? validation/T1-integrated-20261026/
+?? validation/T1-isolation-investigation-20261026/

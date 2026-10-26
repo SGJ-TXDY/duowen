@@ -1,0 +1,96 @@
+package cn.embeddedquiz
+
+import android.content.Context
+import android.content.Intent
+import android.os.Looper
+import androidx.compose.runtime.Recomposer
+import androidx.compose.runtime.ExperimentalComposeApi
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import androidx.test.core.app.ApplicationProvider
+import androidx.work.Configuration
+import androidx.work.testing.SynchronousExecutor
+import androidx.work.testing.WorkManagerTestInitHelper
+import java.time.Duration
+import java.util.concurrent.locks.LockSupport
+import kotlinx.coroutines.*
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.Robolectric
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
+
+/** Diagnostic only. No production notification/recovery method is changed. */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [28])
+@OptIn(ExperimentalComposeApi::class)
+class ExamG1DrainedTraceProbeTest {
+    @Test
+    fun traceNotificationRestoreAndCompositionFrames() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Context>()
+        app.deleteDatabase("embeddedquiz.db")
+        WorkManagerTestInitHelper.initializeTestWorkManager(app,
+            Configuration.Builder().setExecutor(SynchronousExecutor()).setTaskExecutor(SynchronousExecutor()).build())
+        val prefs = app.getSharedPreferences("settings", 0)
+        val db = QuizDatabase.open(app)
+        QuizRepository(db).importBank("""{"schemaVersion":1,"questions":[{"id":"remind","stem":"提醒测试","kind":"SHORT","source":"测试"}]}""")
+        db.dao().putSettings(LearningSettings(theme = "DARK"))
+        val deadline = System.currentTimeMillis() + 60000
+        val saved = """{"ids":["remind"],"index":0,"deadline":$deadline,"answers":{}}"""
+        prefs.writeDurably { clear(); putInt("bankRevision", 4); putString("exam", saved) }
+        db.close()
+        val intent = Intent(app, MainActivity::class.java).putExtra(ReviewReminders.OPEN_REVIEW, true)
+        val controller = Robolectric.buildActivity(MainActivity::class.java, intent).create().start().resume()
+        val vm = ViewModelProvider(controller.get())[QuizViewModel::class.java]
+        fun sample(label: String) {
+            println("G1_TRACE $label ready=${vm.ready} page=${vm.page} queue=${vm.queue} mode=${vm.mode} deadline=${vm.examDeadline} pendingIntent=${controller.get().intent.hasExtra(ReviewReminders.OPEN_REVIEW)}")
+        }
+        fun windows(label: String) {
+            val type = Class.forName("android.view.WindowManagerGlobal")
+            val instance = type.getDeclaredMethod("getInstance").invoke(null)
+            val field = type.getDeclaredField("mViews").apply { isAccessible = true }
+            val roots = field.get(instance) as List<*>
+            println("G1_WINDOWS $label count=${roots.size} decorAttached=${controller.get().window.decorView.isAttachedToWindow} recomposers=${Recomposer.runningRecomposers.value.size} pending=${Recomposer.runningRecomposers.value.count { it.hasPendingWork }}")
+        }
+        try {
+            sample("after-create-start-resume")
+            val end = System.nanoTime() + 15_000_000_000L
+            while ((!vm.ready || vm.learning.settings.theme != "DARK") && System.nanoTime() < end) {
+                shadowOf(Looper.getMainLooper()).idle()
+                LockSupport.parkNanos(1_000_000)
+            }
+            assertTrue(vm.notice, vm.ready)
+            sample("ready-before-visible")
+            controller.visible()
+            sample("after-visible")
+            shadowOf(Looper.getMainLooper()).idle()
+            sample("after-single-idle-as-original-test")
+            repeat(5) { frame ->
+                shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16))
+                sample("composition-frame-${frame + 1}")
+            }
+            assertEquals(Page.REVIEW, vm.page)
+            assertEquals(listOf("remind"), vm.queue)
+            assertEquals(deadline, vm.examDeadline)
+            assertEquals(saved, prefs.getString("exam", null))
+            assertTrue(vm.examState.active())
+            windows("before-destroy")
+        } finally {
+            controller.pause().stop().destroy()
+            windows("after-destroy")
+            val drainEnd = System.nanoTime() + 15_000_000_000L
+            while (Recomposer.runningRecomposers.value.isNotEmpty() && System.nanoTime() < drainEnd) {
+                shadowOf(Looper.getMainLooper()).idle()
+                LockSupport.parkNanos(1_000_000)
+            }
+            windows("after-cancellation-drained")
+            assertTrue("Activity recomposer must actually finish before the next test", Recomposer.runningRecomposers.value.isEmpty())
+            println("G1_DB after-destroy isOpen=${vm.db.isOpen}")
+            prefs.writeDurably { remove("exam") }
+            app.deleteDatabase("embeddedquiz.db")
+        }
+    }
+}
+

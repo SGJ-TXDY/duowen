@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.ReviewReminderTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-26T08:51:01" hostname="LAPTOP-0JLS131B" time="12.563">
+  <properties/>
+  <testcase name="notificationReviewEntryWinsAfterUnfinishedExamIsRestored" classname="cn.embeddedquiz.ReviewReminderTest" time="12.563"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

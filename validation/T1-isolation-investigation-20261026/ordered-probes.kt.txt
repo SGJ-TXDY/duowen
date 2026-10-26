@@ -1,0 +1,33 @@
+package cn.embeddedquiz
+
+import org.junit.runner.Description
+import org.junit.runner.RunWith
+import org.junit.runner.Runner
+import org.junit.runner.manipulation.Filter
+import org.junit.runners.Suite
+import org.robolectric.RobolectricTestRunner
+
+/** Diagnostic only: existing tests/assertions unchanged; exact nested order is explicit. */
+private fun orderedRunners(testClass: Class<*>): List<Runner> {
+    fun one(type: Class<*>, method: String): Runner = RobolectricTestRunner(type).apply {
+        filter(Filter.matchMethodDescription(Description.createTestDescription(type, method)))
+    }
+    val runners = mutableListOf<Runner>(
+        one(NotesAndScoringUiTest::class.java, "textDraftAndManualAssessmentSurviveNotesAndQuestionNavigation"),
+        one(ReviewReminderTest::class.java, "notificationReviewEntryWinsAfterUnfinishedExamIsRestored"),
+    )
+    if (testClass.simpleName.contains("WithBackend")) {
+        runners += RobolectricTestRunner(ExamLifecycleContractTest::class.java)
+        runners += RobolectricTestRunner(ExamStateHolderTest::class.java)
+    }
+    runners += one(PracticeEntriesUiTest::class.java, "homeEntriesOpenBanksAndTabBarOffersExam")
+    return runners
+}
+
+class ExamOrderedProbeRunner(testClass: Class<*>) : Suite(testClass, orderedRunners(testClass))
+
+@RunWith(ExamOrderedProbeRunner::class)
+class ExamOrderWithoutBackendProbeTest
+
+@RunWith(ExamOrderedProbeRunner::class)
+class ExamOrderWithBackendProbeTest
