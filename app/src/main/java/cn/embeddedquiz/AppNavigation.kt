@@ -56,6 +56,11 @@ private fun QuizLayout(vm: QuizViewModel) {
             }
         }
     }
+    // Abandoning empties the queue, which removes the answer screen before it could react.
+    LaunchedEffect(vm.examOperationState) {
+        if (vm.examOperationState == ExamOperationState.Abandoned && vm.page == Page.QUESTION)
+            vm.page = Page.EXAM
+    }
     // 速记 has no Page of its own (page = null): it overlays the content and keeps the quiz session.
     val bottom =
         listOf(

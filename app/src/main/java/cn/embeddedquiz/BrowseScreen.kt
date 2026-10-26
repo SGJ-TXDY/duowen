@@ -270,19 +270,29 @@ private fun ExamSetup(vm: QuizViewModel, filtered: List<QuestionSummary>, search
     var count by rememberSaveable { mutableStateOf("20") }
     var minutes by rememberSaveable { mutableStateOf("30") }
     // An unsubmitted exam is resumed, never restarted, so its queue, answers and deadline survive.
+    // Its ending status and recovery actions live here too: a missing question may never load.
     if (vm.mode == "模拟考试" && !vm.examFinished && vm.queue.isNotEmpty()) {
-        SectionCard(title = "有未交卷的考试") {
-            Text(
-                "已答 ${vm.examAnswers.count { it.value.isNotEmpty() }} / ${vm.queue.size} 题，倒计时仍在进行。交卷后才能开始新的考试。",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Button(
-                onClick = { vm.page = Page.QUESTION },
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-            ) {
-                Text("继续考试", style = MaterialTheme.typography.titleMedium)
+        val idle = vm.examOperationState == ExamOperationState.Idle
+        var confirm by remember { mutableStateOf<ExamConfirm?>(null) }
+        ExamConfirmDialog(vm, confirm) { confirm = null }
+        // The failure card is tall; on small screens or large fonts it must scroll, not clip its actions.
+        SectionCard(Modifier.verticalScroll(rememberScrollState()), title = "有未交卷的考试") {
+            if (idle) {
+                Text(
+                    "已答 ${vm.queue.count { vm.examAnswers[it].orEmpty().isNotEmpty() }} / ${vm.queue.size} 题，倒计时仍在进行。交卷或放弃后才能开始新的考试。",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Button(
+                    onClick = { vm.page = Page.QUESTION },
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                ) {
+                    Text("继续考试", style = MaterialTheme.typography.titleMedium)
+                }
             }
+            ExamEndPanel(vm, showRetry = true) { confirm = ExamConfirm.ABANDON }
+            if (!idle)
+                SecondaryAction("查看试卷", modifier = Modifier.fillMaxWidth()) { vm.page = Page.QUESTION }
         }
         return
     }

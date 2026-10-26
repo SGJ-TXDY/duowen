@@ -36,16 +36,189 @@ fun QuestionScreen(vm: QuizViewModel) {
     }
     val hash = vm.questions.firstOrNull { it.id == id }?.contentHash
     var question by remember(id, hash) { mutableStateOf<Question?>(null) }
-    LaunchedEffect(id, hash) { question = vm.loadQuestion(id) }
+    var missing by remember(id, hash) { mutableStateOf(false) }
+    LaunchedEffect(id, hash) {
+        question = vm.loadQuestion(id)
+        missing = question == null
+    }
     val q = question
     if (q == null) {
-        // Static text: an indeterminate spinner never lets Compose tests reach idle.
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("正在加载题目…", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        if (missing) MissingQuestion(vm)
+        else
+            // Static text: an indeterminate spinner never lets Compose tests reach idle.
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("正在加载题目…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         return
     }
     key(q.id, vm.mode) { QuestionContent(vm, q) }
+}
+
+/** What the exam screens may offer, read only from the T1 contract state table; no grading here. */
+internal class ExamControls(vm: QuizViewModel) {
+    val state = vm.examOperationState
+    /** An unsubmitted paper is open: idle, ending or failed. Submitted and Abandoned are not. */
+    val open = vm.mode == "模拟考试" && !vm.examFinished && vm.queue.isNotEmpty()
+    private val failed = state as? ExamOperationState.Failed
+    private val submitRetryable =
+        failed != null &&
+            failed.operation == ExamOperation.SUBMIT &&
+            !failed.recordsCommitted &&
+            failed.stage != ExamFailureStage.SESSION_CLEAR
+    val ending = state == ExamOperationState.Submitting || state == ExamOperationState.Abandoning
+    /** Only an idle open exam accepts selections, drafts or a submit; busy alone is not enough. */
+    val editable = open && state == ExamOperationState.Idle && !vm.busy
+    val abandonOffered = open && (state == ExamOperationState.Idle || submitRetryable)
+    val canAbandon = abandonOffered && !vm.busy
+    val canRetry = open && failed != null && !vm.busy
+}
+
+internal enum class ExamConfirm { SUBMIT, ABANDON }
+
+internal fun examRetryLabel(state: ExamOperationState.Failed) =
+    when {
+        state.operation == ExamOperation.ABANDON -> "重试放弃清理"
+        state.stage == ExamFailureStage.SESSION_CLEAR -> "重试清理"
+        else -> "重试交卷"
+    }
+
+/**
+ * Submit / abandon confirmation. Any state change (a timeout submit, a finished operation, a busy
+ * task) closes it, and the confirm button re-checks what is allowed at the moment of the tap.
+ */
+@Composable
+internal fun ExamConfirmDialog(vm: QuizViewModel, request: ExamConfirm?, onClose: () -> Unit) {
+    val close by rememberUpdatedState(onClose)
+    LaunchedEffect(vm.examOperationState, vm.examFinished, vm.mode, vm.busy) { close() }
+    val controls = ExamControls(vm)
+    val allowed =
+        when (request) {
+            ExamConfirm.SUBMIT -> controls.editable
+            ExamConfirm.ABANDON -> controls.canAbandon
+            null -> false
+        }
+    if (!allowed) return
+    val total = vm.queue.size
+    val answered = vm.queue.count { vm.examAnswers[it].orEmpty().isNotEmpty() }
+    val submit = request == ExamConfirm.SUBMIT
+    AlertDialog(
+        onDismissRequest = close,
+        title = { Text(if (submit) "确认交卷？" else "放弃本次考试？") },
+        text = {
+            Text(
+                when {
+                    submit ->
+                        "已答 $answered 题，未答 ${total - answered} 题，共 $total 题。\n" +
+                            "未答题计 0 分，但不会写入学习记录，也不改变复习安排和错题本。交卷后统一判分，不能再修改。"
+                    controls.state is ExamOperationState.Failed ->
+                        "本次交卷没有成功，也没有写入学习记录。放弃后考试结束，不计成绩，已选答案将被丢弃。"
+                    else ->
+                        "已答 $answered / $total 题。放弃后考试立即结束：不计成绩，不写入学习记录，也不改变复习安排；已选答案将被丢弃，无法恢复。"
+                }
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    close()
+                    val now = ExamControls(vm)
+                    if (submit && now.editable) vm.finishExam()
+                    else if (!submit && now.canAbandon) vm.abandonExam()
+                }
+            ) {
+                Text(if (submit) "确认交卷" else "确认放弃")
+            }
+        },
+        dismissButton = { TextButton(onClick = close) { Text(if (submit) "继续作答" else "取消") } },
+    )
+}
+
+/**
+ * Ending status and recovery actions. Shown on the answer screen, the missing-question view and
+ * the exam tab, so a failed ending stays visible and recoverable after leaving the paper.
+ */
+@Composable
+internal fun ExamEndPanel(vm: QuizViewModel, showRetry: Boolean, onAbandon: () -> Unit) {
+    val controls = ExamControls(vm)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        when (val state = controls.state) {
+            ExamOperationState.Submitting -> ExamStatus("正在交卷，请稍候…")
+            ExamOperationState.Abandoning -> ExamStatus("正在放弃本次考试…")
+            is ExamOperationState.Failed -> {
+                ExamStatus(
+                    when {
+                        state.operation == ExamOperation.ABANDON -> "放弃未完成"
+                        state.stage == ExamFailureStage.SESSION_CLEAR -> "成绩已保存，会话清理未完成"
+                        else -> "交卷未完成"
+                    }
+                )
+                ErrorNotice(state.message)
+                Text(
+                    when {
+                        state.operation == ExamOperation.ABANDON ->
+                            "本次考试没有产生学习记录。请重试放弃清理；完成前不能改为交卷，也不能开始新的练习或考试。"
+                        state.stage == ExamFailureStage.SESSION_CLEAR ->
+                            "学习记录已保存，重试只清理考试会话，不会重复计分。完成前不能修改答案、放弃或开始新的练习。"
+                        else -> "答案已冻结，不能再修改。可以重试交卷，或放弃本次考试（不计成绩，不写入学习记录）。"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (showRetry)
+                    Action(examRetryLabel(state), controls.canRetry) { vm.retryExamOperation() }
+            }
+            else -> {}
+        }
+        if (controls.abandonOffered)
+            SecondaryAction("放弃本次考试", controls.canAbandon, Modifier.fillMaxWidth(), onAbandon)
+    }
+}
+
+@Composable
+private fun ExamStatus(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        modifier =
+            Modifier.semantics {
+                heading()
+                liveRegion = LiveRegionMode.Polite
+            },
+    )
+}
+
+/** A question removed from the bank never loads; the exam must still be endable from here. */
+@Composable
+private fun MissingQuestion(vm: QuizViewModel) {
+    val controls = ExamControls(vm)
+    var confirm by remember { mutableStateOf<ExamConfirm?>(null) }
+    ExamConfirmDialog(vm, confirm) { confirm = null }
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { vm.page = Page.HOME }, modifier = Modifier.size(48.dp)) {
+                Icon(AppIcons.Back, contentDescription = "返回首页")
+            }
+            Text(
+                "${vm.mode} · 第 ${vm.index + 1} / ${vm.queue.size} 题",
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+        ErrorNotice("本题无法加载，题目可能已从题库移除。")
+        if (controls.open) {
+            if (controls.state == ExamOperationState.Idle)
+                Text(
+                    "缺题的试卷无法判分，交卷会提示失败；可以放弃本次考试（不计成绩，不写入学习记录）。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            ExamEndPanel(vm, showRetry = true) { confirm = ExamConfirm.ABANDON }
+            if (controls.state == ExamOperationState.Idle)
+                Action("交卷", controls.editable) { confirm = ExamConfirm.SUBMIT }
+        }
+    }
 }
 
 private enum class OptionState {
@@ -93,36 +266,23 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
     var notesOpen by rememberSaveable { mutableStateOf(false) }
     var aiOpen by rememberSaveable { mutableStateOf(false) }
     var infoOpen by rememberSaveable { mutableStateOf(false) }
-    var confirmFinish by remember { mutableStateOf(false) }
+    val controls = ExamControls(vm)
+    var confirm by remember { mutableStateOf<ExamConfirm?>(null) }
+    // While an ending runs, moving between questions would change what the user believes was handed in.
+    val navLocked = exam && (controls.ending || vm.busy)
     val previous: () -> Unit = {
-        vm.index--
-        vm.saveExam()
+        if (!navLocked) {
+            vm.index--
+            vm.saveExam()
+        }
     }
     val next: () -> Unit = {
-        vm.index++
-        vm.saveExam()
+        if (!navLocked) {
+            vm.index++
+            vm.saveExam()
+        }
     }
-    if (confirmFinish)
-        AlertDialog(
-            onDismissRequest = { confirmFinish = false },
-            title = { Text("确认交卷？") },
-            text = {
-                Text(
-                    "已答 ${vm.examAnswers.count { it.value.isNotEmpty() }} / ${vm.queue.size} 题，交卷后统一判分，不能再修改。"
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmFinish = false
-                        vm.finishExam()
-                    }
-                ) {
-                    Text("交卷")
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmFinish = false }) { Text("继续作答") } },
-        )
+    ExamConfirmDialog(vm, confirm) { confirm = null }
 
     Column(Modifier.fillMaxSize()) {
         QuestionTopBar(
@@ -136,6 +296,15 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
             onNotes = vm::openStickyNotes,
             onFavorite = { vm.toggleFavorite(q.id) },
             onFlag = { vm.toggleFlag(q.id) },
+            examActions =
+                if (exam && controls.abandonOffered) {
+                    {
+                        // Keyed so a menu left open does not survive a change of what it may offer.
+                        key(vm.examOperationState) {
+                            ExamMenu(controls.canAbandon) { confirm = ExamConfirm.ABANDON }
+                        }
+                    }
+                } else null,
         )
         LinearProgressIndicator(
             progress = { (vm.index + 1f) / vm.queue.size.coerceAtLeast(1) },
@@ -151,12 +320,22 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
         ) {
-            if (vm.examFinished && vm.mode == "模拟考试")
+            if (exam && controls.state != ExamOperationState.Idle)
+                item {
+                    SectionCard {
+                        // Retry sits in the action bar so it stays reachable without scrolling.
+                        ExamEndPanel(vm, showRetry = false) { confirm = ExamConfirm.ABANDON }
+                    }
+                }
+            val summary = vm.examSummary
+            if (vm.examFinished && vm.mode == "模拟考试" && summary != null)
                 item {
                     ResultBanner(
                         icon = AppIcons.Check,
-                        title = vm.examResult,
-                        subtitle = "已交卷，下面可逐题查看对错",
+                        title = "答对 ${summary.correct} / ${summary.total}，得分 ${summary.score}",
+                        subtitle =
+                            "已答 ${summary.answered} 题 · 未答 ${summary.unanswered} 题（计 0 分，不改变复习安排）\n" +
+                                "已交卷，下面可逐题查看对错",
                         container = MaterialTheme.colorScheme.primaryContainer,
                         content = MaterialTheme.colorScheme.onPrimaryContainer,
                         badge = MaterialTheme.colorScheme.primary,
@@ -220,9 +399,11 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                     state = state,
                     multiple = q.kind == Kind.MULTIPLE,
                     enabled =
-                        if (exam) remaining > 0 && !vm.busy
+                        if (exam) remaining > 0 && controls.editable
                         else !revealed && !recorded && !vm.examFinished,
                 ) {
+                    // Re-read at the tap: an ending may have started since this frame was drawn.
+                    if (exam && !ExamControls(vm).editable) return@OptionCard
                     selected =
                         if (q.kind == Kind.MULTIPLE) {
                             if (o.key in selected) selected - o.key else selected + o.key
@@ -239,7 +420,7 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                         modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.medium,
                         minLines = 3,
-                        readOnly = revealed || vm.examFinished,
+                        readOnly = revealed || vm.examFinished || (exam && !controls.editable),
                     )
                 }
             if (!exam && showAnswer) {
@@ -504,12 +685,25 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
             }
         }
         QuestionActionBar {
-            val canPrevious = vm.index > 0
+            val canPrevious = vm.index > 0 && !navLocked
             val atLast = vm.index >= vm.queue.lastIndex
             NavIconButton(AppIcons.ChevronLeft, "上一题", canPrevious, previous)
             when {
                 exam ->
-                    PrimaryBarButton("交卷", !vm.busy, Modifier.weight(1f)) { confirmFinish = true }
+                    when (val state = controls.state) {
+                        is ExamOperationState.Failed ->
+                            PrimaryBarButton(examRetryLabel(state), controls.canRetry, Modifier.weight(1f)) {
+                                vm.retryExamOperation()
+                            }
+                        ExamOperationState.Submitting ->
+                            PrimaryBarButton("正在交卷…", false, Modifier.weight(1f)) {}
+                        ExamOperationState.Abandoning ->
+                            PrimaryBarButton("正在放弃…", false, Modifier.weight(1f)) {}
+                        else ->
+                            PrimaryBarButton("交卷", controls.editable, Modifier.weight(1f)) {
+                                confirm = ExamConfirm.SUBMIT
+                            }
+                    }
                 !showAnswer ->
                     PrimaryBarButton(
                         if (canGrade) "提交答案" else "查看参考答案",
@@ -523,7 +717,8 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                     PrimaryBarButton("完成，回到首页", true, Modifier.weight(1f)) { vm.page = Page.HOME }
                 else -> PrimaryBarButton("下一题", true, Modifier.weight(1f), AppIcons.ChevronRight, next)
             }
-            if (exam || !showAnswer) NavIconButton(AppIcons.ChevronRight, "下一题", !atLast, next)
+            if (exam || !showAnswer)
+                NavIconButton(AppIcons.ChevronRight, "下一题", !atLast && !navLocked, next)
         }
     }
 }
@@ -540,6 +735,7 @@ private fun QuestionTopBar(
     onNotes: () -> Unit,
     onFavorite: () -> Unit,
     onFlag: () -> Unit,
+    examActions: (@Composable () -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     Row(
@@ -609,6 +805,27 @@ private fun QuestionTopBar(
                     )
                 }
             }
+        }
+        examActions?.invoke()
+    }
+}
+
+@Composable
+private fun ExamMenu(abandonEnabled: Boolean, onAbandon: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }, modifier = Modifier.size(48.dp)) {
+            Icon(AppIcons.MoreVert, contentDescription = "考试操作")
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text("放弃本次考试") },
+                enabled = abandonEnabled,
+                onClick = {
+                    open = false
+                    onAbandon()
+                },
+            )
         }
     }
 }

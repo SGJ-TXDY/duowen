@@ -1,5 +1,56 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-10-26 · T1 前端接入：交卷说明、结构化成绩、放弃考试与失败恢复（Claude）
+
+依据 `REPAIR_DISPATCH.md` 第 9.2 节与 `API_CONTRACT.md` 顶部 T1 契约。起始 HEAD `3628e8816bbfe07445c3c78e7161942b4df81973`（后端基线）。只改白名单内的 Compose 页面和新增 UI 测试；`ExamStateHolder.kt`、`QuizViewModel.kt`、`Repository.kt`、API_CONTRACT、REPAIR_DISPATCH、方案稿和 Architect 证据都没有动。
+
+### 本次修改的文件与函数
+
+| 文件 | 改动 |
+| --- | --- |
+| `QuestionScreen.kt` | 新增 `ExamControls`（只按契约状态表推导：`editable` = 打开中的考试且 `Idle` 且 `!busy`；`abandonOffered/canAbandon` = `Idle` 或 `Failed(SUBMIT, VALIDATION/RECORDS, false)`；`canRetry` = 任一 `Failed` 且 `!busy`），`ExamConfirmDialog`（交卷 / 放弃二次确认），`ExamEndPanel`（结束中 / 失败阶段 + 重试 + 放弃），`MissingQuestion`（缺题视图）、`ExamMenu`（顶部“考试操作”→“放弃本次考试”）。`QuestionScreen` 区分“加载中”和“题目不存在”。`QuestionContent`：成绩横幅改读 `examSummary` 五个字段；选项、简答输入、交卷按钮只在 `editable` 时可用，点击时再检查一次；`Submitting/Abandoning`（及 busy）时上一题 / 下一题禁用；失败时动作栏主按钮变为对应重试，列表顶部显示阶段说明。 |
+| `BrowseScreen.kt` `ExamSetup` | 未交卷考试卡片：Idle 时“继续考试”+“放弃本次考试”；非 Idle 时显示同一 `ExamEndPanel`（含重试按钮）和“查看试卷”。卡片可纵向滚动，失败说明较长时按钮不会被裁掉。搜索 / 筛选 / 其他页面未改。 |
+| `AppNavigation.kt` | 一处 `LaunchedEffect(vm.examOperationState)`：变为 `Abandoned` 且当前在 `Page.QUESTION` 时切到 `Page.EXAM`。原因：放弃成功会清空队列，答题页在同一帧被移出组合，页面自身无法处理这次导航。启动、通知优先级（G1）和导航模型未改。 |
+| `ExamTerminationUiTest.kt`（新增） | 11 项，见下。 |
+
+### 交互
+
+- **交卷确认**：“已答 X 题，未答 Y 题，共 N 题。未答题计 0 分，但不会写入学习记录，也不改变复习安排和错题本。”按钮“确认交卷 / 继续作答”。已答数只是对当前答案的展示计数，成绩结论只来自 `examSummary`。
+- **成绩**：“答对 c / t，得分 s”，副标题“已答 a 题 · 未答 u 题（计 0 分，不改变复习安排）”。只在 `examFinished`（Submitted）时显示。
+- **放弃**：答题页顶部“考试操作”菜单、失败面板、考试入口卡片三处入口，全部先弹“放弃本次考试？”，说明不计成绩、不写学习记录、答案丢弃；“取消”不调用后端。成功后回到“模拟考试”标签页（考试设置），不显示成绩。
+- **失败阶段**：
+  - `Failed(SUBMIT, VALIDATION/RECORDS, false)`：“交卷未完成”+ 后端 message +“答案已冻结”；可“重试交卷”或确认放弃。
+  - `Failed(SUBMIT, SESSION_CLEAR, true)`：“成绩已保存，会话清理未完成”；只有“重试清理”，不显示成绩横幅、交卷或放弃。
+  - `Failed(ABANDON, SESSION_CLEAR, false)`：“放弃未完成”；只有“重试放弃清理”，不能改为交卷。
+- 重试只由按钮调用 `retryExamOperation()`；没有在 LaunchedEffect、倒计时或重组中自动重试。
+- **确认框失效**：`examOperationState / examFinished / mode / busy` 任一变化都关闭确认框（例如确认框打开时超时自动交卷）；点确认时重新读取当前许可，不允许的不调用。
+- **缺题**：题目加载返回 null 时显示“本题无法加载，题目可能已从题库移除。”和结束面板（交卷 / 放弃 / 重试），不再一直停在“正在加载题目…”。考试标签页卡片同样可以处理。
+- **离开再回来**：失败状态不只靠 Snackbar；返回首页再进“模拟考试”标签，卡片仍显示真实阶段和恢复按钮。
+
+### 已对接的后端接口
+
+`vm.examOperationState`、`vm.examSummary`、`vm.finishExam()`、`vm.abandonExam()`、`vm.retryExamOperation()`，以及既有 `examFinished / examAnswers / examDeadline / queue / index / mode / busy`。UI 测试使用后端 internal 接缝 `examState.hooks.beforeCritical` 和 `examState.sessionPreferences`，未修改后端实现。
+
+### 需要 GPT/Codex 新增或调整的接口
+
+暂无阻塞项。记录一点供 Architect 判断：`Failed` 状态下我允许上一题 / 下一题浏览已冻结的答案（不能修改；契约写明重试不读取后来变化的 index），只在 `Submitting/Abandoning` 时禁用翻题。如要求失败时也禁止翻题，改一处条件即可。
+
+### 测试结果（证据：`validation/T1-frontend-20261026/`）
+
+- **定向运行（真实执行，--rerun）**：`ExamTerminationUiTest` 11、`NotesAndScoringUiTest` 8、`PracticeEntriesUiTest` 4、`QuickNotesUiTest` 5，以及未改动的后端 `ExamLifecycleContractTest` 20、`ExamStateHolderTest` 8，**56/56 通过**，0 跳过。
+- **完整运行 + Lint（一次）**：143 项中 142 通过，失败 1 项为基线 G1 `ReviewReminderTest.notificationReviewEntryWinsAfterUnfinishedExamIsRestored`（REVIEW / QUESTION），**不是全绿**。本次没有复现 9 项 Compose 超时，但只是一次观测，不能闭环 9.3。Lint 0 错误、5 个既有警告。
+- `ExamTerminationUiTest` 覆盖：部分作答确认框数量与说明、取消不调用后端、结构化成绩、仅已答题写记录；全未答零分且无 Attempt/Progress；放弃确认 / 取消（队列、答案、截止时间、快照不变）/ 成功回到考试标签且无成绩；结束中选项、翻题、交卷按钮禁用，连点与返回键只产生一次操作；RECORDS 失败冻结答案、超时入口不重试、显式重试成功；提交后清理失败只显示“重试清理”、无成绩横幅 / 交卷 / 放弃，离开后从考试标签恢复；放弃清理失败只能重试放弃；缺题不卡在加载、交卷失败后可放弃；放弃 / 交卷确认框打开时超时交卷会关闭确认框；深色 + 大字号下失败标题为 heading、重试按钮可用；普通练习没有考试控件。
+- 测试编写中前两次运行有失败，均为测试问题（小窗口内节点不可见、Snackbar 遮挡）；其中考试入口失败卡片被裁切也是真实的小屏风险，已让卡片可滚动。没有削弱断言或加 sleep。
+- 测试运行前都确认没有其他 Gradle 测试 worker，在独立证据目录保存 XML，没有与 GPT 的测试同时运行。
+
+### 尚未验证
+
+没有构建 APK，没有真机检查（浅深色、大字号换行、TalkBack 朗读、小屏）。T2 跨进程重复提交窗口仍是发布阻断。
+
+### 本次未做
+
+没有修改后端、API_CONTRACT、REPAIR_DISPATCH；没有开始 T2；没有推送、发布或覆盖 APK。状态：待审查。
+
 ## 2026-10-26 · 新配色与 1.6.0 版本整合（Claude）
 
 用户要求只改颜色美化界面，并授权提交 GitHub、整合为 1.6 版本。
