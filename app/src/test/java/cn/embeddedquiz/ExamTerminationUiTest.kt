@@ -329,6 +329,54 @@ class ExamTerminationUiTest {
     }
 
     @Test
+    fun failedSubmitAllowsReadOnlyBrowsingAndRetryGradesFrozenAnswersOnce() {
+        // a correct, b wrong, c unanswered: three distinguishable outcomes on the frozen paper.
+        startExam(mapOf("et-a" to "A", "et-b" to "A"))
+        vm.db.openHelper.writableDatabase.execSQL(
+            """CREATE TRIGGER fail_exam_insert BEFORE INSERT ON attempts
+            WHEN NEW.questionId='et-b' BEGIN SELECT RAISE(ABORT, 'injected'); END"""
+        )
+        submitThroughUi()
+        settled { it is ExamOperationState.Failed }
+        assertEquals(ExamFailureStage.RECORDS, failed().stage)
+        assertFalse(failed().recordsCommitted)
+        dismissNotice()
+        assertTrue(attempts().isEmpty())
+        val frozen = vm.examAnswers
+        val snapshot = prefs.getString("exam", null)
+
+        bar("下一题").assertIsEnabled().performClick()
+        await { vm.index == 1 }
+        questionNode(hasText("甲二") and isSelected()).assertExists()
+        option("乙二").assertIsNotEnabled().performClick()
+        questionNode(hasText("甲二") and isSelected()).assertExists()
+        option("乙二").assertIsNotSelected()
+
+        bar("下一题").performClick()
+        await { vm.index == 2 }
+        option("甲三").assertIsNotEnabled().performClick()
+        listOf("甲三", "乙三").forEach { option(it).assertIsNotSelected() }
+
+        bar("上一题").performClick()
+        await { vm.index == 1 }
+        questionNode(hasText("甲二") and isSelected()).assertExists()
+        assertEquals(frozen, vm.examAnswers)
+        assertEquals(snapshot, prefs.getString("exam", null))
+        assertTrue(attempts().isEmpty())
+
+        vm.db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_exam_insert")
+        bar("重试交卷").performClick()
+        settled { it is ExamOperationState.Submitted }
+        assertEquals(ExamResult(3, 2, 1, 1, 33), vm.examSummary)
+        listText("答对 1 / 3，得分 33").assertExists()
+        val recorded = attempts()
+        assertEquals(mapOf("et-a" to 1, "et-b" to 1), recorded.groupingBy { it.questionId }.eachCount())
+        assertEquals(true, recorded.single { it.questionId == "et-a" }.correct)
+        assertEquals(false, recorded.single { it.questionId == "et-b" }.correct)
+        assertEquals(setOf("et-a", "et-b"), progress().map { it.questionId }.toSet())
+    }
+
+    @Test
     fun committedCleanupFailureOnlyRetriesCleanupAndStaysVisibleFromExamTab() {
         startExam(mapOf("et-a" to "A"))
         val faulty = ClearFailingPreferences(prefs)

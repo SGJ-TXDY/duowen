@@ -1,5 +1,14 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-10-26 · T1 补充回归：失败后只读翻题与显式重试（Claude，REPAIR_DISPATCH 10.2 / 11.4）
+
+起始 HEAD `8b8a0cd`。只改 `ExamTerminationUiTest.kt`，新增 `failedSubmitAllowsReadOnlyBrowsingAndRetryGradesFrozenAnswersOnce`；生产代码、后端、契约未动。Architect 的未跟踪文档与证据未暂存。
+
+- **链路**：三题 a 对 / b 错 / c 未答 → 用既有 DB 触发器接缝让提交在未提交记录阶段失败（`Failed(SUBMIT, RECORDS, false)`）→ 实际点上一题 / 下一题浏览，原选择仍显示、选项禁用、点击无效，答案与快照不变 → 去掉故障后在其他题位置点“重试交卷” → 成绩 `ExamResult(3,2,1,1,33)`；a、b 各一条 Attempt（对 / 错），c 无 Attempt；Progress 只有 a、b。说明重试使用原冻结试卷与答案，不受翻题后的 index 影响。
+- **结果**：整个 `ExamTerminationUiTest` **12/12 通过**（`--rerun`，真实执行）。按 11.2 在独立副本 `C:\AndroidProjects\EmbeddedQuiz-claude-iso` 自己的 build 目录运行，不覆盖共享 app/build。证据：`validation/T1-frontend-frozen-retry-20261026/`。
+- **首次运行**新用例失败 1 项，原因是测试辅助函数用“滚动查找”断言“节点不存在”；改用 `assertIsNotSelected()`，断言强度不变、未加等待。首次日志保留在证据目录，不计为证据。
+- 未发现生产代码问题。按 11.4 未自行跑完整套件；无真机验证。状态：待审查。
+
 ## 2026-10-26 · T1 前端接入：交卷说明、结构化成绩、放弃考试与失败恢复（Claude）
 
 依据 `REPAIR_DISPATCH.md` 第 9.2 节与 `API_CONTRACT.md` 顶部 T1 契约。起始 HEAD `3628e8816bbfe07445c3c78e7161942b4df81973`（后端基线）。只改白名单内的 Compose 页面和新增 UI 测试；`ExamStateHolder.kt`、`QuizViewModel.kt`、`Repository.kt`、API_CONTRACT、REPAIR_DISPATCH、方案稿和 Architect 证据都没有动。
