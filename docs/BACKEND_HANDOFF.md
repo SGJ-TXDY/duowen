@@ -1,5 +1,41 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-10-26 · G1 后端：统一初始化完成与通知复习顺序（待审查）
+
+任务 ID：G1 后端。执行者：GPT。本轮用户明确要求实施初始化/通知顺序修复并补业务测试；共享派发状态仍由 Architect 维护，没有修改 REPAIR_DISPATCH。
+
+起始 HEAD：d240f437eb4ad32531e655ad5c184c8257ca1dc5。
+
+交付 commit / 未提交说明：本节与后端、测试、契约及 validation/G1-backend-20261026 随同一个聚焦提交，实际 SHA 见交付回复。保留原未跟踪的派发文档、方案和 Architect 审查证据，不顺带暂存。
+
+修改文件与对应函数：QuizViewModel.kt 的 InitializationOutcome、requestNotificationReview、awaitInitialization、init 恢复及完成/失败/取消发布；新增 InitializationNotificationTest.kt（12 项）；API_CONTRACT 顶部 G1 段、本文及独立验证目录。MainActivity/AppNavigation/Compose/Repository/DAO/既有测试均未修改。
+
+接口/行为变化：
+
+- Main 的 requestNotificationReview 合并初始化期间的通知请求；IO 准备完成后在 Main 恢复考试、选定最终页面、设置 ready，再完成一次信号，不在这些步骤之间挂起。通知优先 REVIEW，无通知则保留普通启动恢复 QUESTION 的规则。
+- suspend awaitInitialization 返回 Ready(examRestored) 或 Failed(message)，多个等待者共享稳定结果；取消单个等待不取消初始化，ViewModel 生命周期取消尚未完成的信号。
+- 初始化期间既有 page=REVIEW 入口也被保留，不依赖 Compose 后置效应来覆盖 QUESTION。初始化后通知即时 REVIEW，不占 busy，不清空/保存考试、不写学习记录。
+- 初始化失败保持 ready=false，返回明确 Failed，不由通知命令自动重试或清理考试；未启动 T3。正式详细线程/结果/取消语义见 API_CONTRACT。
+
+是否超出白名单：无后端职责越界；本轮用户已明确授权实施 G1 后端，未修改通知导航 UI、全局任务调度、数据格式或其他 P1。
+
+修复前失败场景与证据：上一轮固定 d240f43/9a3987d 完整回归 143/144，G1 期望 REVIEW 实际 QUESTION；原因是旧入口先写 REVIEW、异步恢复再写 QUESTION、依赖组合效应最后回 REVIEW，ready 不代表通知目标已经应用。本轮后端统一决定页面，旧入口保持兼容。
+
+修复后测试命令、数量、结果、报告位置：在固定基线加本次源码覆盖的独立副本运行。定向 54/54；一次完整 Android 156/156，均 0 失败/错误/跳过；原 ReviewReminderTest 4/4 通过，新增业务 12/12，T1 后端 28/28 与考试 UI 12/12 保持通过。assembleDebug 成功，Lint 0 错误/5 既有警告。精确命令、原始 XML/日志和源码指纹见 [G1 后端验证](../validation/G1-backend-20261026/README.md)。
+
+故障注入/生命周期/并发验证：初始化前/后及重复通知；普通任务 busy 仍受理；多个等待者及独立取消；实际删除题目表触发读取失败，确认 Failed 且考试/学习记录保持；ViewModel 清理取消未完成等待。未答题缺行、原 Progress 所有字段、Attempt 和 DailyCount 均比较不变。没有通过加 sleep、跳过测试或削弱旧断言让结果通过。
+
+尚未验证：MainActivity 显式新门面接入由 Claude 负责（当前旧入口已兼容并实测通过）；实际 onNewIntent UI、配置变更、真机和已知 G1 Activity 自有 Recomposer 取消完成的正式测试清理。一次完整通过不关闭该隔离风险。Python 未改未跑，T2 跨进程窗口保留。
+
+数据兼容与回退：Room 4、备份 3、原考试快照字段不变，没有新增持久化标记；可独立回退本次源码提交，但回退会恢复旧的通知优先级竞争。没有覆盖稳定 APK、签名/版本或原题库，没有发布。
+
+需要 Claude 接入：在 openNotification/onNewIntent 调用 requestNotificationReview 后消费 Intent extra；移除重复直接 page 写入与 reviewAfterLoad/LaunchedEffect 竞态。需要等待时调用 awaitInitialization，不把 ready 或单次 Looper.idle 当通知处理完成。恢复数据读既有 queue/index/examAnswers/examDeadline；不自行清理快照。另按 Architect 分配修复 Activity 自有 Recomposer 测试收尾，不能全局取消其他实例。
+
+状态：G1 后端待审查；不是整个 G1 或稳定发布自行验收。
+
+---
+
+
 ## 2026-10-26 · T1 收尾：隔离调查、G1 只读分析与统一集成（GPT，11.4）
 
 任务 ID：T1 收尾（9.3/11.4）；G1 仅只读分析。执行者：GPT。

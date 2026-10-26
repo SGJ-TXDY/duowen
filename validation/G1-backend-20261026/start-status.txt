@@ -1,0 +1,8 @@
+ M app/src/main/java/cn/embeddedquiz/QuizViewModel.kt
+ M docs/API_CONTRACT.md
+?? app/src/test/java/cn/embeddedquiz/InitializationNotificationTest.kt
+?? docs/REPAIR_DISPATCH.md
+?? docs/T1_BACKEND_PROPOSAL.md
+?? validation/G1-backend-20261026/
+?? validation/T1-architect-review-20261026/
+?? validation/T1-frontend-architect-review-20261026/

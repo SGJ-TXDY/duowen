@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.QuickNotesIsolationTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-10-26T14:32:17" hostname="LAPTOP-0JLS131B" time="1.238">
+  <properties/>
+  <testcase name="quickNotesDoNotAffectQuizBackupPracticeDraftsOrHomeReview" classname="cn.embeddedquiz.QuickNotesIsolationTest" time="0.274"/>
+  <testcase name="duplicateConflictIsExplicitAndDoesNotUseGlobalQuizBusyOrNotice" classname="cn.embeddedquiz.QuickNotesIsolationTest" time="0.25"/>
+  <testcase name="systemContentUrisAreCopiedAndIndependentBackupRestoresSavedPosition" classname="cn.embeddedquiz.QuickNotesIsolationTest" time="0.388"/>
+  <testcase name="unfinishedExamAndReadingPositionSurviveModuleSwitchAndModelRestart" classname="cn.embeddedquiz.QuickNotesIsolationTest" time="0.326"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

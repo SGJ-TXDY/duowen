@@ -1,5 +1,18 @@
 # Android 业务接口契约
 
+## 2026-10-26 · G1 初始化完成与通知复习入口（GPT 后端，待审查）
+
+新增主线程门面 `requestNotificationReview(): Unit`：初始化前只记住请求；先完整恢复考试 queue/index/answers/deadline，再决定初始页面，有复习请求时 REVIEW 优先，否则普通启动继续 QUESTION。初始化成功后调用立即转 REVIEW，不受普通写任务 busy 限制。重复请求合并为同一目标，不写学习记录、不重置或保存考试快照。返回 Unit 只表示请求已受理，初始化失败不伪报导航完成。
+
+新增 `suspend awaitInitialization(): InitializationOutcome`：在调用方协程等待本 ViewModel 的一次初始化结果，不切换到 IO 做查询。`Ready(examRestored: Boolean)` 只在恢复状态和通知优先级均已应用、ready=true 后发布；`Failed(message: String)` 在初始化准备/恢复失败时发布友好提示，ready 仍 false。多个等待者共享同一稳定结果，取消一个等待者不取消初始化；ViewModel 清理取消尚未完成的信号，等待者收到 CancellationException。Ready 的恢复标记描述本次启动历史，不随之后结束考试而重算。信号不承诺全部 Flow 首次发射已完成，也不代表未来查询永不失败。
+
+兼容：保留原 ready/page 等状态。旧 MainActivity 在初始化期间直接写入的 Page.REVIEW 同样被视作明确的复习目标，不会被考试恢复覆盖；因此旧入口在前端切换前也保持正确。Claude 后续应将 openNotification/onNewIntent 改为调用 requestNotificationReview 并消费 Intent extra，移除重复直接导航/LaunchedEffect；后端不读取 Android Intent，也不修改 MainActivity 或 Compose 页面。
+
+失败/边界：初始化失败不会由通知命令自动重试数据库或清除考试，后续请求只保留待处理意图，awaitInitialization 仍返回同一 Failed；本接口没有新增启动重试/错误恢复页面，不开展 T3。初始化准备出错时会保留既有考试偏好；构造 ViewModel 本身失败、或原有损坏快照解析清理策略，不在该完成信号保证范围内。请求与结果仅本实例内存态，不增加偏好键、迁移或 T2 协议。
+
+---
+
+
 ## 2026-10-26 · T1 考试结束接口（按 REPAIR_DISPATCH 第 8 节裁定）
 
 本节优先于下文旧考试接口描述。GPT 后端实现待审查，Claude UI 尚待接入；不表示 T1 已验收或允许发布。

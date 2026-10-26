@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.InitializationNotificationTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-10-26T14:29:20" hostname="LAPTOP-0JLS131B" time="1.652">
+  <properties/>
+  <testcase name="initializationFailureCompletesWithFailureAndKeepsExamAndLearningData" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.136"/>
+  <testcase name="repeatedNotificationsUseOneRestorationAndDoNotRewriteTheExam" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.139"/>
+  <testcase name="ordinaryStartupWithoutExamKeepsHomeAndReturnsNoRestoration" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.125"/>
+  <testcase name="cancellingOneWaiterDoesNotCancelOtherWaitersOrInitialization" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.127"/>
+  <testcase name="clearingOwnerCancelsPendingCompletionInsteadOfLeavingWaitersSuspended" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.107"/>
+  <testcase name="notificationBeforeInitializationWithoutExamOpensReviewWithoutLearningWrites" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.142"/>
+  <testcase name="notificationBeforeInitializationPublishesReviewWithRestoredExam" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.141"/>
+  <testcase name="notificationAfterInitializationImmediatelyOpensReviewAndKeepsOriginalExam" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.138"/>
+  <testcase name="ordinaryStartupWithoutExamKeepsExplicitNonReviewDestination" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.174"/>
+  <testcase name="ordinaryStartupRestoresExamAsQuestionWithoutNotification" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.138"/>
+  <testcase name="existingMainActivityReviewAssignmentHasSamePriorityAsNewCommand" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.141"/>
+  <testcase name="notificationIsNotDroppedWhileAnUnrelatedWriteTaskIsBusy" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.142"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

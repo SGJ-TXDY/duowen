@@ -1,0 +1,3 @@
+3b0a74b12d66744baf439e9d04813d759bccdc07c5b44de5340a2527e32c6696  app/src/main/java/cn/embeddedquiz/QuizViewModel.kt
+dbab559ee3c3aaa8ce72a7946d9608f09591ddc0efa391180a05c3b224a7a7a8  app/src/test/java/cn/embeddedquiz/InitializationNotificationTest.kt
+c637b92ee76afc37ce93845326552cdd14f4ef7f04a9168a634496061b533092  docs/API_CONTRACT.md

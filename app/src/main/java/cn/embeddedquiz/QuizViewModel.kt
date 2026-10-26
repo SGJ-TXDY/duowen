@@ -9,6 +9,11 @@ import java.time.LocalDate
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
+sealed interface InitializationOutcome {
+    data class Ready(val examRestored: Boolean) : InitializationOutcome
+    data class Failed(val message: String) : InitializationOutcome
+}
+
 class QuizViewModel(app: Application) : AndroidViewModel(app) {
     val db = QuizDatabase.open(app)
     val repo = QuizRepository(db)
@@ -26,6 +31,18 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     private var notesReturnPage = Page.HOME
     var ready by mutableStateOf(false)
         private set
+
+    private val initializationCompletion =
+        CompletableDeferred<InitializationOutcome>(viewModelScope.coroutineContext[Job])
+    private var notificationReviewRequested = false
+
+    /** Main-thread command. Restore the exam first; apply the notification before publishing ready. */
+    fun requestNotificationReview() {
+        if (ready) page = Page.REVIEW else notificationReviewRequested = true
+    }
+
+    /** One result per ViewModel; cancelling a waiter does not cancel initialization. */
+    suspend fun awaitInitialization(): InitializationOutcome = initializationCompletion.await()
 
     var busy by mutableStateOf(false)
         private set
@@ -152,16 +169,27 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
                     repo.dao.progress().collect { progress = it.associateBy { p -> p.questionId } }
                 }
                 launch { repo.dao.attempts().collect { attempts = it } }
-                examState.restore()?.let { saved ->
-                    queue = saved.ids
-                    index = saved.index
+                val restored = examState.restore()
+                if (restored != null) {
+                    queue = restored.ids
+                    index = restored.index
                     mode = "模拟考试"
-                    page = Page.QUESTION
                 }
+                // Keep the legacy MainActivity page assignment working until it adopts the command.
+                // No suspension between restoring the exam, selecting the page and publishing ready.
+                if (notificationReviewRequested || page == Page.REVIEW) page = Page.REVIEW
+                else if (restored != null) page = Page.QUESTION
+                notificationReviewRequested = false
                 ready = true
+                initializationCompletion.complete(InitializationOutcome.Ready(restored != null))
+            } catch (e: CancellationException) {
+                initializationCompletion.cancel(e)
+                throw e
             } catch (e: Exception) {
-                withContext(Dispatchers.IO) { errorLog.record(LogEvent.LOAD, e) }
-                notice = "题库加载失败，请查看本地错误记录"
+                val message = "题库加载失败，请查看本地错误记录"
+                notice = message
+                initializationCompletion.complete(InitializationOutcome.Failed(message))
+                withContext(Dispatchers.IO) { runCatching { errorLog.record(LogEvent.LOAD, e) } }
             }
         }
     }

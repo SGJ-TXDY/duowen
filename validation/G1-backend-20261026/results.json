@@ -1,0 +1,18 @@
+[
+  {
+    "Run": "01-business-xml",
+    "Tests": 54,
+    "Passed": 54,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Run": "02-full-xml",
+    "Tests": 156,
+    "Passed": 156,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  }
+]

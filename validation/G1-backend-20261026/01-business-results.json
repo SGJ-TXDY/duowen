@@ -1,0 +1,37 @@
+[
+  {
+    "Class": "cn.embeddedquiz.ExamLifecycleContractTest",
+    "Tests": 20,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Class": "cn.embeddedquiz.ExamStateHolderTest",
+    "Tests": 8,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Class": "cn.embeddedquiz.FrontendQueryContractTest",
+    "Tests": 10,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Class": "cn.embeddedquiz.InitializationNotificationTest",
+    "Tests": 12,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Class": "cn.embeddedquiz.ReviewReminderTest",
+    "Tests": 4,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  }
+]
