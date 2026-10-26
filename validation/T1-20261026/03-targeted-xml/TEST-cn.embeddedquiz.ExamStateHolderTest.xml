@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.ExamStateHolderTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-26T02:42:54" hostname="LAPTOP-0JLS131B" time="2.211">
+  <properties/>
+  <testcase name="secondInsertFailureRollsBackWholeExamAndPreservesExistingLearning" classname="cn.embeddedquiz.ExamStateHolderTest" time="0.235"/>
+  <testcase name="personalAnswerIsUsedForBothExamScoreAndLearningRecord" classname="cn.embeddedquiz.ExamStateHolderTest" time="0.215"/>
+  <testcase name="invalidPaperFailsBeforeAnyRecordIncludingUnansweredUngradableQuestion" classname="cn.embeddedquiz.ExamStateHolderTest" time="0.237"/>
+  <testcase name="allAnsweredHasFullDenominatorAndOriginalLearningRules" classname="cn.embeddedquiz.ExamStateHolderTest" time="0.563"/>
+  <testcase name="tenOfFiftyOnlyRecordsTenAndPreservesAllUnansweredProgressFields" classname="cn.embeddedquiz.ExamStateHolderTest" time="0.364"/>
+  <testcase name="allUnansweredIncludingExplicitEmptyCreatesNoLearningRowsOrDailyCounts" classname="cn.embeddedquiz.ExamStateHolderTest" time="0.208"/>
+  <testcase name="multipleMissingChoiceCountsAsWrongButClearedSetIsUnanswered" classname="cn.embeddedquiz.ExamStateHolderTest" time="0.19"/>
+  <testcase name="ordinaryPracticeEmptyAndManualAssessmentSemanticsRemainUnchanged" classname="cn.embeddedquiz.ExamStateHolderTest" time="0.198"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

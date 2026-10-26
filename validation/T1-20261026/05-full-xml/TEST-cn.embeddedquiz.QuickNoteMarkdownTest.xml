@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.QuickNoteMarkdownTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-26T02:53:10" hostname="LAPTOP-0JLS131B" time="0.617">
+  <properties/>
+  <testcase name="actualLinuxDocumentRendersChineseTablesCodeAndDirectoryWithoutLosingEscapes" classname="cn.embeddedquiz.QuickNoteMarkdownTest" time="0.546"/>
+  <testcase name="mathAndMissingAnchorsAreExplicitlyReportedInsteadOfClaimingSupport" classname="cn.embeddedquiz.QuickNoteMarkdownTest" time="0.026"/>
+  <testcase name="veryLongHeadingsStillProduceStablePersistableUniqueAnchors" classname="cn.embeddedquiz.QuickNoteMarkdownTest" time="0.011"/>
+  <testcase name="chineseResourcePathsAndPlusSignsDecodeWithoutTraversal" classname="cn.embeddedquiz.QuickNoteMarkdownTest" time="0.005"/>
+  <testcase name="dangerousLinksAndRawHtmlCannotBecomeExecutableContent" classname="cn.embeddedquiz.QuickNoteMarkdownTest" time="0.012"/>
+  <testcase name="syntaxFixtureCoversNestedListsFormattingLinksTablesImagesAndCopyData" classname="cn.embeddedquiz.QuickNoteMarkdownTest" time="0.017"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

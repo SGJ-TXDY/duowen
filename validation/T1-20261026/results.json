@@ -1,0 +1,42 @@
+[
+  {
+    "Run": "02-targeted",
+    "Tests": 24,
+    "Passed": 23,
+    "Failures": 1,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Run": "03-targeted",
+    "Tests": 24,
+    "Passed": 24,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Run": "04-full",
+    "Tests": 132,
+    "Passed": 130,
+    "Failures": 2,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Run": "05-full",
+    "Tests": 132,
+    "Passed": 123,
+    "Failures": 9,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Run": "06-backend",
+    "Tests": 74,
+    "Passed": 74,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  }
+]

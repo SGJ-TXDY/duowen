@@ -247,7 +247,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun start(list: List<QuestionSummary>, selectedMode: String) {
-        if (prefs.contains("exam") && !examFinished) {
+        if (examState.active() || (prefs.contains("exam") && !examFinished)) {
             notice = "请先继续并交卷当前考试，再开始其他练习"
             page = Page.QUESTION
             return
@@ -263,12 +263,11 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         index = 0
         mode = selectedMode
         page = Page.QUESTION
-        examFinished = false
-        examResult = ""
+        examState.startSession(selectedMode == "模拟考试")
     }
 
     fun startExam(list: List<QuestionSummary>, count: Int, minutes: Int) {
-        if (prefs.contains("exam") && !examFinished) {
+        if (examState.active() || (prefs.contains("exam") && !examFinished)) {
             notice = "已有未交卷考试，请先完成"
             page = Page.QUESTION
             return
@@ -284,27 +283,57 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         saveExam()
     }
 
+    val examOperationState: ExamOperationState
+        get() = examState.operationState
+
+    val examSummary: ExamResult?
+        get() = examState.summary
+
     fun saveExam() = examState.save(queue, index, mode)
 
     fun answerExam(id: String, answer: Set<String>) {
+        if (mode != "模拟考试" || !examState.acceptsAnswers || id !in queue) return
         if (System.currentTimeMillis() >= examDeadline) {
             finishExam()
             return
         }
-        examAnswers = examAnswers + (id to answer)
+        examAnswers = examAnswers + (id to answer.toSet())
         saveExam()
     }
 
     fun finishExam() {
-        if (busy || examFinished) return
-        launchTask {
-            val selected = queue.mapNotNull { id -> repo.question(id) }
-            val result = examState.grade(selected)
-            val committedAttempts = repo.dao.historyPage(100, 0)
-            withContext(Dispatchers.Main) {
-                attempts = committedAttempts
-                examFinished = true
-                examResult = result
+        // In particular, periodic timeout callbacks never implicitly retry a failed operation.
+        if (examOperationState != ExamOperationState.Idle || busy || mode != "模拟考试") return
+        if (examState.accept(ExamOperation.SUBMIT, queue)) launchExamOperation()
+    }
+
+    fun abandonExam() {
+        if (busy || mode != "模拟考试") return
+        if (examState.accept(ExamOperation.ABANDON, queue)) launchExamOperation()
+    }
+
+    fun retryExamOperation() {
+        if (busy) return
+        if (examState.acceptRetry()) launchExamOperation()
+    }
+
+    private fun launchExamOperation() {
+        busy = true
+        // Enter try/finally even when cancellation arrives before the first dispatch.
+        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                examState.executeOperation()
+                (examOperationState as? ExamOperationState.Failed)?.let { notice = it.message }
+            } finally {
+                if (examOperationState == ExamOperationState.Abandoned) {
+                    queue = emptyList()
+                    index = 0
+                    mode = "顺序练习"
+                    questionDrafts.clear()
+                    practiceSession++
+                    practiceRecords = emptyMap()
+                }
+                busy = false
             }
         }
     }
@@ -546,6 +575,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     override fun onCleared() {
+        examState.onOwnerCleared()
         codeDrafts.writer.close()
         notesState.shutdown()
         quickNotes.shutdown()

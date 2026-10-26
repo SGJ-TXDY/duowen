@@ -1,0 +1,4 @@
+ccc99d0988ecd5e60eb5a4f99182d4c5bac192a53d145875446679372897b955  app/src/main/java/cn/embeddedquiz/ExamStateHolder.kt
+5dc8ec5502cc8fcfc1973cf9e1c6e98ff9295c8664f6be0c53d4dabd4ea12851  app/src/main/java/cn/embeddedquiz/QuizViewModel.kt
+82862a80ea315186d022166fd6e19feef9b30311790295b549f7bce3f802bd65  app/src/test/java/cn/embeddedquiz/ExamStateHolderTest.kt
+43dbd5343d6c98a26be2499dc4f733d04e24e5662ed77a79f7f9e8aed936ae2f  app/src/test/java/cn/embeddedquiz/ExamLifecycleContractTest.kt

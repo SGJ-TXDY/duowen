@@ -1,5 +1,67 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-10-26 · T1 考试后端交付（GPT，待审查）
+
+本节按 REPAIR_DISPATCH.md 第 8 节实施裁定交付。方案稿保留原样；本节与 API_CONTRACT 的 T1 段描述当前实现。没有修改 Architect 维护的派发文档或 Claude 的 UI。
+
+任务 ID：T1。
+
+执行者及职责：GPT；考试结果、学习记录隔离、放弃/重试状态机与业务/存储故障测试。
+
+起始 HEAD：`92d1cd70df874680caef78ca95ccc0a97b6e8b6d`。
+
+交付 commit / 当前未提交改动说明：本节随 T1 聚焦提交交付，实际 SHA 见最终交付回复；原未跟踪 `docs/REPAIR_DISPATCH.md`、`docs/T1_BACKEND_PROPOSAL.md` 不纳入提交，不覆盖其内容。测试报告与日志随同交付。
+
+修改文件与对应函数：
+
+- `ExamStateHolder.kt`：新增 ExamResult、ExamOperation/ExamFailureStage/ExamOperationState；grade 在一个外层 Room 事务内按冻结题号加载整卷并验证资格，只对非空作答调用原 record；accept/acceptRetry/executeOperation 实现结束状态机；startSession/active/save 提供独立内存会话守卫。新增仅考试使用的内部故障接缝。
+- `QuizViewModel.kt`：finishExam、abandonExam、retryExamOperation、launchExamOperation，暴露 examOperationState/examSummary；start/startExam/answerExam 只调整考试守卫；onCleared 仅增加考试所属生命周期结束标记，其他队列及数据库关闭方式保持。
+- 新增 `ExamStateHolderTest.kt`（8 项）与 `ExamLifecycleContractTest.kt`（20 项）；不修改既有测试。
+- `API_CONTRACT.md`：正式 T1 接口、失败/重试权限、线程与兼容字段状态表；本文件与 `validation/T1-20261026/`：交付记录、分次日志/XML/源码指纹。
+
+接口/行为变化：
+
+- `finishExam(): Unit` 保持原入口，Failed/进行中/终止状态重复调用不执行、不刷失败 notice；现有超时轮询不会自动重试失败。
+- `abandonExam(): Unit` 供二次确认后调用；Failed(SUBMIT, VALIDATION/RECORDS, false) 仍可放弃；已提交成绩或已进入放弃清理的失败不能转换操作。
+- `retryExamOperation(): Unit` 只显式重试当前失败，使用原冻结题号/答案；成绩已提交时只清理会话，绝不再次 grade。
+- `examSummary: ExamResult?`、`examOperationState: ExamOperationState` 为只读可观察结果。成绩含 total/answered/unanswered/correct/score；未答计零分且分母仍为整卷，不产生 Attempt/Progress/SRS/错题/每日完成副作用。普通练习空答及手动自评不变。
+- 非 suspend 门面在 Main 调用、返回不表示完成；受理立即设置进行中与 busy，评分和可靠清理在 IO，结束结果在 Main 发布。兼容字段每种状态的确切值见 API_CONTRACT 顶部 T1 状态表。
+- 会话锁不依赖 prefs.contains；commit=false 已删偏好内存键仍保持冲突保护。新会话前迟到 save/answer 不能复活结束的考试。
+- 生命周期取消前置释放占用；临界段只保护一次事务结果确认/内存标记/清理尝试。发现 Room 可能自动重开已关闭数据库后，增加考试 ownerCleared 标记，尚未启动的评分事务不再继续；没有改造数据库生命周期。
+
+是否超出白名单：无。onCleared 单行考试标记落实第 8.2.D 的生命周期边界；没有修改 UI、全局 launchTask、Repository/DAO/算法、数据库/备份/依赖/版本，也未开展 T2 或目录重组。
+
+修复前失败场景与证据：原 grade 无条件对空答 record；空选项按普通 record 判错并污染学习。原 finishExam 用 mapNotNull 缩小缺题分母、事务后依赖清理和 historyPage 再发布成功。原实现未另跑测试；证据来自起始 HEAD 代码核查，不将历史基线结果冒充本次测试。
+
+修复后测试命令、数量、结果、报告位置：最终定向 74/74 通过（含新增 28 项），Lint 0 错误/5 警告；两次全套分别为 130/132、123/132 通过，均未全绿。完整实际命令、计数和结果逐次列于 [T1 验证记录](../validation/T1-20261026/README.md)。保留编译失败、定向失败及各次完整失败运行；不能把后续定向通过合并为“一次全套通过”。Debug 构建仅在标准 build 目录生成产物，不复制或覆盖稳定 APK，不发布。
+
+故障注入/生命周期/并发验证：
+
+- 50 题答 10 题：结果分母 50、恰增 10 Attempt，未答已有 Progress 全对象相等、缺行题不建行，校验每日完成与错题计数。
+- 全未答/全答/部分答、个人核对、多选漏选、选择后清空、调用方可变集合复制、手动/超时均覆盖。
+- 缺题/判分资格失效后无学习写入，可放弃且新实例不恢复；缺题修复后可显式重试冻结输入。
+- SQLite 触发器在第二条 Attempt 插入时失败，整卷回滚且已有学习记录不变；失败后可重试或放弃。
+- 假 SharedPreferences 删除真实内存键后返回 commit=false，验证交卷/放弃清理失败仍锁定，自动超时无重试；连续显式清理失败后重试不重复评分。
+- 可控 CompletableDeferred 屏障验证临界段前取消、取消显式重试、事务中取消、事务前生命周期清理及成绩提交后关闭数据库；不以盲目 sleep 推断顺序。
+- 新生命周期测试在关闭数据库前取消并等待无关 Room 订阅完成，隔离被测考试任务；不吞异常、不修改既有 UI 测试或断言。
+
+尚未验证的内容：Claude 新 UI 尚未接入；确认/取消、返回、状态展示、防连点的 Compose 集成测试和真机验收待 Claude/Architect；完整回归中非 T1 失败逐项保留于验证记录，未擅自修复。跨进程提交幂等、异步快照保存、T2 完成协议未实现；Python 工具未改且本次未运行其测试。生命周期故障测试不等同真实进程强杀保证。
+
+数据兼容与回退方法：Room 仍 4、刷题备份仍 3，原考试快照字段不变；未改稳定 APK、标签、签名身份或原题库。源码可独立回退 T1 提交，但回退会恢复旧版空答污染规则；回退前应结束当前会话。Room 与偏好不是原子提交，成绩已落库而会话未可靠清理时进程退出仍有跨进程重复窗口，留给 T2，不能据本任务宣称可发布。源码回退也不自动回滚已产生的学习记录。
+
+需要另一执行者接入的事项（Architect 审查后再派发 Claude）：
+
+1. 从 examSummary 展示成绩和未答数，确认说明“未答计零分，但不改变复习安排”，不得在前端重新计算学习副作用。
+2. 未完成考试入口提供继续与二次确认放弃；取消确认不调用后端，原截止时间继续有效。
+3. 观察 busy 和 examOperationState，冻结期间禁用选择、交卷、放弃及新会话；错误重试按钮只调用 retryExamOperation，按 Failed 阶段决定是否还能放弃。
+4. Submitted 才展示完成成绩；成绩已写入但清理失败显示真实状态。Abandoned 后使用既有导航离页，后端不替 UI 跳路由。
+5. UI 确认/取消、忙时禁用、重复点击、返回/超时和失败重试测试；完整回归中 UI 空闲等待失败需进一步归因，不能当作已通过。
+
+状态：待审查。未自行验收或发布。
+
+---
+
+
 ## 2026-10-25（第五轮）· WebView 故障复盘、最终 APK 与提交（Codex）
 
 用户反馈“修的好”，并明确要求记录 Codex 改动与 Opus 的问题，授权生成最终 APK 并提交 GitHub。本节为最新交付状态，下面各轮“未提交 / 待接入”保留为当时的历史记录，不代表当前状态。源码本轮没有再改动；只补全文档、整理最终产物并提交已有功能。

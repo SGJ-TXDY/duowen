@@ -1,5 +1,41 @@
 # Android 业务接口契约
 
+## 2026-10-26 · T1 考试结束接口（按 REPAIR_DISPATCH 第 8 节裁定）
+
+本节优先于下文旧考试接口描述。GPT 后端实现待审查，Claude UI 尚待接入；不表示 T1 已验收或允许发布。
+
+主线程门面：`finishExam(): Unit`、`abandonExam(): Unit`、`retryExamOperation(): Unit`。返回不代表完成；执行时 `busy=true`，数据库与会话清理在 IO，状态在 Main 发布。`finishExam` 兼容手动/超时调用，Failed、进行中及终止状态的重复调用无副作用，也不刷新 notice。`retryExamOperation` 仅显式重试当前 Failed；没有失败时无操作。`abandonExam` 只在用户二次确认后调用，取消确认无需后端命令。全局 busy 时不受理新结束操作。
+
+只读可观察入口：`examOperationState: ExamOperationState`、`examSummary: ExamResult?`。
+
+`ExamResult(total:Int, answered:Int, unanswered:Int, correct:Int, score:Int)`：total 为冻结的整卷题数，answered 仅计非空选择，unanswered=total-answered，score=correct*100/total（整数百分制）。缺键/空集合未答，零分且不创建 Attempt/Progress，不影响复习安排、错题或每日完成；多选漏选但非空继续按已答错误学习规则处理。缺题、重复/空队列或不可判分题整次校验失败，不缩小分母。普通练习/手动自评规则不变。
+
+状态类型为 `Idle`、`Submitting`、`Submitted(result)`、`Abandoning`、`Abandoned`、`Failed(operation, stage, recordsCommitted, result, message)`。operation 为 `SUBMIT/ABANDON`；stage 为 `VALIDATION/RECORDS/SESSION_CLEAR`；message 为固定友好文本，不暴露数据库异常。
+
+| 状态 | examFinished / examSummary / examResult | 队列、答案、截止时间与允许操作 |
+| --- | --- | --- |
+| Idle（活动考试） | false / null / 空字符串 | 保留当前输入；可选择、保存、交卷或确认放弃 |
+| Submitting | false / 未提交时 null，Room 已提交后为结果 / 空字符串 | 冻结受理时的队列和深复制答案；阻止选择、保存、新练习/考试及冲突结束操作 |
+| Submitted | true / 已提交结果 / 由该结果生成的兼容成绩文字 | 保留交卷队列、答案、截止时间用于成绩展示；持久化考试键已可靠清理，迟到 answer/save 无操作，可开始新会话 |
+| Abandoning | false / null / 空字符串 | 保留本次会话至可靠清理完成，阻止所有冲突考试命令 |
+| Abandoned | false / null / 空字符串 | 清空本次队列、答案、截止时间及题目草稿，mode 回到普通练习，撤销考试上下文；不生成成绩、不跳路由，Claude 决定离页 |
+| Failed(SUBMIT, VALIDATION/RECORDS, false) | false / null / 空字符串 | 保留会话但冻结输入；可 retryExamOperation 重试原冻结输入，也可确认 abandonExam；不能继续改答案 |
+| Failed(SUBMIT, SESSION_CLEAR, true) | false / 已提交结果 / 空字符串 | 成绩已落库，仅可 retryExamOperation 清理会话；不能放弃、重新评分、改答案或开始新会话 |
+| Failed(ABANDON, SESSION_CLEAR, false) | false / null / 空字符串 | 会话内存保留，仅可 retryExamOperation 重试放弃清理；不能转成交卷 |
+
+新会话重置操作状态/结构化成绩/兼容成绩。会话锁定独立于 `prefs.contains("exam")`；即使 commit=false 已删内存键，结束中和失败状态仍锁定。重试不读取后来变化的页面 queue/index 或答案。未开始新会话前，终止后迟到 answer/save 不复活考试。
+
+学习提交：同一 Room 外层事务内加载整卷、校验判分资格、计算结果，并仅对非空作答调用原有 record；失败整卷回滚。Room 成功后固定本实例的已提交结果，再可靠删除 exam；只有两步都成功才 Submitted。不依赖额外 historyPage 查询发布结果。放弃只删除考试快照，不写学习表。清理失败保留真实阶段；显式重试已提交成绩只清理，不再 grade。
+
+取消：临界段前取消释放本次 busy/进行中状态，初次操作回 Idle，重试回原 Failed；不生成成功。进入临界段后仅保护本次事务结果确定、内存提交标记与一次清理尝试；ViewModel 清理时标记考试所属生命周期已结束，尚未开始的评分事务不再启动；数据库同时关闭时按真实成功/失败发布，不延长数据库生命周期，不保证进程结束后工作完成。
+
+T1 只提供本实例防重复。Room 与偏好不是原子提交，成绩已写入、快照未可靠清理时崩溃仍有跨进程重复窗口；此为 T2 发布阻断。每次选择的同步可靠保存保持原样，本节不承诺 T2 的异步保存/完成协议。
+
+Claude 后续接入：使用结构化成绩；交卷说明未答计零但不改变复习安排；二次确认放弃；错误页重试调用 retryExamOperation，按上表显示是否仍可放弃；结束中禁用冲突操作，清理失败不显示交卷成功。后端不更改 UI 或路由。
+
+---
+
+
 ## 2026-10-25 故障勘误：速记正文请求不能按未知图片请求拒绝
 
 用户导入示例后出现 `data:text/html;charset=utf-8;base64,` / `ERR_HTTP_RESPONSE_CODE_FAILURE`。当前 ReaderClient 只服务 assets 路径，其他请求统一 404；这个规则没有区分正文主请求，属于阅读容器层面的集成缺陷，不需要更改 Markdown、导入存储或任何数据库。
