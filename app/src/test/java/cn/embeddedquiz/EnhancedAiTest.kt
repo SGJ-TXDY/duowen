@@ -178,6 +178,116 @@ class EnhancedAiTest {
         }
     }
 
+    private val twoQuestions =
+        """{"schemaVersion":1,"questions":[{"id":"qa","stem":"甲题题干","kind":"SHORT","source":"测试"},{"id":"qb","stem":"乙题题干","kind":"SHORT","source":"测试"}]}"""
+
+    /** Hands out queued responses in order; a response may wait on its gate before answering. */
+    private class GatedDispatcher : Dispatcher() {
+        val responses = java.util.concurrent.LinkedBlockingQueue<() -> MockResponse>()
+
+        override fun dispatch(request: RecordedRequest): MockResponse =
+            responses.poll(5, TimeUnit.SECONDS)?.invoke() ?: MockResponse().setResponseCode(599)
+    }
+
+    private fun prompt(request: RecordedRequest) =
+        JSONObject(request.body.readUtf8()).getJSONArray("messages").getJSONObject(1).getString("content")
+
+    @Test
+    fun requestSnapshotStaysWithItsQuestionAndStaleIdsCannotRetryOrCancel() = runBlocking {
+        val name = "ai-owner-${System.nanoTime()}.db"
+        val db = QuizDatabase.open(context, name)
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val server = MockWebServer()
+        val dispatcher = GatedDispatcher()
+        server.dispatcher = dispatcher
+        server.start()
+        val gate = java.util.concurrent.CountDownLatch(1)
+        val notices = mutableListOf<String>()
+        try {
+            val repo = QuizRepository(db)
+            repo.importBank(twoQuestions)
+            val a = repo.question("qa")!!
+            val b = repo.question("qb")!!
+            val holder =
+                AiStateHolder(
+                    scope,
+                    repo,
+                    KeyVault(context),
+                    context.getSharedPreferences("ai-owner", 0),
+                    client = DeepSeekClient(endpoint = server.url("/chat/completions").toString()),
+                    readKey = { "test-key" },
+                    notify = { notices += it },
+                )
+            dispatcher.responses += {
+                gate.await(5, TimeUnit.SECONDS)
+                MockResponse().setResponseCode(500)
+            }
+            holder.ask(a, "", emptySet(), AiRequestType.EXPLANATION)
+            val first = holder.request!!
+            assertEquals(AiRequestUiState(first.requestId, "qa", a.contentHash, "生成详细解析", true, ""), first)
+            assertTrue(prompt(server.takeRequest(5, TimeUnit.SECONDS)!!).contains("甲题题干"))
+
+            // Moving to B only switches the history being observed; A keeps its request.
+            holder.observe(b)
+            assertNull(holder.requestFor(b))
+            assertEquals(first, holder.requestFor(a))
+            assertNull(holder.requestFor(a.copy(stem = "甲题题干（修订）")))
+            gate.countDown()
+            await { !holder.busy }
+            val failed = holder.request!!
+            assertEquals("qa", failed.questionId)
+            assertEquals(first.requestId, failed.requestId)
+            assertFalse(failed.busy)
+            assertEquals("AI 服务暂时不可用", failed.error)
+            assertNull(holder.requestFor(b))
+
+            assertFalse(holder.retry(failed.requestId + 1))
+            assertFalse(holder.cancel(failed.requestId))
+            assertEquals(1, server.requestCount)
+
+            dispatcher.responses += { MockResponse().setBody(reply) }
+            assertTrue(holder.retry(failed.requestId))
+            assertNotEquals(failed.requestId, holder.request!!.requestId)
+            assertEquals("qa", holder.request!!.questionId)
+            assertTrue(prompt(server.takeRequest(5, TimeUnit.SECONDS)!!).contains("甲题题干"))
+            await { !holder.busy }
+            assertNull(holder.request)
+            assertEquals(listOf("qa"), repo.dao.allAi().map { it.questionId })
+            assertFalse(holder.retry(failed.requestId))
+
+            // Same request again is served from cache: no HTTP and no leftover pending snapshot.
+            holder.ask(a, "", emptySet(), AiRequestType.EXPLANATION)
+            await { !holder.busy }
+            assertNull(holder.request)
+            assertEquals(2, server.requestCount)
+            assertEquals(1, repo.dao.allAi().size)
+            assertTrue(notices.any { it.contains("缓存") })
+
+            // A newer request replaces the snapshot; the old id can neither cancel nor retry it.
+            dispatcher.responses += { MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE) }
+            holder.ask(b, "追问乙", emptySet(), AiRequestType.FOLLOW_UP)
+            val running = holder.request!!
+            assertEquals("追问乙", running.prompt)
+            assertNotNull(server.takeRequest(5, TimeUnit.SECONDS))
+            assertFalse(holder.cancel(failed.requestId))
+            assertFalse(holder.retry(running.requestId))
+            assertTrue(holder.busy)
+            assertTrue(holder.cancel(running.requestId))
+            delay(150)
+            assertFalse(holder.busy)
+            assertEquals("请求已取消，可以重试", holder.request!!.error)
+            assertEquals("qb", holder.request!!.questionId)
+            assertEquals(1, repo.dao.allAi().size)
+            assertEquals(3, server.requestCount)
+        } finally {
+            gate.countDown()
+            scope.cancel()
+            db.close()
+            context.deleteDatabase(name)
+            server.shutdown()
+        }
+    }
+
     @Test
     fun cancellationStopsHttpAndDoesNotCreateCacheEntry() = runBlocking {
         val name = "ai-cancel-${System.nanoTime()}.db"

@@ -107,6 +107,9 @@ class LearningDatesAndReadingTest {
             assertTrue(where, contrast(colors.onPrimaryContainer, colors.primaryContainer) >= 4.5)
             assertTrue(where, contrast(colors.primary, selection.container) >= 4.5)
             assertTrue(where, contrast(colors.onSurface, selection.container) >= 4.5)
+            // AI tokens/cost line sits on the white (dark: lowest) section card.
+            assertTrue(where, contrast(aiCostTextColor(colors), colors.surfaceContainerLowest) >= 4.5)
+            assertTrue(where, contrast(aiCostTextColor(colors), colors.background) >= 4.5)
         }
         assertEquals(ACCENTS.first(), accentOf("not-an-accent"))
         assertEquals(ACCENTS.first(), accentOf(null))

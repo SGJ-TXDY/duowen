@@ -1,5 +1,32 @@
 # Android 业务接口契约
 
+## 2026-11-04 · VC-01 AI 请求归属展示（Claude，按 REPAIR_DISPATCH §21 授权的小范围后端例外，待审查）
+
+只追加 `AiStateHolder` 的只读请求快照与带请求号的重试/取消；不改 DAO/schema、缓存键、上下文 4 轮、费用计算、网络协议、凭据、评分/考试/保存协议。仍只允许一个在途请求，无排队、无持久化会话。Main 调用、Compose 可观察：
+
+```kotlin
+data class AiRequestUiState(
+    val requestId: Int,       // = 受理时的内部 serial
+    val questionId: String,
+    val contentHash: String,
+    val prompt: String,       // 展示文字：FOLLOW_UP 为用户原文，其余为 AiRequestType.label（与成功后 AiEntry.prompt 一致）
+    val busy: Boolean,
+    val error: String,
+) { fun belongsTo(q: Question): Boolean } // questionId 与 contentHash 都相同
+val aiState.request: AiRequestUiState?
+fun aiState.requestFor(q: Question): AiRequestUiState? // 仅当最近请求属于 q 当前版本
+fun aiState.retry(requestId: Int): Boolean
+fun aiState.cancel(requestId: Int): Boolean
+```
+
+- `ask` 受理时立即固定 requestId、题目、contentHash、展示文字，`busy=true`。`busy`/`error`/`request` 的后续更新都检查同一 serial，过期回调不覆盖新请求。
+- 成功写入缓存或命中缓存：`request=null`（历史记录行代表该请求，不留待回复快照）。失败：`request` 保留，`busy=false`、`error`=原失败文字。取消：`busy=false`、`error="请求已取消，可以重试"`，不写缓存。
+- `observe(q)` 只切换记录订阅（并按原行为清旧版 `error`），**不修改 `request`**；离开 A 再返回 A 可恢复 A 的在途/失败展示。在另一题新 `ask` 会替换本实例的最后请求，不跨多次失败归档。
+- `retry(id)`：只有 `id` 仍是 `request.requestId`、该请求已失败或取消、且没有任何在途请求时才重发原请求（新 requestId），返回 true；否则无操作返回 false。`cancel(id)`：只有 `id` 是在途请求时取消对应网络任务并返回 true。
+- 原 `busy`（全局一个在途请求）、`error`、`ask`、`retry()`、`cancel()` 语义保持兼容，供旧调用方使用。UI 只在 `requestFor(q)` 非空时显示待回复气泡、分析中、错误、重试、取消；`busy && requestFor(q)?.busy != true` 时禁发送并说明“AI 正在处理其他题目”。
+
+---
+
 ## 2026-11-04 · T4 代码草稿（按 §18 固定接口实现，待审查）
 
 T1/T2/T3 已按共享文档验收；本节说明 T4 实际后端实现，前端按 §18.4 接入，整体验收另行记录。Room 仍 5、备份仍 3，不改通用 OrderedWriter、便签/速记协议、评分、历史迁移、依赖或版本。

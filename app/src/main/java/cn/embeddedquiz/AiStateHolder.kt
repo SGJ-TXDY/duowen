@@ -13,6 +13,22 @@ data class AiRequest(
     val code: String,
 )
 
+/**
+ * Read-only view of the latest accepted request, fixed when [AiStateHolder.ask] accepts it.
+ * [prompt] is the text shown as the user's bubble (the follow-up text, or the request type's
+ * label). The UI shows it only on the question version it belongs to.
+ */
+data class AiRequestUiState(
+    val requestId: Int,
+    val questionId: String,
+    val contentHash: String,
+    val prompt: String,
+    val busy: Boolean,
+    val error: String,
+) {
+    fun belongsTo(q: Question) = questionId == q.id && contentHash == q.contentHash
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class AiStateHolder(
     private val scope: CoroutineScope,
@@ -40,6 +56,13 @@ class AiStateHolder(
         private set
 
     var hasKey by mutableStateOf(vault.exists())
+        private set
+
+    /**
+     * The in-flight request, or the last one that failed or was cancelled; null after it succeeds
+     * or is served from cache. Switching questions with [observe] never changes it.
+     */
+    var request by mutableStateOf<AiRequestUiState?>(null)
         private set
 
     private val current = MutableStateFlow<Pair<String, String>?>(null)
@@ -75,15 +98,38 @@ class AiStateHolder(
         prefs.writeDurably { putString("model", value) }
     }
 
+    /** The request shown on [q]'s current version, or null if the latest request is another one's. */
+    fun requestFor(q: Question): AiRequestUiState? = request?.takeIf { it.belongsTo(q) }
+
     fun cancel() {
         serial++
         job?.cancel()
         busy = false
         error = "请求已取消，可以重试"
+        request = request?.takeIf { it.busy }?.copy(busy = false, error = error) ?: request
     }
 
     fun retry() {
         lastRequest?.let { ask(it.question, it.text, it.choices, it.type, it.code) }
+    }
+
+    /** Main thread. Cancels only if [requestId] is still the in-flight request; returns whether it did. */
+    fun cancel(requestId: Int): Boolean {
+        val shown = request ?: return false
+        if (shown.requestId != requestId || !shown.busy) return false
+        cancel()
+        return true
+    }
+
+    /**
+     * Main thread. Re-sends the request [requestId] only while it is the latest one and has failed
+     * or been cancelled; a stale button from a replaced request does nothing.
+     */
+    fun retry(requestId: Int): Boolean {
+        val shown = request ?: return false
+        if (shown.requestId != requestId || shown.busy || shown.error.isBlank() || busy) return false
+        retry()
+        return true
     }
 
     fun ask(
@@ -97,12 +143,21 @@ class AiStateHolder(
         observe(q)
         busy = true
         error = ""
-        val request = AiRequest(q, text, choices, type, code)
-        lastRequest = request
+        lastRequest = AiRequest(q, text, choices, type, code)
         val requestedModel = model
         val activeSerial = ++serial
+        request =
+            AiRequestUiState(
+                activeSerial,
+                q.id,
+                q.contentHash,
+                if (type == AiRequestType.FOLLOW_UP) text else type.label,
+                busy = true,
+                error = "",
+            )
         job =
             scope.launch {
+                var failure: String? = null
                 try {
                     withContext(Dispatchers.IO) {
                         val history =
@@ -165,13 +220,24 @@ class AiStateHolder(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    if (activeSerial == serial)
+                    if (activeSerial == serial) {
                         error = if (e is AiFailure) e.message!! else "AI 凭据或服务不可用，请重试"
+                        failure = error
+                    }
                     withContext(Dispatchers.IO) {
                         LocalErrorLog(vault.context).record(LogEvent.AI, e)
                     }
                 } finally {
-                    if (activeSerial == serial) busy = false
+                    // busy and the snapshot settle together, so the UI never sees one finished
+                    // and the other still running. Success or a cache hit leaves no snapshot:
+                    // the history row now stands for this request.
+                    if (activeSerial == serial) {
+                        busy = false
+                        request =
+                            failure?.let { message ->
+                                request?.takeIf { it.requestId == activeSerial }?.copy(busy = false, error = message)
+                            }
+                    }
                 }
             }
     }

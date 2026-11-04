@@ -529,7 +529,6 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
     val showAnswer = revealed || recorded || vm.examFinished
     // Only confirmed answers are highlighted; pending ones stay as plain reference text.
     val answerKeys = personal?.selected ?: if (q.autoGradable) q.correct else emptySet()
-    val aiForQuestion = vm.aiEntries.filter { it.questionId == q.id }
     var notesOpen by rememberSaveable { mutableStateOf(false) }
     var aiOpen by rememberSaveable { mutableStateOf(false) }
     var infoOpen by rememberSaveable { mutableStateOf(false) }
@@ -905,60 +904,15 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                     }
                 }
                 item {
-                    ExpandableSection(
-                        icon = AppIcons.Chat,
-                        title = "AI 学习助手",
-                        summary =
-                            if (vm.aiBusy) "正在分析…"
-                            else if (aiForQuestion.isNotEmpty()) "${aiForQuestion.size} 条记录"
-                            else "DeepSeek · 需自行核实",
-                        expanded = aiOpen || vm.aiBusy || vm.aiState.error.isNotBlank(),
+                    AiConversationSection(
+                        ai = vm.aiState,
+                        q = q,
+                        selected = selected.toSet(),
+                        prompt = prompt,
+                        onPromptChange = { prompt = it },
+                        open = aiOpen,
                         onToggle = { aiOpen = !aiOpen },
-                    ) {
-                        Text(
-                            "点击后将本题、参考答案、所选选项和最近讨论发送到 DeepSeek。AI 内容独立存储，不写入题库、不参与判分。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            TonalAction(if (vm.aiBusy) "正在分析…" else "生成详细解析", !vm.aiBusy) {
-                                vm.ask(q, "生成详细解析", selected.toSet(), AiRequestType.EXPLANATION)
-                            }
-                            SecondaryAction("AI 建议答案（待核对）", !vm.aiBusy) {
-                                vm.ask(q, "", selected.toSet(), AiRequestType.SUGGESTED_ANSWER)
-                            }
-                            SecondaryAction("出一道同知识点变式题", !vm.aiBusy) {
-                                vm.ask(q, "", selected.toSet(), AiRequestType.VARIANT)
-                            }
-                        }
-                        if (vm.aiBusy) SecondaryAction("取消 AI 请求") { vm.aiState.cancel() }
-                        if (vm.aiState.error.isNotBlank()) {
-                            ErrorNotice(vm.aiState.error)
-                            SecondaryAction("重试 AI 请求", !vm.aiBusy) { vm.aiState.retry() }
-                        }
-                        aiForQuestion.forEach { a -> AiEntryCard(a) }
-                        OutlinedTextField(
-                            value = prompt,
-                            onValueChange = { prompt = it },
-                            label = { Text("追问、错误选项分析、举例或质疑") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
-                            trailingIcon = {
-                                IconButton(
-                                    onClick = {
-                                        vm.ask(q, prompt, selected.toSet())
-                                        prompt = ""
-                                    },
-                                    enabled = !vm.aiBusy && prompt.isNotBlank(),
-                                ) {
-                                    Icon(AppIcons.Send, contentDescription = "发送追问")
-                                }
-                            },
-                        )
-                    }
+                    )
                 }
                 item {
                     ExpandableSection(
@@ -1345,16 +1299,137 @@ private fun InfoLine(label: String, value: String) {
     }
 }
 
+/** Small secondary text such as tokens and cost; outline stays a border color only. */
+internal fun aiCostTextColor(colors: ColorScheme) = colors.onSurfaceVariant
+
+/**
+ * The question's AI conversation. Saved history comes from [AiStateHolder.entries]; the pending
+ * bubble, analysis, error, retry and cancel come only from [AiStateHolder.requestFor], so a
+ * request started on another question (or another version of this one) never shows here.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AiEntryCard(a: AiEntry) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        shape = MaterialTheme.shapes.medium,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth(),
+internal fun AiConversationSection(
+    ai: AiStateHolder,
+    q: Question,
+    selected: Set<String>,
+    prompt: String,
+    onPromptChange: (String) -> Unit,
+    open: Boolean,
+    onToggle: () -> Unit,
+) {
+    val history = ai.entries.filter { it.questionId == q.id }
+    val mine = ai.requestFor(q)
+    // One request at a time: while another question's runs, this one can read but not send.
+    val otherBusy = ai.busy && mine?.busy != true
+    val canAsk = !ai.busy
+    ExpandableSection(
+        icon = AppIcons.Chat,
+        title = "AI 学习助手",
+        summary =
+            if (mine?.busy == true) "正在分析…"
+            else if (otherBusy) "其他题目处理中"
+            else if (history.isNotEmpty()) "${history.size} 轮对话"
+            else "DeepSeek · 需自行核实",
+        expanded = open || mine != null,
+        onToggle = onToggle,
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("${a.model} · ${a.prompt}", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "点击后将本题、参考答案、所选选项和最近讨论发送到 DeepSeek。AI 内容独立存储，不写入题库、不参与判分。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        // Oldest first, so the newest reply sits right above the input box.
+        history.forEach { a -> AiConversationTurn(a) }
+        if (mine != null) AiUserBubble(mine.prompt, Modifier.testTag("ai-pending-bubble"))
+        if (mine?.busy == true) AiThinkingRow { ai.cancel(mine.requestId) }
+        if (mine != null && !mine.busy && mine.error.isNotBlank()) {
+            ErrorNotice(mine.error)
+            SecondaryAction("重试 AI 请求", canAsk, Modifier.testTag("ai-retry")) {
+                ai.retry(mine.requestId)
+            }
+        }
+        if (otherBusy)
+            Text(
+                "AI 正在处理其他题目，完成后可在本题提问。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("ai-other-busy"),
+            )
+        if (history.isEmpty() && mine == null)
+            Text(
+                "还没有讨论。挑一个问法，或直接输入你的问题。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            AiPromptChip("生成详细解析", canAsk) {
+                ai.ask(q, "生成详细解析", selected, AiRequestType.EXPLANATION)
+            }
+            AiPromptChip("AI 建议答案（待核对）", canAsk) {
+                ai.ask(q, "", selected, AiRequestType.SUGGESTED_ANSWER)
+            }
+            AiPromptChip("出一道同知识点变式题", canAsk) {
+                ai.ask(q, "", selected, AiRequestType.VARIANT)
+            }
+        }
+        OutlinedTextField(
+            value = prompt,
+            onValueChange = onPromptChange,
+            placeholder = { Text("追问、错误选项分析、举例或质疑") },
+            modifier = Modifier.fillMaxWidth().testTag("ai-input"),
+            shape = RoundedCornerShape(24.dp),
+            maxLines = 5,
+            colors =
+                OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                ),
+            trailingIcon = {
+                IconButton(
+                    onClick = {
+                        ai.ask(q, prompt, selected, AiRequestType.FOLLOW_UP)
+                        onPromptChange("")
+                    },
+                    enabled = canAsk && prompt.isNotBlank(),
+                    colors =
+                        IconButtonDefaults.iconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            disabledContentColor = MaterialTheme.colorScheme.outline,
+                        ),
+                ) {
+                    Icon(AppIcons.Send, contentDescription = "发送追问", modifier = Modifier.size(20.dp))
+                }
+            },
+        )
+    }
+}
+
+/** One saved exchange: the user's question on the right, the assistant's reply below it. */
+@Composable
+private fun AiConversationTurn(a: AiEntry) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        AiUserBubble(a.prompt, Modifier.testTag("ai-user-bubble"))
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(
+                    AppIcons.Chat,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    a.model,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (a.contentHash.isBlank())
                 Text(
                     "历史解析：题目版本未知，不用于追问上下文",
@@ -1365,10 +1440,74 @@ private fun AiEntryCard(a: AiEntry) {
             Text(
                 "输入 ${a.inputTokens} / 输出 ${a.outputTokens} tokens · 估算 $${"%.6f".format(a.estimatedUsd)}",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = aiCostTextColor(MaterialTheme.colorScheme),
+                modifier = Modifier.testTag("ai-cost"),
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+/** The user's side of the conversation, right-aligned in the accent tint. */
+@Composable
+private fun AiUserBubble(text: String, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+        Surface(
+            color = MaterialTheme.selection.container,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 4.dp),
+            border = BorderStroke(1.dp, MaterialTheme.selection.line),
+            modifier = Modifier.fillMaxWidth(0.85f).wrapContentWidth(Alignment.End),
+        ) {
+            Text(
+                text,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             )
         }
     }
+}
+
+@Composable
+private fun AiThinkingRow(onCancel: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(16.dp),
+            strokeWidth = 2.dp,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            "正在分析…",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onCancel, modifier = Modifier.heightIn(min = 48.dp).testTag("ai-cancel")) {
+            Text("取消 AI 请求")
+        }
+    }
+}
+
+/** A one-tap question for the assistant; sends a fixed request type through the existing call. */
+@Composable
+private fun AiPromptChip(text: String, enabled: Boolean, onClick: () -> Unit) {
+    SuggestionChip(
+        onClick = onClick,
+        enabled = enabled,
+        label = { Text(text) },
+        shape = MaterialTheme.shapes.small,
+        colors =
+            SuggestionChipDefaults.suggestionChipColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                labelColor = MaterialTheme.colorScheme.primary,
+            ),
+        border =
+            SuggestionChipDefaults.suggestionChipBorder(
+                enabled = enabled,
+                borderColor = MaterialTheme.selection.line,
+            ),
+        modifier = Modifier.heightIn(min = 40.dp),
+    )
 }
 
 @Composable
