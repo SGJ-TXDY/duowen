@@ -73,13 +73,13 @@ class ExamStateHolder(private val prefs: SharedPreferences, private val repo: Qu
     }
 
     suspend fun restore(): ExamSnapshot? {
-        if (!restoring) reserveForRestore()
+        if (!restoring && !sessionOpen) reserveForRestore()
         val saved = try {
             withContext(Dispatchers.IO) {
                 sessionPreferences.getString("exam", null)?.let(DurableExamSnapshot::decode)
             }
         } catch (e: Exception) {
-            restoring = false; repo.db.examAccess.release()
+            // An unreadable snapshot is not proof that no exam exists. Keep the startup guard.
             throw e
         }
         if (saved == null) { restoring = false; repo.db.examAccess.release(); return null }

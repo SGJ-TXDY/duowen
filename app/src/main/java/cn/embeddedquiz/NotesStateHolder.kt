@@ -4,7 +4,7 @@ import androidx.compose.runtime.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 
-class NotesStateHolder(private val scope: CoroutineScope, private val repo: QuizRepository) {
+class NotesStateHolder(private val scope: CoroutineScope, private val repo: QuizRepository, autoStart: Boolean = true) {
     var stickyNotes by mutableStateOf<List<StickyNote>>(emptyList())
         private set
 
@@ -24,7 +24,11 @@ class NotesStateHolder(private val scope: CoroutineScope, private val repo: Quiz
     val noteSaveError
         get() = writer.error
 
-    init {
+    private var observing = false
+    init { if (autoStart) startObserving() }
+    fun startObserving() {
+        if (observing) return
+        observing = true
         scope.launch { repo.dao.stickyNotes().collect { stickyNotes = it } }
     }
 

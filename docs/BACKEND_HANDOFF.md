@@ -1,5 +1,29 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-11-04 · T3 后端：历史规则隔离、启动诊断与显式恢复（待审查）
+
+任务/职责：用户“修 T3”授权开修，GPT 负责后端；T2 已按共享文档第 15 节验收。起始 HEAD 281d035。原工作区只有 Architect 的五个未跟踪文件/目录，未改或暂存。T3 固定接口尚未补齐，因此先写 T3_BACKEND_PROPOSAL 和实际 API_CONTRACT，供 Architect 审查后 Claude 接入；不冒称新的正式派发已经存在。
+
+修改文件/函数：LearningMigration 3→4 改用新增 HistoricalQuestionV3 的冻结读取/索引，不再调用当前导入校验；Repository 的历史读取、随包更新旧行读取和启动校验；新增 PreservingOpenHelperFactory 及 Data.open 注册，禁用允许丢数据恢复和默认损坏删库；QuizViewModel 的分阶段启动、按次结果、显式重试及诊断/恢复门面；NotesStateHolder 只把 VM 首次订阅延后（其他调用方默认行为兼容）；ExamStateHolder 仅允许失败初始化重入原守卫，未知考试不释放保护；新增 HistoricalMigrationTest、StartupRecoveryTest；本文、API_CONTRACT、方案和独立验证目录。没有动 Compose/UI/MainActivity、评分/SRS、OrderedWriter、QuestionDraft、题库、依赖、版本或共享派发。
+
+行为/接口详见 API_CONTRACT 顶部 T3 节：startupState 的 Loading/Ready/Error 与阶段；retryInitialization 只显式受理 Error；awaitInitialization 保留签名，按调用时捕获的尝试返回，旧结果稳定；readStartupDiagnostics 无 Room 前提，exportStartupDiagnostics 流式保留原库现场；restoreStartupBackup 必须确认、DB 可安全使用且无活动/未知考试，替换事务后新初始化，不把 Completed 等同 Ready。所有重工作在 IO，重复任务串行，失败不重复创建订阅，通知请求与考试内容保留。
+
+采用明确失败，不做历史异常容错：坏 JSON、未知题型、无效选项/答案和 ID 不一致使迁移回滚，原记录保留。当前 v4/v5 库启动也验证，不静默覆盖异常行；存储读取走冻结规则，外部导入仍严格。没有声称证明了 v4 新增校验拒绝合法旧数据。
+
+数据库打不开时明确拒绝学习备份替换，提供不依赖数据库打开的诊断 ZIP；不自动建新库替换旧数据，不丢终止台账。ZIP 是诊断现场，不是可直接导入备份；缓存考试值不证明 commit 成功，数据变动/取消/失败可能留下不完整目的文件，但源保持。导出不读取密钥/完整偏好，包含用户数据库内容，须用户主动选择目的地。禁止私有源数据作为目的地。
+
+已有相关启动/考试/迁移回归通过；文件型 1/2/3→5 原字段保留与五类坏历史逐路径回滚通过；11 项新启动恢复业务通过，涵盖真实损坏库字节保留/导出/同实例修复后重试、v4 启动、当前坏条目、通知和考试、重试风暴/独立取消、订阅不重复、恢复确认/失败/台账保留/未知考试拒绝、源目标隔离、owner clear。测试编写中 JUnit setup 末尾返回 Boolean 导致一轮类初始化失败，已改为 Unit，原始失败保留；未跳过或改等待时间。
+
+最终固定提交、完整测试/构建/Lint 结果及原始 XML/日志/源码/schema 指纹见 validation/T3-backend-20261104/README.md；先完成实际验证再更新结果。当前仅后端完成相关验证，不代表 T3 UI 已经接入或整体验收。
+
+数据与回退：Room 5、备份 3，无新结构，schema 1～5 不改。代码可回退但不得降级 DB 或自动删数据；保留升级前备份及诊断原库。外部直接换库仍不在 T2 去重保证内，v3 备份不含本机台账/运行考试。新的故障恢复未绕开已验收的考试守卫。
+
+Claude 待接入：AppNavigation 的启动分支及必要错误页，使用 startupState 而不只看 ready；Error 时可查看/导出诊断和显式重试；恢复备份先说明替换范围并确认，再调用 restoreStartupBackup(uri,true)，展示 Rejected/Failed，Completed 后继续观察新启动状态；保持 G1 通知优先级，不读 SQL/偏好、不清库。需 Architect 确认本次接口与明确失败/恢复限制，再做 UI 和 Compose 测试。未进行 UI 接入、真机或 T4，不自行发布。
+
+状态：**待审查**。
+
+---
+
 ## 2026-11-04 · T2 统一复测（含 64a7cac，待 Architect 集中审查）
 
 固定受测 HEAD：`64a7cac0ea3bf628f4ab17833af61d54c344807f`。包含双方 T2 实现、后端关库修复 ebcffc3 和 Claude 通知竞态补修。工作区仅保留 Architect 原五个未跟踪项，没有暂存或修改。本轮 GPT 不改生产代码/UI/接口/迁移/版本，仅更新本文与新验证目录。

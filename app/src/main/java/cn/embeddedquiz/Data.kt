@@ -335,6 +335,7 @@ abstract class QuizDatabase : RoomDatabase() {
         fun open(context: Context, name: String = "embeddedquiz.db"): QuizDatabase {
             CategoryMap.load(context)
             return Room.databaseBuilder(context, QuizDatabase::class.java, name)
+                .openHelperFactory(PreservingOpenHelperFactory())
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
         }

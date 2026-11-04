@@ -4,7 +4,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import java.time.Instant
 import java.time.ZoneId
-import org.json.JSONObject
+
 
 /** 3→4 adds independent personal data and rebuilds only derived question indexes. */
 object LearningMigration : Migration(3, 4) {
@@ -35,7 +35,7 @@ object LearningMigration : Migration(3, 4) {
                 )
             while (cursor.moveToNext()) {
                 val raw = cursor.getString(1)
-                val row = QuestionIndex.row(BankCodec.parseQuestion(JSONObject(raw)), raw)
+                val row = HistoricalQuestionV3.index(cursor.getString(0), raw)
                 val values =
                     listOf(
                         row.kind,

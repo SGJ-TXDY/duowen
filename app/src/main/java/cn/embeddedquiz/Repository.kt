@@ -8,6 +8,10 @@ import org.json.JSONObject
 class QuizRepository(val db: QuizDatabase) {
     val dao = db.dao()
 
+    internal suspend fun validateStoredQuestions() {
+        dao.allQuestions().forEach { HistoricalQuestionV3.read(it.id, it.json) }
+    }
+
     suspend fun reindexCategories() =
         db.withTransaction {
             dao.categoryRows().forEach {
@@ -160,7 +164,7 @@ class QuizRepository(val db: QuizDatabase) {
             dao.addQuestions(rows)
             dao.updateQuestions(
                 rows.filter { row ->
-                    val previous = old[row.id]?.let { BankCodec.parseQuestion(JSONObject(it.json)) }
+                    val previous = old[row.id]?.let { HistoricalQuestionV3.read(it.id, it.json) }
                     val incoming = BankCodec.parseQuestion(JSONObject(row.json))
                     previous != null &&
                         previous.source == incoming.source &&
@@ -436,7 +440,7 @@ class QuizRepository(val db: QuizDatabase) {
     }
 
     suspend fun question(id: String): Question? =
-        dao.question(id)?.let { BankCodec.parseQuestion(JSONObject(it.json)) }
+        dao.question(id)?.let { HistoricalQuestionV3.read(it.id, it.json) }
 
     suspend fun savePersonalAnswer(q: Question, selected: Set<String>, notes: String) {
         val value =

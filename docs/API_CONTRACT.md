@@ -1,5 +1,55 @@
 # Android 业务接口契约
 
+## 2026-11-04 · T3 启动恢复与历史存储（GPT 实现契约，待审查）
+
+用户授权启动 T3；本节是实际后端接口与保数据选择，供 Architect 审查后 Claude 接入。共享派发尚未补齐 T3 固定接口，本节不冒称已有新的 Architect 裁定。本节覆盖下文 G1 的“每实例仅一次、无重试”和 T2 的旧启动错误限制；G1 通知优先级、T2 会话和台账语义保留。Room 仍 5、备份仍 3，无结构迁移或依赖升级。
+
+只读可观察状态与 Main 入口：
+
+```kotlin
+enum class StartupStage { DATABASE, VALIDATION, BANK, INDEX, EXAM }
+sealed interface StartupState {
+    data class Loading(val attempt: Int, val stage: StartupStage, val message: String) : StartupState
+    data class Ready(val attempt: Int, val examRestored: Boolean) : StartupState
+    data class Error(val attempt: Int, val stage: StartupStage, val message: String,
+        val code: String, val canRestoreBackup: Boolean) : StartupState
+}
+val startupState: StartupState
+val startupRecoveryBusy: Boolean
+fun retryInitialization(): Unit
+suspend fun awaitInitialization(): InitializationOutcome // 原签名保留
+suspend fun readStartupDiagnostics(): String
+suspend fun exportStartupDiagnostics(uri: Uri): StartupRecoveryResult
+suspend fun restoreStartupBackup(uri: Uri, confirmReplace: Boolean = false): StartupRecoveryResult
+sealed interface StartupRecoveryResult {
+    data object Completed : StartupRecoveryResult
+    data class Rejected(val message: String) : StartupRecoveryResult
+    data class Failed(val message: String) : StartupRecoveryResult
+}
+```
+
+Loading.attempt 从 1 递增，stage/message 提供加载阶段；Ready 仅在考试恢复和通知选页完成后发布。Error 的 code 为 DATABASE_UNAVAILABLE / STORED_DATA_INVALID / EXAM_UNAVAILABLE / PREPARATION_FAILED；message 为可展示的固定说明，不含 SQL、题干、路径或异常原文。canRestoreBackup 仅表示本次数据库基本访问已成功，可以尝试恢复；仍须确认和会话守卫，不能把 true 当成保证恢复必成功。
+
+retryInitialization 只在 Error、无恢复工作、owner 未结束时受理，立即切 Loading；Loading/Ready 时无操作，不自动无限重试。每次初始化串行，失败前不启动 Room 订阅；成功后一次性开始题目、学习、便签等观察。不是在失败之后不断创建新 collector。ready / loadingMessage / importProgress 保留兼容。
+
+awaitInitialization 捕获调用时的尝试。该次 Ready/Failed 结果稳定；旧等待者的 Failed 不被重试改写，新调用等待新尝试。取消一个等待者不取消初始化；owner clear 取消未完成信号。无显式重试时，失败后的通知请求不自动重试，仍返回同次 Failed。InitializationOutcome.Failed 保留原通用 message“题库加载失败，请查看本地错误记录”，详细阶段使用 startupState。通知请求跨 Error/重试保留，恢复 queue/index/answers/deadline 后先决定 REVIEW，再发布 Ready。
+
+readStartupDiagnostics 在 IO 生成脱敏 JSON：状态、阶段、code、attempt、异常类名、文件存在与大小、当前格式版本。无需 ready 或成功打开 Room；不读 API Key、完整偏好、题干/回答或异常 message。构造 ViewModel 之前的资源/工厂创建异常不在此状态协议内；Room 的实际打开/迁移在初始化中，失败可由本协议表达。
+
+exportStartupDiagnostics 只在 Error 受理；IO 流式写 ZIP，含原数据库和存在的 WAL/journal、诊断清单及 exam-cache.json（如存在）。不调用 Room 打开、checkpoint 或 SQL；源文件前后哈希/集合有变化就 Failed，不对不稳定副本报成功。禁止 file URI 指向应用私有数据，避免覆盖源。ZIP 含用户数据库内容，但不导出密钥/完整设置，须由用户主动选择目的地；不自动发送。它是保留现场的诊断包，不是可直接导入的 v3 备份，不承诺多进程写入中的恢复一致性。exam-cache 明确只是缓存诊断，不能证明 commit 成功。取消/失败可能留下不完整目的文件，源数据不改。
+
+restoreStartupBackup 必须 confirmReplace=true；UI 需先说明将替换题库/学习历史等并确认。数据库基本访问未成功时 Rejected，提示先导出诊断，不能自动替换损坏数据库。数据库可访问时先核实考试；活动/待清理/无法确认考试状态均 Rejected，不清场。允许恢复时沿用 repo.restore 对 v1～v3 备份的严格校验与原子替换，本机 exam_terminations 保留；无新学习记账。备份 v3 不含 Attempt 的自增内部 ID，成功替换可重建该内部 ID，所有导出字段/学习状态保持原格式语义。
+
+Completed 对导出表示 ZIP 写完；对恢复只表示替换已提交并受理了新初始化，不等于 Ready。调用方应继续观察 startupState / 等待新 awaitInitialization。重复恢复/导出被串行互斥拒绝；恢复工作使用 startupRecoveryBusy，不占普通 busy。准备/导出取消向上传递并取消工作；已确认且受理的替换事务、已知结果和新启动调度抵抗取消，owner 关库等待该工作退出。若 owner 此时已清理，事务仍得出结果，新实例负责初始化，不给已销毁 owner 启动新流程。
+
+历史读取：HistoricalQuestionV3 冻结既有字段解码、校验、内容哈希/索引与分类映射，LearningMigration 3→4 不再依赖 BankCodec/QuestionIndex；合法旧数据原 JSON 和所有学习记录保留。坏 JSON、未知题型、无效选项/答案、存储 ID 不一致明确失败、整个迁移回滚，不伪造成可判分题，不跳过删除。已为 v4/v5 的数据库也在随包升级/索引更新前验证，避免坏条目被静默覆盖。Repository 读取历史用同一冻结规则；外部导入/备份验证仍严格 BankCodec，不降低外部要求。没有声称 v4 新增校验已被证明拒绝正常旧数据。
+
+Room 打开使用 PreservingOpenHelperFactory：损坏回调报告失败保留文件，显式 allowDataLossOnRecovery(false)，不调用默认损坏删库。SQL schema 仍为 5，旧数据诊断/修复前不作破坏性清理。回退本轮代码不会降低 DB 版本，不可回到会对损坏库自动删数据的旧路径而声称仍有保数据保证。
+
+Claude 接入：AppNavigation 启动分支以 startupState 区分 Loading / Error / Ready；Error 页不依赖 ready=true，提供诊断、用户选文件导出、显式重试和恢复确认。恢复按钮的可用性同时考虑 startupRecoveryBusy/canRestoreBackup，但实际 Rejected 仍应展示；数据库打不开时明确说明恢复限制。UI 不访问 SQL/偏好、不清库、不以 Completed 显示“已经启动成功”，不改变通知优先级。GPT 本轮不改 UI；未接入之前，旧 UI 的 ready=false 分支仍只显示加载，不代表 T3 错误页已完成。
+
+---
+
 ## 2026-11-04 · T2 异步考试持久化（GPT 后端已实现，待审查）
 
 本节以 REPAIR_DISPATCH §14 为准，覆盖下文 T1 的同步保存、仅实例内防重复和 Room 4 限制；其他普通练习、通知优先级和备份契约保持。Room 现在为 **5**，备份仍 **3**。Claude 的 T2 UI 接入与双方集成验收另行记录，不将后端实现视为整个 T2 验收完成。
