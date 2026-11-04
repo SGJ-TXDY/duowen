@@ -4,7 +4,7 @@
 
 任务/执行者：REPAIR_DISPATCH §14，GPT 后端。起始 HEAD `e3be2a6bfb13e077182848625e3a64cbc6b6de19`。开工仅有 Architect 的未跟踪派发、方案和验收目录；均未修改或暂存。当前交付代码 SHA、实际验证数和日志见 validation/T2-backend-20261104/README.md 与最终交付回复。
 
-修改范围：ExamStateHolder 的快照、冻结提交、恢复与结束状态；新增 ExamPersistence 有序合并写入器；新增 ExamMigration 的终止实体、4→5 迁移与数据替换守卫；Data 的实体/DAO/迁移注册及 schema 5；Repository 仅增加考试事务和 restore/reset 冲突保护；QuizViewModel 的保存门面、启动守卫、结束任务与 DB 关闭协调。专用 ExamPersistenceTest、ExamMigrationTest；旧 ExamLifecycleContractTest 和 InitializationNotificationTest 仅调整异步完成/会话 ID 升级断言并补启动守卫。API_CONTRACT 同步实际实现。没有修改 UI/MainActivity、DurablePreferences、评分/SRS、普通 record、依赖、版本或历史 schema/迁移。
+修改范围：ExamStateHolder 的快照、冻结提交、恢复与结束状态；新增 ExamPersistence 有序合并写入器；新增 ExamMigration 的终止实体、4→5 迁移与数据替换守卫；Data 的实体/DAO/迁移注册及 schema 5；Repository 仅增加考试事务和 restore/reset 冲突保护；QuizViewModel 的保存门面、启动守卫、结束任务与 DB 关闭协调。专用 ExamPersistenceTest、ExamMigrationTest；旧 ExamLifecycleContractTest 和 InitializationNotificationTest 仅调整异步完成/会话 ID 升级断言并补启动守卫。PersonalMarksContractTest 仅把当前 Room 版本断言改为 5；NotificationEntryUiTest 仅把后台恢复快照原文比较改为 flush 后语义字段和跨通知/重建稳定 ID 比较，原 UI 操作/页面/可见性断言保持。API_CONTRACT 同步实际实现。没有修改生产 UI/MainActivity、DurablePreferences、评分/SRS、普通 record、依赖、版本或历史 schema/迁移。
 
 固定接口已实现：examSaveState、retryExamSave、suspend flushExamSave；既有 startExam/answerExam/saveExam/finishExam/abandonExam/retryExamOperation 与 T1 状态/成绩签名保留。详细线程、取消、成功/失败语义以 API_CONTRACT 顶部 T2 节为准。
 

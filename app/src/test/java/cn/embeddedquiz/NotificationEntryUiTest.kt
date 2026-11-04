@@ -45,6 +45,7 @@ class NotificationEntryUiTest {
     private lateinit var recomposers: Set<Any>
     private var controller: ActivityController<MainActivity>? = null
     private lateinit var vm: QuizViewModel
+    private var restoredSessionId: String? = null
 
     @Before
     fun setup() {
@@ -112,7 +113,19 @@ class NotificationEntryUiTest {
         assertEquals(mapOf("nt-a" to setOf("A")), vm.examAnswers)
         assertEquals(deadline, vm.examDeadline)
         assertFalse(vm.examFinished)
-        assertEquals(snapshot, prefs.getString("exam", null))
+        // T2 upgrades anonymous snapshots; compare business data and stable identity, not JSON text.
+        val flushed = vm.viewModelScope.async { vm.flushExamSave() }
+        await { flushed.isCompleted }
+        assertTrue(runBlocking { flushed.await() })
+        val saved = DurableExamSnapshot.decode(prefs.getString("exam", null)!!)
+        assertEquals(vm.queue, saved.ids)
+        assertEquals(vm.index, saved.index)
+        assertEquals(vm.examAnswers, saved.answers)
+        assertEquals(vm.examDeadline, saved.deadline)
+        java.util.UUID.fromString(saved.sessionId)
+        assertTrue(saved.revision > 0)
+        restoredSessionId?.let { assertEquals(it, saved.sessionId) }
+        restoredSessionId = saved.sessionId
         assertTrue(runBlocking { vm.repo.dao.allAttempts() }.isEmpty())
     }
 

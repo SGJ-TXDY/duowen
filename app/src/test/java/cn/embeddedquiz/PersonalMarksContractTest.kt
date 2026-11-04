@@ -176,7 +176,7 @@ class PersonalMarksContractTest {
             val global = StickyNote("global", "全局标签", "独立内容", 1, 2)
             repo.dao.putPersonalMetadata(legacy)
             repo.dao.putStickyNote(global)
-            assertEquals(4, repo.db.openHelper.writableDatabase.version)
+            assertEquals(5, repo.db.openHelper.writableDatabase.version)
             assertEquals(legacy, LearningCodec.parseMetadata(LearningCodec.metadata(legacy)))
             val oldVersionThree = repo.backup()
             assertEquals(3, JSONObject(oldVersionThree).getInt("backupVersion"))
