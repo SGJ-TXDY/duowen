@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.PersonalMarksContractTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-10-26T15:08:33" hostname="LAPTOP-0JLS131B" time="0.684">
+  <properties/>
+  <testcase name="preservesVerifiedSolutionProgressNotesAndBackupRepresentation" classname="cn.embeddedquiz.PersonalMarksContractTest" time="0.062"/>
+  <testcase name="solutionCanBeSavedUnverifiedAndClearedWithoutChangingDifficulty" classname="cn.embeddedquiz.PersonalMarksContractTest" time="0.055"/>
+  <testcase name="invalidSolutionsRollbackAndMissingQuestionsCreateNoMetadata" classname="cn.embeddedquiz.PersonalMarksContractTest" time="0.055"/>
+  <testcase name="concurrentQuestionNotesAndDifficultyWritesDoNotOverwriteEachOther" classname="cn.embeddedquiz.PersonalMarksContractTest" time="0.08"/>
+  <testcase name="versionOneAndTwoBackupsKeepExistingLegacyMetadataAndSolution" classname="cn.embeddedquiz.PersonalMarksContractTest" time="0.142"/>
+  <testcase name="concurrentSolutionAndDifficultyWritesPreserveBothResultsAndLegacyTags" classname="cn.embeddedquiz.PersonalMarksContractTest" time="0.08"/>
+  <testcase name="createsDefaultMetadataAndClearsDifficulty" classname="cn.embeddedquiz.PersonalMarksContractTest" time="0.05"/>
+  <testcase name="savingOnlySolutionPreservesLatestDifficultyLegacyTagsAndQuestionNotes" classname="cn.embeddedquiz.PersonalMarksContractTest" time="0.05"/>
+  <testcase name="legacyMetadataAndVersionThreeBackupRoundTripThroughIncrementalEdits" classname="cn.embeddedquiz.PersonalMarksContractTest" time="0.059"/>
+  <testcase name="invalidWritesLeaveExistingMetadataUnchangedAndCreateNoOrphans" classname="cn.embeddedquiz.PersonalMarksContractTest" time="0.051"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

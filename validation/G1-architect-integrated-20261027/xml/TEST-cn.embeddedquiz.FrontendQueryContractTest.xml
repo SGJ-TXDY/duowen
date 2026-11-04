@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.FrontendQueryContractTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-10-26T15:08:09" hostname="LAPTOP-0JLS131B" time="1.507">
+  <properties/>
+  <testcase name="emptyBankIsSuccessfulZeroSummary" classname="cn.embeddedquiz.FrontendQueryContractTest" time="0.069"/>
+  <testcase name="relocatedEntryTargetsPreservePracticeDraftAndActiveExam" classname="cn.embeddedquiz.FrontendQueryContractTest" time="0.155"/>
+  <testcase name="difficultyCommandPublishesChangesAndPreservesUnrelatedFields" classname="cn.embeddedquiz.FrontendQueryContractTest" time="0.202"/>
+  <testcase name="viewModelSummaryRefreshAndCurrentQuestionSurviveNotesRoundTrip" classname="cn.embeddedquiz.FrontendQueryContractTest" time="0.189"/>
+  <testcase name="legacyWholeRowSaveRemainsCompatibleAndBusyCommandsAreIgnored" classname="cn.embeddedquiz.FrontendQueryContractTest" time="0.244"/>
+  <testcase name="searchRejectsUnsupportedPagesAndPropagatesCancellationWithoutChangingState" classname="cn.embeddedquiz.FrontendQueryContractTest" time="0.146"/>
+  <testcase name="viewModelSearchPreservesFiltersSnippetsAndPageSemantics" classname="cn.embeddedquiz.FrontendQueryContractTest" time="0.138"/>
+  <testcase name="verifiedSolutionCommandPublishesChangesAndReportsInvalidInput" classname="cn.embeddedquiz.FrontendQueryContractTest" time="0.23"/>
+  <testcase name="summaryCountsMatchExistingRulesAcrossLeapDayMonthAndYear" classname="cn.embeddedquiz.FrontendQueryContractTest" time="0.068"/>
+  <testcase name="summaryFlowUpdatesAfterImportProgressAndReset" classname="cn.embeddedquiz.FrontendQueryContractTest" time="0.066"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
