@@ -1,0 +1,70 @@
+[
+  {
+    "Class": "AccentPreferenceTest",
+    "Cases": 2,
+    "SameCaseOrder": true,
+    "Methods": [
+      "defaultsToFirstAccentAndSurvivesARestart",
+      "staleStoredValueFallsBackAndUnknownChoiceIsRejected"
+    ]
+  },
+  {
+    "Class": "AiConversationUiTest",
+    "Cases": 4,
+    "SameCaseOrder": true,
+    "Methods": [
+      "slowRequestOnAStaysOnAAndItsFailureNeverReachesB",
+      "changedQuestionVersionHidesTheOldVersionRequestUntilYouReturn",
+      "costLineUsesReadableTextColorInLightAndDark",
+      "cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble"
+    ]
+  },
+  {
+    "Class": "CodeDraftBoundaryTest",
+    "Cases": 12,
+    "SameCaseOrder": true,
+    "Methods": [
+      "failedStartupDraftFlushDoesNotReplaceDataOrStartANewAttempt",
+      "startupRestoreUsesTheSameDraftBoundaryAndGenerationRules",
+      "clearingOwnerAfterFailureDoesNotRetryForeverOrClaimSaved",
+      "restoreDrainsOldIoThenInvalidatesOldStateAndCannotReplayOldText",
+      "clearingOwnerWaitsForInFlightDraftIoWithoutBlockingMain",
+      "clearingOwnerFlushesTheLastWindowBeforeClosingTheDatabase",
+      "invalidRestoreKeepsCacheAndTheReliablySavedOriginalText",
+      "ordinaryNotesRemainExplicitAndSuccessNoticeRequiresACommittedVersion",
+      "resetFlushesLatestTextAndPreservesPersonalAndStickyContent",
+      "failedExportDestinationReleasesEditingWithoutReportingBackupSuccess",
+      "backupFlushesTheWindowAndBlocksNewDraftAcceptanceUntilExportEnds",
+      "saveFailureAbortsBackupRestoreAndResetWithoutClearingTheLatestDraft"
+    ]
+  },
+  {
+    "Class": "CodeDraftPersistenceTest",
+    "Cases": 11,
+    "SameCaseOrder": true,
+    "Methods": [
+      "retryAllOnlyRetriesTheLatestFailedQuestions",
+      "draftTransactionPreservesConcurrentLearningAndPersonalFields",
+      "shutdownCancelsAStalledPreWriteWithoutPretendingItWasSaved",
+      "failedOldVersionThenNewSuccessCannotBeReplayedByRetry",
+      "supersededGenerationDoesNotReportAnOldFlushAsSaved",
+      "cancellingAnExclusiveBoundaryReleasesEditingAndPreservesAcceptedText",
+      "continuousTypingKeepsTheTwoSecondLimitAndFinalTrailingSave",
+      "slowIoHasOneWriterAndOneReplaceablePendingVersionPerQuestion",
+      "shutdownFlushesTheWindowAndRejectsLaterUpdates",
+      "hundredEditsCoalesceAndIdenticalTextDoesNotWriteAgain",
+      "cancellingFlushDoesNotCancelTheAcceptedWrite"
+    ]
+  },
+  {
+    "Class": "CodeDraftSaveUiTest",
+    "Cases": 4,
+    "SameCaseOrder": true,
+    "Methods": [
+      "onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip",
+      "indentInsertsAtTheCaretAsOneChange",
+      "disabledEditorKeepsTheTextReadableButAcceptsNoEdit",
+      "theExclusiveBoundaryFreezesCodeAndNotesUntilItEnds"
+    ]
+  }
+]

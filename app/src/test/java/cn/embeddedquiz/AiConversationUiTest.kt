@@ -86,7 +86,11 @@ class AiConversationUiTest {
     @After
     fun cleanup() {
         gates.forEach { it.countDown() }
-        ui.runOnUiThread { scope.cancel() }
+        val owner = scope.coroutineContext[Job]!!
+        ui.runOnUiThread { owner.cancel() }
+        // Job completion includes the collectors, request and their finally blocks.
+        // Close Room only after this owned-resource completion barrier.
+        await { owner.isCompleted }
         db.close()
         context.deleteDatabase(dbName)
         server.shutdown()

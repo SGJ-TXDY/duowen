@@ -1,0 +1,969 @@
+Compiled from "ShadowPausedMessageQueue.java"
+public class org.robolectric.shadows.ShadowPausedMessageQueue extends org.robolectric.shadows.ShadowMessageQueue {
+  private android.os.MessageQueue realQueue;
+
+  private static org.robolectric.res.android.NativeObjRegistry<org.robolectric.shadows.ShadowPausedMessageQueue> nativeQueueRegistry;
+
+  private boolean isPolling;
+
+  private org.robolectric.shadows.ShadowPausedSystemClock$Listener clockListener;
+
+  private java.lang.Exception uncaughtException;
+
+  public org.robolectric.shadows.ShadowPausedMessageQueue();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method org/robolectric/shadows/ShadowMessageQueue."<init>":()V
+       4: aload_0
+       5: iconst_0
+       6: putfield      #7                  // Field isPolling:Z
+       9: aload_0
+      10: aconst_null
+      11: putfield      #13                 // Field uncaughtException:Ljava/lang/Exception;
+      14: return
+
+  protected void __constructor__(boolean);
+    Code:
+       0: ldc           #17                 // class android/os/MessageQueue
+       2: aload_0
+       3: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       6: iconst_1
+       7: anewarray     #23                 // class org/robolectric/util/ReflectionHelpers$ClassParameter
+      10: dup
+      11: iconst_0
+      12: getstatic     #25                 // Field java/lang/Boolean.TYPE:Ljava/lang/Class;
+      15: iload_1
+      16: invokestatic  #31                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      19: invokestatic  #35                 // Method org/robolectric/util/ReflectionHelpers$ClassParameter.from:(Ljava/lang/Class;Ljava/lang/Object;)Lorg/robolectric/util/ReflectionHelpers$ClassParameter;
+      22: aastore
+      23: invokestatic  #39                 // Method org/robolectric/shadow/api/Shadow.invokeConstructor:(Ljava/lang/Class;Ljava/lang/Object;[Lorg/robolectric/util/ReflectionHelpers$ClassParameter;)Ljava/lang/Object;
+      26: pop
+      27: getstatic     #45                 // Field nativeQueueRegistry:Lorg/robolectric/res/android/NativeObjRegistry;
+      30: aload_0
+      31: invokevirtual #49                 // Method org/robolectric/res/android/NativeObjRegistry.register:(Ljava/lang/Object;)J
+      34: lstore_2
+      35: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      37: aload_0
+      38: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      41: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+      44: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      47: lload_2
+      48: invokeinterface #63,  3           // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.setPtr:(J)V
+      53: aload_0
+      54: aload_0
+      55: lload_2
+      56: invokedynamic #67,  0             // InvokeDynamic #0:onClockAdvanced:(Lorg/robolectric/shadows/ShadowPausedMessageQueue;J)Lorg/robolectric/shadows/ShadowPausedSystemClock$Listener;
+      61: putfield      #71                 // Field clockListener:Lorg/robolectric/shadows/ShadowPausedSystemClock$Listener;
+      64: aload_0
+      65: getfield      #71                 // Field clockListener:Lorg/robolectric/shadows/ShadowPausedSystemClock$Listener;
+      68: invokestatic  #75                 // Method org/robolectric/shadows/ShadowPausedSystemClock.addStaticListener:(Lorg/robolectric/shadows/ShadowPausedSystemClock$Listener;)V
+      71: return
+
+  protected static void nativeDestroy(long);
+    Code:
+       0: getstatic     #45                 // Field nativeQueueRegistry:Lorg/robolectric/res/android/NativeObjRegistry;
+       3: lload_0
+       4: invokevirtual #81                 // Method org/robolectric/res/android/NativeObjRegistry.unregister:(J)Ljava/lang/Object;
+       7: checkcast     #8                  // class org/robolectric/shadows/ShadowPausedMessageQueue
+      10: astore_2
+      11: aload_2
+      12: getfield      #71                 // Field clockListener:Lorg/robolectric/shadows/ShadowPausedSystemClock$Listener;
+      15: invokestatic  #85                 // Method org/robolectric/shadows/ShadowPausedSystemClock.removeListener:(Lorg/robolectric/shadows/ShadowPausedSystemClock$Listener;)V
+      18: return
+
+  protected static void nativePollOncePreM(long, int);
+    Code:
+       0: getstatic     #45                 // Field nativeQueueRegistry:Lorg/robolectric/res/android/NativeObjRegistry;
+       3: lload_0
+       4: invokevirtual #88                 // Method org/robolectric/res/android/NativeObjRegistry.getNativeObject:(J)Ljava/lang/Object;
+       7: checkcast     #8                  // class org/robolectric/shadows/ShadowPausedMessageQueue
+      10: lload_0
+      11: iload_2
+      12: invokevirtual #91                 // Method nativePollOnce:(JI)V
+      15: return
+
+  protected void nativePollOnce(long, int);
+    Code:
+       0: iload_3
+       1: ifne          5
+       4: return
+       5: aload_0
+       6: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       9: dup
+      10: astore        4
+      12: monitorenter
+      13: aload_0
+      14: invokevirtual #95                 // Method isIdle:()Z
+      17: ifeq          47
+      20: aload_0
+      21: invokevirtual #99                 // Method isQuitting:()Z
+      24: ifne          47
+      27: aload_0
+      28: iconst_1
+      29: putfield      #7                  // Field isPolling:Z
+      32: aload_0
+      33: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      36: invokevirtual #102                // Method java/lang/Object.wait:()V
+      39: goto          13
+      42: astore        5
+      44: goto          13
+      47: aload_0
+      48: iconst_0
+      49: putfield      #7                  // Field isPolling:Z
+      52: aload         4
+      54: monitorexit
+      55: goto          66
+      58: astore        6
+      60: aload         4
+      62: monitorexit
+      63: aload         6
+      65: athrow
+      66: return
+    Exception table:
+       from    to  target type
+          32    39    42   Class java/lang/InterruptedException
+          13    55    58   any
+          58    63    58   any
+
+  void poll(long);
+    Code:
+       0: invokestatic  #109                // Method android/os/Looper.myLooper:()Landroid/os/Looper;
+       3: invokestatic  #115                // Method android/os/Looper.getMainLooper:()Landroid/os/Looper;
+       6: if_acmpne     23
+       9: invokestatic  #118                // Method android/os/Looper.myQueue:()Landroid/os/MessageQueue;
+      12: aload_0
+      13: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      16: if_acmpne     23
+      19: iconst_1
+      20: goto          24
+      23: iconst_0
+      24: invokestatic  #122                // Method com/google/common/base/Preconditions.checkState:(Z)V
+      27: aload_0
+      28: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      31: dup
+      32: astore_3
+      33: monitorenter
+      34: aload_0
+      35: invokevirtual #95                 // Method isIdle:()Z
+      38: ifeq          114
+      41: aload_0
+      42: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      45: ldc           #128                // String mBlocked
+      47: iconst_1
+      48: invokestatic  #31                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      51: invokestatic  #130                // Method org/robolectric/util/ReflectionHelpers.setField:(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
+      54: aload_0
+      55: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      58: lload_1
+      59: invokevirtual #136                // Method java/lang/Object.wait:(J)V
+      62: aload_0
+      63: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      66: ldc           #128                // String mBlocked
+      68: iconst_0
+      69: invokestatic  #31                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      72: invokestatic  #130                // Method org/robolectric/util/ReflectionHelpers.setField:(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
+      75: goto          114
+      78: astore        4
+      80: aload_0
+      81: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      84: ldc           #128                // String mBlocked
+      86: iconst_0
+      87: invokestatic  #31                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      90: invokestatic  #130                // Method org/robolectric/util/ReflectionHelpers.setField:(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
+      93: goto          114
+      96: astore        5
+      98: aload_0
+      99: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+     102: ldc           #128                // String mBlocked
+     104: iconst_0
+     105: invokestatic  #31                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     108: invokestatic  #130                // Method org/robolectric/util/ReflectionHelpers.setField:(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
+     111: aload         5
+     113: athrow
+     114: aload_3
+     115: monitorexit
+     116: goto          126
+     119: astore        6
+     121: aload_3
+     122: monitorexit
+     123: aload         6
+     125: athrow
+     126: return
+    Exception table:
+       from    to  target type
+          54    62    78   Class java/lang/InterruptedException
+          54    62    96   any
+          78    80    96   any
+          96    98    96   any
+          34   116   119   any
+         119   123   119   any
+
+  protected static void nativeWake(long);
+    Code:
+       0: getstatic     #45                 // Field nativeQueueRegistry:Lorg/robolectric/res/android/NativeObjRegistry;
+       3: lload_0
+       4: invokevirtual #88                 // Method org/robolectric/res/android/NativeObjRegistry.getNativeObject:(J)Ljava/lang/Object;
+       7: checkcast     #8                  // class org/robolectric/shadows/ShadowPausedMessageQueue
+      10: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      13: astore_2
+      14: aload_2
+      15: dup
+      16: astore_3
+      17: monitorenter
+      18: aload_2
+      19: invokevirtual #138                // Method java/lang/Object.notifyAll:()V
+      22: aload_3
+      23: monitorexit
+      24: goto          34
+      27: astore        4
+      29: aload_3
+      30: monitorexit
+      31: aload         4
+      33: athrow
+      34: return
+    Exception table:
+       from    to  target type
+          18    24    27   any
+          27    31    27   any
+
+  protected static boolean nativeIsPolling(long);
+    Code:
+       0: getstatic     #45                 // Field nativeQueueRegistry:Lorg/robolectric/res/android/NativeObjRegistry;
+       3: lload_0
+       4: invokevirtual #88                 // Method org/robolectric/res/android/NativeObjRegistry.getNativeObject:(J)Ljava/lang/Object;
+       7: checkcast     #8                  // class org/robolectric/shadows/ShadowPausedMessageQueue
+      10: getfield      #7                  // Field isPolling:Z
+      13: ireturn
+
+  public boolean isIdle();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       4: dup
+       5: astore_1
+       6: monitorenter
+       7: aload_0
+       8: invokevirtual #141                // Method peekNextExecutableMessage:()Landroid/os/Message;
+      11: astore_2
+      12: aload_2
+      13: ifnonnull     20
+      16: iconst_1
+      17: aload_1
+      18: monitorexit
+      19: ireturn
+      20: invokestatic  #145                // Method android/os/SystemClock.uptimeMillis:()J
+      23: lstore_3
+      24: aload_2
+      25: invokestatic  #151                // Method shadowOfMsg:(Landroid/os/Message;)Lorg/robolectric/shadows/ShadowPausedMessage;
+      28: invokevirtual #155                // Method org/robolectric/shadows/ShadowPausedMessage.getWhen:()J
+      31: lstore        5
+      33: lload_3
+      34: lload         5
+      36: lcmp
+      37: ifge          44
+      40: iconst_1
+      41: goto          45
+      44: iconst_0
+      45: aload_1
+      46: monitorexit
+      47: ireturn
+      48: astore        7
+      50: aload_1
+      51: monitorexit
+      52: aload         7
+      54: athrow
+    Exception table:
+       from    to  target type
+           7    19    48   any
+          20    47    48   any
+          48    52    48   any
+
+  android.os.Message peekNextExecutableMessage();
+    Code:
+       0: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+       2: aload_0
+       3: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       6: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+       9: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      12: astore_1
+      13: aload_1
+      14: invokeinterface #160,  1          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.getMessages:()Landroid/os/Message;
+      19: astore_2
+      20: aload_2
+      21: ifnull        53
+      24: aload_2
+      25: invokestatic  #151                // Method shadowOfMsg:(Landroid/os/Message;)Lorg/robolectric/shadows/ShadowPausedMessage;
+      28: invokevirtual #163                // Method org/robolectric/shadows/ShadowPausedMessage.getTarget:()Landroid/os/Handler;
+      31: ifnonnull     53
+      34: aload_2
+      35: invokestatic  #151                // Method shadowOfMsg:(Landroid/os/Message;)Lorg/robolectric/shadows/ShadowPausedMessage;
+      38: invokevirtual #167                // Method org/robolectric/shadows/ShadowPausedMessage.internalGetNext:()Landroid/os/Message;
+      41: astore_2
+      42: aload_2
+      43: ifnull        53
+      46: aload_2
+      47: invokevirtual #170                // Method android/os/Message.isAsynchronous:()Z
+      50: ifeq          34
+      53: aload_2
+      54: areturn
+
+  android.os.Message getNext();
+    Code:
+       0: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+       2: aload_0
+       3: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       6: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+       9: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      12: invokeinterface #175,  1          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.next:()Landroid/os/Message;
+      17: areturn
+
+  boolean isQuitAllowed();
+    Code:
+       0: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+       2: aload_0
+       3: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       6: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+       9: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      12: invokeinterface #178,  1          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.getQuitAllowed:()Z
+      17: ireturn
+
+  void doEnqueueMessage(android.os.Message, long);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: lload_2
+       3: invokevirtual #181                // Method enqueueMessage:(Landroid/os/Message;J)Z
+       6: pop
+       7: return
+
+  protected boolean enqueueMessage(android.os.Message, long);
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       4: dup
+       5: astore        4
+       7: monitorenter
+       8: aload_0
+       9: getfield      #13                 // Field uncaughtException:Ljava/lang/Exception;
+      12: ifnull        65
+      15: new           #185                // class java/lang/IllegalStateException
+      18: dup
+      19: new           #187                // class java/lang/StringBuilder
+      22: dup
+      23: invokespecial #189                // Method java/lang/StringBuilder."<init>":()V
+      26: aload_1
+      27: invokevirtual #190                // Method android/os/Message.getTarget:()Landroid/os/Handler;
+      30: invokevirtual #191                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      33: ldc           #195                // String  sending message to a Looper thread that has died due to an uncaught exception
+      35: invokevirtual #197                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      38: invokevirtual #200                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      41: aload_0
+      42: getfield      #13                 // Field uncaughtException:Ljava/lang/Exception;
+      45: invokespecial #204                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+      48: astore        5
+      50: ldc           #207                // String ShadowPausedMessageQueue
+      52: aload         5
+      54: invokestatic  #209                // Method android/util/Log.w:(Ljava/lang/String;Ljava/lang/Throwable;)I
+      57: pop
+      58: aload_1
+      59: invokevirtual #215                // Method android/os/Message.recycle:()V
+      62: aload         5
+      64: athrow
+      65: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      67: aload_0
+      68: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      71: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+      74: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      77: aload_1
+      78: lload_2
+      79: invokeinterface #218,  4          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.enqueueMessage:(Landroid/os/Message;J)Z
+      84: aload         4
+      86: monitorexit
+      87: ireturn
+      88: astore        6
+      90: aload         4
+      92: monitorexit
+      93: aload         6
+      95: athrow
+    Exception table:
+       from    to  target type
+           8    87    88   any
+          88    93    88   any
+
+  android.os.Message getMessages();
+    Code:
+       0: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+       2: aload_0
+       3: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       6: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+       9: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      12: invokeinterface #160,  1          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.getMessages:()Landroid/os/Message;
+      17: areturn
+
+  protected boolean isPolling();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       4: dup
+       5: astore_1
+       6: monitorenter
+       7: aload_0
+       8: getfield      #7                  // Field isPolling:Z
+      11: aload_1
+      12: monitorexit
+      13: ireturn
+      14: astore_2
+      15: aload_1
+      16: monitorexit
+      17: aload_2
+      18: athrow
+    Exception table:
+       from    to  target type
+           7    13    14   any
+          14    17    14   any
+
+  void quit();
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: invokevirtual #219                // Method quit:(Z)V
+       5: return
+
+  protected void quit(boolean);
+    Code:
+       0: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+       2: aload_0
+       3: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       6: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+       9: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      12: iload_1
+      13: invokeinterface #222,  2          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.quit:(Z)V
+      18: aload_0
+      19: getfield      #71                 // Field clockListener:Lorg/robolectric/shadows/ShadowPausedSystemClock$Listener;
+      22: invokestatic  #85                 // Method org/robolectric/shadows/ShadowPausedSystemClock.removeListener:(Lorg/robolectric/shadows/ShadowPausedSystemClock$Listener;)V
+      25: return
+
+  boolean isQuitting();
+    Code:
+       0: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+       2: aload_0
+       3: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       6: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+       9: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      12: invokeinterface #223,  1          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.getQuitting:()Z
+      17: ireturn
+
+  java.time.Duration getNextScheduledTaskTime();
+    Code:
+       0: aload_0
+       1: invokevirtual #141                // Method peekNextExecutableMessage:()Landroid/os/Message;
+       4: astore_1
+       5: aload_1
+       6: ifnonnull     13
+       9: getstatic     #226                // Field java/time/Duration.ZERO:Ljava/time/Duration;
+      12: areturn
+      13: aload_1
+      14: invokestatic  #151                // Method shadowOfMsg:(Landroid/os/Message;)Lorg/robolectric/shadows/ShadowPausedMessage;
+      17: invokevirtual #155                // Method org/robolectric/shadows/ShadowPausedMessage.getWhen:()J
+      20: invokestatic  #232                // Method convertWhenToScheduledTime:(J)J
+      23: invokestatic  #236                // Method java/time/Duration.ofMillis:(J)Ljava/time/Duration;
+      26: areturn
+
+  java.time.Duration getLastScheduledTaskTime();
+    Code:
+       0: lconst_0
+       1: lstore_1
+       2: aload_0
+       3: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       6: dup
+       7: astore_3
+       8: monitorenter
+       9: aload_0
+      10: invokevirtual #240                // Method getMessages:()Landroid/os/Message;
+      13: astore        4
+      15: aload         4
+      17: ifnonnull     26
+      20: getstatic     #226                // Field java/time/Duration.ZERO:Ljava/time/Duration;
+      23: aload_3
+      24: monitorexit
+      25: areturn
+      26: aload         4
+      28: ifnull        61
+      31: aload         4
+      33: invokevirtual #190                // Method android/os/Message.getTarget:()Landroid/os/Handler;
+      36: ifnull        48
+      39: aload         4
+      41: invokestatic  #151                // Method shadowOfMsg:(Landroid/os/Message;)Lorg/robolectric/shadows/ShadowPausedMessage;
+      44: invokevirtual #155                // Method org/robolectric/shadows/ShadowPausedMessage.getWhen:()J
+      47: lstore_1
+      48: aload         4
+      50: invokestatic  #151                // Method shadowOfMsg:(Landroid/os/Message;)Lorg/robolectric/shadows/ShadowPausedMessage;
+      53: invokevirtual #167                // Method org/robolectric/shadows/ShadowPausedMessage.internalGetNext:()Landroid/os/Message;
+      56: astore        4
+      58: goto          26
+      61: aload_3
+      62: monitorexit
+      63: goto          73
+      66: astore        5
+      68: aload_3
+      69: monitorexit
+      70: aload         5
+      72: athrow
+      73: lload_1
+      74: invokestatic  #232                // Method convertWhenToScheduledTime:(J)J
+      77: invokestatic  #236                // Method java/time/Duration.ofMillis:(J)Ljava/time/Duration;
+      80: areturn
+    Exception table:
+       from    to  target type
+           9    25    66   any
+          26    63    66   any
+          66    70    66   any
+
+  private static long convertWhenToScheduledTime(long);
+    Code:
+       0: lload_0
+       1: invokestatic  #145                // Method android/os/SystemClock.uptimeMillis:()J
+       4: lcmp
+       5: ifge          12
+       8: invokestatic  #145                // Method android/os/SystemClock.uptimeMillis:()J
+      11: lstore_0
+      12: lload_0
+      13: lreturn
+
+  public int internalGetSize();
+    Code:
+       0: iconst_0
+       1: istore_1
+       2: aload_0
+       3: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       6: dup
+       7: astore_2
+       8: monitorenter
+       9: aload_0
+      10: invokevirtual #240                // Method getMessages:()Landroid/os/Message;
+      13: astore_3
+      14: aload_3
+      15: ifnull        39
+      18: aload_3
+      19: invokevirtual #190                // Method android/os/Message.getTarget:()Landroid/os/Handler;
+      22: ifnull        28
+      25: iinc          1, 1
+      28: aload_3
+      29: invokestatic  #151                // Method shadowOfMsg:(Landroid/os/Message;)Lorg/robolectric/shadows/ShadowPausedMessage;
+      32: invokevirtual #167                // Method org/robolectric/shadows/ShadowPausedMessage.internalGetNext:()Landroid/os/Message;
+      35: astore_3
+      36: goto          14
+      39: aload_2
+      40: monitorexit
+      41: goto          51
+      44: astore        4
+      46: aload_2
+      47: monitorexit
+      48: aload         4
+      50: athrow
+      51: iload_1
+      52: ireturn
+    Exception table:
+       from    to  target type
+           9    41    44   any
+          44    48    44   any
+
+  android.os.Message getNextIgnoringWhen();
+    Code:
+       0: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+       2: aload_0
+       3: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       6: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+       9: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      12: astore_1
+      13: aload_0
+      14: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      17: dup
+      18: astore_2
+      19: monitorenter
+      20: aconst_null
+      21: astore_3
+      22: aload_0
+      23: invokevirtual #240                // Method getMessages:()Landroid/os/Message;
+      26: astore        4
+      28: aload         4
+      30: ifnull        67
+      33: aload         4
+      35: invokevirtual #190                // Method android/os/Message.getTarget:()Landroid/os/Handler;
+      38: ifnonnull     67
+      41: aload         4
+      43: astore_3
+      44: aload         4
+      46: invokestatic  #151                // Method shadowOfMsg:(Landroid/os/Message;)Lorg/robolectric/shadows/ShadowPausedMessage;
+      49: invokevirtual #167                // Method org/robolectric/shadows/ShadowPausedMessage.internalGetNext:()Landroid/os/Message;
+      52: astore        4
+      54: aload         4
+      56: ifnull        67
+      59: aload         4
+      61: invokevirtual #170                // Method android/os/Message.isAsynchronous:()Z
+      64: ifeq          41
+      67: aload         4
+      69: ifnull        202
+      72: ldc           #241                // class org/robolectric/shadows/ShadowMessage$MessageReflector
+      74: aload         4
+      76: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+      79: checkcast     #241                // class org/robolectric/shadows/ShadowMessage$MessageReflector
+      82: invokeinterface #243,  1          // InterfaceMethod org/robolectric/shadows/ShadowMessage$MessageReflector.getNext:()Landroid/os/Message;
+      87: astore        5
+      89: aload_3
+      90: ifnull        144
+      93: ldc           #241                // class org/robolectric/shadows/ShadowMessage$MessageReflector
+      95: aload_3
+      96: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+      99: checkcast     #241                // class org/robolectric/shadows/ShadowMessage$MessageReflector
+     102: aload         5
+     104: invokeinterface #246,  2          // InterfaceMethod org/robolectric/shadows/ShadowMessage$MessageReflector.setNext:(Landroid/os/Message;)V
+     109: ldc           #241                // class org/robolectric/shadows/ShadowMessage$MessageReflector
+     111: aload_3
+     112: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+     115: checkcast     #241                // class org/robolectric/shadows/ShadowMessage$MessageReflector
+     118: invokeinterface #243,  1          // InterfaceMethod org/robolectric/shadows/ShadowMessage$MessageReflector.getNext:()Landroid/os/Message;
+     123: ifnonnull     172
+     126: invokestatic  #250                // Method org/robolectric/RuntimeEnvironment.getApiLevel:()I
+     129: bipush        35
+     131: if_icmplt     172
+     134: aload_1
+     135: aload_3
+     136: invokeinterface #258,  2          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.setLast:(Landroid/os/Message;)V
+     141: goto          172
+     144: aload_1
+     145: aload         5
+     147: invokeinterface #261,  2          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.setMessages:(Landroid/os/Message;)V
+     152: aload         5
+     154: ifnonnull     172
+     157: invokestatic  #250                // Method org/robolectric/RuntimeEnvironment.getApiLevel:()I
+     160: bipush        35
+     162: if_icmplt     172
+     165: aload_1
+     166: aconst_null
+     167: invokeinterface #258,  2          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.setLast:(Landroid/os/Message;)V
+     172: aload         4
+     174: invokevirtual #170                // Method android/os/Message.isAsynchronous:()Z
+     177: ifeq          202
+     180: invokestatic  #250                // Method org/robolectric/RuntimeEnvironment.getApiLevel:()I
+     183: bipush        35
+     185: if_icmplt     202
+     188: aload_1
+     189: aload_1
+     190: invokeinterface #264,  1          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.getAsyncMessageCount:()I
+     195: iconst_1
+     196: isub
+     197: invokeinterface #267,  2          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.setAsyncMessageCount:(I)V
+     202: aload         4
+     204: aload_2
+     205: monitorexit
+     206: areturn
+     207: astore        6
+     209: aload_2
+     210: monitorexit
+     211: aload         6
+     213: athrow
+    Exception table:
+       from    to  target type
+          20   206   207   any
+         207   211   207   any
+
+  public void reset();
+    Code:
+       0: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+       2: aload_0
+       3: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       6: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+       9: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      12: astore_1
+      13: aload_0
+      14: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      17: dup
+      18: astore_2
+      19: monitorenter
+      20: aload_1
+      21: aconst_null
+      22: invokeinterface #261,  2          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.setMessages:(Landroid/os/Message;)V
+      27: aload_1
+      28: new           #271                // class java/util/ArrayList
+      31: dup
+      32: invokespecial #273                // Method java/util/ArrayList."<init>":()V
+      35: invokeinterface #274,  2          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.setIdleHandlers:(Ljava/util/ArrayList;)V
+      40: aload_1
+      41: iconst_0
+      42: invokeinterface #278,  2          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.setNextBarrierToken:(I)V
+      47: invokestatic  #250                // Method org/robolectric/RuntimeEnvironment.getApiLevel:()I
+      50: bipush        35
+      52: if_icmplt     69
+      55: aload_1
+      56: aconst_null
+      57: invokeinterface #258,  2          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.setLast:(Landroid/os/Message;)V
+      62: aload_1
+      63: iconst_0
+      64: invokeinterface #267,  2          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.setAsyncMessageCount:(I)V
+      69: aload_2
+      70: monitorexit
+      71: goto          79
+      74: astore_3
+      75: aload_2
+      76: monitorexit
+      77: aload_3
+      78: athrow
+      79: aload_0
+      80: aconst_null
+      81: invokevirtual #281                // Method setUncaughtException:(Ljava/lang/Exception;)V
+      84: return
+    Exception table:
+       from    to  target type
+          20    71    74   any
+          74    77    74   any
+
+  private static org.robolectric.shadows.ShadowPausedMessage shadowOfMsg(android.os.Message);
+    Code:
+       0: aload_0
+       1: invokestatic  #285                // Method org/robolectric/shadow/api/Shadow.extract:(Ljava/lang/Object;)Ljava/lang/Object;
+       4: checkcast     #156                // class org/robolectric/shadows/ShadowPausedMessage
+       7: areturn
+
+  public org.robolectric.util.Scheduler getScheduler();
+    Code:
+       0: new           #289                // class java/lang/UnsupportedOperationException
+       3: dup
+       4: ldc_w         #291                // String Not supported in PAUSED LooperMode.
+       7: invokespecial #293                // Method java/lang/UnsupportedOperationException."<init>":(Ljava/lang/String;)V
+      10: athrow
+
+  public void setScheduler(org.robolectric.util.Scheduler);
+    Code:
+       0: new           #289                // class java/lang/UnsupportedOperationException
+       3: dup
+       4: ldc_w         #291                // String Not supported in PAUSED LooperMode.
+       7: invokespecial #293                // Method java/lang/UnsupportedOperationException."<init>":(Ljava/lang/String;)V
+      10: athrow
+
+  public android.os.Message getHead();
+    Code:
+       0: new           #289                // class java/lang/UnsupportedOperationException
+       3: dup
+       4: ldc_w         #291                // String Not supported in PAUSED LooperMode.
+       7: invokespecial #293                // Method java/lang/UnsupportedOperationException."<init>":(Ljava/lang/String;)V
+      10: athrow
+
+  public void setHead(android.os.Message);
+    Code:
+       0: new           #289                // class java/lang/UnsupportedOperationException
+       3: dup
+       4: ldc_w         #291                // String Not supported in PAUSED LooperMode.
+       7: invokespecial #293                // Method java/lang/UnsupportedOperationException."<init>":(Ljava/lang/String;)V
+      10: athrow
+
+  java.util.ArrayList<android.os.MessageQueue$IdleHandler> getIdleHandlersCopy();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       4: dup
+       5: astore_1
+       6: monitorenter
+       7: new           #271                // class java/util/ArrayList
+      10: dup
+      11: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      13: aload_0
+      14: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      17: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+      20: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      23: invokeinterface #296,  1          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.getIdleHandlers:()Ljava/util/ArrayList;
+      28: invokespecial #300                // Method java/util/ArrayList."<init>":(Ljava/util/Collection;)V
+      31: aload_1
+      32: monitorexit
+      33: areturn
+      34: astore_2
+      35: aload_1
+      36: monitorexit
+      37: aload_2
+      38: athrow
+    Exception table:
+       from    to  target type
+           7    33    34   any
+          34    37    34   any
+
+  void setUncaughtException(java.lang.Exception);
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       4: dup
+       5: astore_2
+       6: monitorenter
+       7: aload_0
+       8: aload_1
+       9: putfield      #13                 // Field uncaughtException:Ljava/lang/Exception;
+      12: aload_2
+      13: monitorexit
+      14: goto          22
+      17: astore_3
+      18: aload_2
+      19: monitorexit
+      20: aload_3
+      21: athrow
+      22: return
+    Exception table:
+       from    to  target type
+           7    14    17   any
+          17    20    17   any
+
+  boolean hasUncaughtException();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       4: dup
+       5: astore_1
+       6: monitorenter
+       7: aload_0
+       8: getfield      #13                 // Field uncaughtException:Ljava/lang/Exception;
+      11: ifnull        18
+      14: iconst_1
+      15: goto          19
+      18: iconst_0
+      19: aload_1
+      20: monitorexit
+      21: ireturn
+      22: astore_2
+      23: aload_1
+      24: monitorexit
+      25: aload_2
+      26: athrow
+    Exception table:
+       from    to  target type
+           7    21    22   any
+          22    25    22   any
+
+  void checkQueueState();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       4: dup
+       5: astore_1
+       6: monitorenter
+       7: aload_0
+       8: getfield      #13                 // Field uncaughtException:Ljava/lang/Exception;
+      11: ifnull        29
+      14: new           #185                // class java/lang/IllegalStateException
+      17: dup
+      18: ldc_w         #303                // String Looper thread that has died due to an uncaught exception
+      21: aload_0
+      22: getfield      #13                 // Field uncaughtException:Ljava/lang/Exception;
+      25: invokespecial #204                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+      28: athrow
+      29: aload_1
+      30: monitorexit
+      31: goto          39
+      34: astore_2
+      35: aload_1
+      36: monitorexit
+      37: aload_2
+      38: athrow
+      39: return
+    Exception table:
+       from    to  target type
+           7    31    34   any
+          34    37    34   any
+
+  void drainQueue(com.google.common.base.Predicate<java.lang.Runnable>);
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       4: dup
+       5: astore_2
+       6: monitorenter
+       7: aload_0
+       8: invokevirtual #240                // Method getMessages:()Landroid/os/Message;
+      11: astore_3
+      12: aload_3
+      13: ifnull        50
+      16: aload_1
+      17: aload_3
+      18: invokevirtual #305                // Method android/os/Message.getCallback:()Ljava/lang/Runnable;
+      21: invokeinterface #309,  2          // InterfaceMethod com/google/common/base/Predicate.apply:(Ljava/lang/Object;)Z
+      26: istore        4
+      28: aload_3
+      29: invokestatic  #151                // Method shadowOfMsg:(Landroid/os/Message;)Lorg/robolectric/shadows/ShadowPausedMessage;
+      32: invokevirtual #167                // Method org/robolectric/shadows/ShadowPausedMessage.internalGetNext:()Landroid/os/Message;
+      35: astore        5
+      37: aload_3
+      38: invokestatic  #151                // Method shadowOfMsg:(Landroid/os/Message;)Lorg/robolectric/shadows/ShadowPausedMessage;
+      41: invokevirtual #315                // Method org/robolectric/shadows/ShadowPausedMessage.recycleUnchecked:()V
+      44: aload         5
+      46: astore_3
+      47: goto          12
+      50: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      52: aload_0
+      53: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      56: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+      59: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      62: aconst_null
+      63: invokeinterface #261,  2          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.setMessages:(Landroid/os/Message;)V
+      68: invokestatic  #250                // Method org/robolectric/RuntimeEnvironment.getApiLevel:()I
+      71: bipush        35
+      73: if_icmplt     112
+      76: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      78: aload_0
+      79: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+      82: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+      85: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      88: aconst_null
+      89: invokeinterface #258,  2          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.setLast:(Landroid/os/Message;)V
+      94: ldc           #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+      96: aload_0
+      97: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+     100: invokestatic  #57                 // Method org/robolectric/util/reflector/Reflector.reflector:(Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;
+     103: checkcast     #55                 // class org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector
+     106: iconst_0
+     107: invokeinterface #267,  2          // InterfaceMethod org/robolectric/shadows/ShadowPausedMessageQueue$MessageQueueReflector.setAsyncMessageCount:(I)V
+     112: aload_2
+     113: monitorexit
+     114: goto          124
+     117: astore        6
+     119: aload_2
+     120: monitorexit
+     121: aload         6
+     123: athrow
+     124: return
+    Exception table:
+       from    to  target type
+           7   114   117   any
+         117   121   117   any
+
+  private void lambda$__constructor__$0(long);
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field realQueue:Landroid/os/MessageQueue;
+       4: dup
+       5: astore_3
+       6: monitorenter
+       7: aload_0
+       8: invokevirtual #240                // Method getMessages:()Landroid/os/Message;
+      11: ifnull        18
+      14: lload_1
+      15: invokestatic  #318                // Method nativeWake:(J)V
+      18: aload_3
+      19: monitorexit
+      20: goto          30
+      23: astore        4
+      25: aload_3
+      26: monitorexit
+      27: aload         4
+      29: athrow
+      30: return
+    Exception table:
+       from    to  target type
+           7    20    23   any
+          23    27    23   any
+
+  static {};
+    Code:
+       0: new           #50                 // class org/robolectric/res/android/NativeObjRegistry
+       3: dup
+       4: ldc           #8                  // class org/robolectric/shadows/ShadowPausedMessageQueue
+       6: invokespecial #321                // Method org/robolectric/res/android/NativeObjRegistry."<init>":(Ljava/lang/Class;)V
+       9: putstatic     #45                 // Field nativeQueueRegistry:Lorg/robolectric/res/android/NativeObjRegistry;
+      12: return
+}

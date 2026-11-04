@@ -1,5 +1,30 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-11-05 · VC-02 测试隔离根因与最小修复（待审查）
+
+开工 HEAD 3f69f95，分支 ui-visual-refresh，按 §22 单人完成。复用 VC-01 证据，固定 JUnit 原方法顺序，未反复运行未修改全套。Architect 的共享派发、视觉审查文档和证据目录保持原有未提交状态，未编辑/暂存。
+
+**根因**：Robolectric 测试间重置主消息队列，Compose 1.7.6 的共享 AndroidUiDispatcher 却仍标记 GlobalSnapshotManager consumer 已排队，原 Handler 回调已丢失；后续快照写入不能正常交付。最短复现为成功缓存 AI→clearingOwnerFlushesTheLastWindowBeforeClosingTheDatabase→纯编辑器，三项中原60秒超时；只重新投递原回调后3/3。边界实际采样为无 Recomposer/帧/布局待办、global snapshot pending、dispatcher内部一项但Handler无原回调，正常交付后pending归零。不是未经验证的 OkHttp/Markdown 猜测。
+
+第四项提示缺失独立验证：相同前缀→排他测试，后端 blocked=true，411x1800窗口、区域均组合，但两个输入节点仍为旧 IsEditable=true、提示0个；恢复通知后提示恰好2个、均只读，备份最新内容/释放边界等全部原断言通过。它是未收到状态变化的旧节点，不改产品权限、帧数或滚动来绕过。
+
+**修改清单**：
+
+- AiConversationUiTest.cleanup：取消自身 owner 后，按已有等待机制确认 Job 完成，包含 collectors/request/finally，再关自己的 Room、删除库并关 MockWebServer。最小复现中旧owner已完成，因此该屏障是所属资源退出加固，不冒称它是此次根因。
+- CodeDraftSaveUiTest：仅新增 @Before 环境准备，调用 ComposeMainQueue；原15个用例操作/断言/超时不变。
+- 新增仅测试 ComposeMainQueue：主线程下只有“有工作+标记已排队+Handler缺原回调”才重新post原Runnable并正常交付。不改私有字段/快照数据、不取消任何全局 Recomposer/任务、不吞异常。反射依赖当前Compose私有字段，升级须重审，不支持时显式失败。
+- 新增 ComposeMainQueueTest 三项：真实普通文本写入的通知丢失恢复，核对多行文字及界面选区；正常回调只执行一次；空闲不动。复现不依赖产品UI、Markdown、数据库或网络。
+- 本文及独立 validation/VC-02-20261105；诊断代码只在隔离副本运行，已移出正式源码。
+
+**实际验证**：原前缀33项中4失败→相同33项全部通过；原方法和类内顺序均机器比对一致。最终定向48/48包括原四项、VC-01原18项及新增三项；随后最终固定119项输入核对一致，统一仅跑一次完整Android套件 **34类259/259，0失败/错误/跳过**，Debug成功，Lint **0错误/5既有警告**（与VC-01的ID/严重度/说明一致），退出0，2m21s。正常全套仍按 Accent→AI→Boundary→Persistence→CodeDraftSave（15/15）执行，没有把失败类提前凑绿；Gradle/依赖/fork配置未变。
+
+**证据**：[VC-02完整说明、原始XML/日志、前后对照与源码指纹](../validation/VC-02-20261105/README.md)。01/02为未复现缩小对照；03保留原四项失败；04/05为失败边界采样；06保留不适用PAUSED的探针异常；07、08/09为三项和独立第四项同序恢复对照；10/11为正式定向；12为最终一次完整验证，诊断launcher/probe均不在正式集合。没有删旧失败、挑顺序、加sleep或放宽超时。
+
+**Claude待接入事项**：本次没有产品接口、UI或契约变化，无需Claude接入代码；由Architect集中审查仅测试修正及反射维护边界。当前视觉/AI分支的真机验收仍以其自身记录为准，旧1.6.1真机通过不替代本分支验收。不改版本、不合main、不推送、不发布、不覆盖稳定APK。
+
+状态：**待审查**。
+
+---
 ## 2026-11-04 · G2 用户真机回报：一加 Ace 2 / ColorOS 16，D01–D16 无问题（待最终发布裁定）
 
 用户原文：“一加Ace2，cokorOS16，1.6.0，可读取，D01-D16都没有任何问题”。设备记为一加 Ace 2，系统按拼写规范记为 ColorOS 16，原应用 1.6.0，升级前学习备份可读取。用户此前选择自行试装并回报，D01–D16 全部标记 **PASSED_USER_REPORTED：16 通过、0 失败、0 待执行**；不是 GPT/ADB 独立执行结果，不用自动化代替用户回报。

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.CodeDraftPersistenceTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-04T15:40:05" hostname="LAPTOP-0JLS131B" time="1.237">
+  <properties/>
+  <testcase name="retryAllOnlyRetriesTheLatestFailedQuestions" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.087"/>
+  <testcase name="draftTransactionPreservesConcurrentLearningAndPersonalFields" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.094"/>
+  <testcase name="shutdownCancelsAStalledPreWriteWithoutPretendingItWasSaved" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.189"/>
+  <testcase name="failedOldVersionThenNewSuccessCannotBeReplayedByRetry" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.084"/>
+  <testcase name="supersededGenerationDoesNotReportAnOldFlushAsSaved" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.083"/>
+  <testcase name="cancellingAnExclusiveBoundaryReleasesEditingAndPreservesAcceptedText" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.098"/>
+  <testcase name="continuousTypingKeepsTheTwoSecondLimitAndFinalTrailingSave" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.091"/>
+  <testcase name="slowIoHasOneWriterAndOneReplaceablePendingVersionPerQuestion" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.175"/>
+  <testcase name="shutdownFlushesTheWindowAndRejectsLaterUpdates" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.11"/>
+  <testcase name="hundredEditsCoalesceAndIdenticalTextDoesNotWriteAgain" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.143"/>
+  <testcase name="cancellingFlushDoesNotCancelTheAcceptedWrite" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.082"/>
+  <system-out><![CDATA[T4 virtual committed save times ms: [2000, 4000, 6000]; codes=[v19, v39, v59]
+T4 actual committed writes for 100 edits/10ms: 1; reopened bytes match
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

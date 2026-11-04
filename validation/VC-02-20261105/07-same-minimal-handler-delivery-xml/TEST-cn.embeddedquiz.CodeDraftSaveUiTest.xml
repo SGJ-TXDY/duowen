@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.CodeDraftSaveUiTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-04T15:34:54" hostname="LAPTOP-0JLS131B" time="0.304">
+  <properties/>
+  <testcase name="onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.304"/>
+  <system-out><![CDATA[VC02 RECOVER before CodeDraftSaveUiTest setup scheduled=true callbackInQueue=false pending=[CancellableContinuation(DispatchedContinuation[AndroidUiDispatcher@4f8c7c67, Continuation at androidx.compose.ui.platform.GlobalSnapshotManager$ensureStarted$1.invokeSuspend(GlobalSnapshotManager.android.kt:67)@55c89dc2]){Completed}@1d6451a9] looperIdle=true
+VC02 RECOVER after CodeDraftSaveUiTest setup pending=0 scheduled=false globalPending=false
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,471 @@
+Compiled from "AndroidUiDispatcher.android.kt"
+public final class androidx.compose.ui.platform.AndroidUiDispatcher extends kotlinx.coroutines.CoroutineDispatcher {
+  public static final androidx.compose.ui.platform.AndroidUiDispatcher$Companion Companion;
+
+  private final android.view.Choreographer choreographer;
+
+  private final android.os.Handler handler;
+
+  private final java.lang.Object lock;
+
+  private final kotlin.collections.ArrayDeque<java.lang.Runnable> toRunTrampolined;
+
+  private java.util.List<android.view.Choreographer$FrameCallback> toRunOnFrame;
+
+  private java.util.List<android.view.Choreographer$FrameCallback> spareToRunOnFrame;
+
+  private boolean scheduledTrampolineDispatch;
+
+  private boolean scheduledFrameDispatch;
+
+  private final androidx.compose.ui.platform.AndroidUiDispatcher$dispatchCallback$1 dispatchCallback;
+
+  private final androidx.compose.runtime.MonotonicFrameClock frameClock;
+
+  public static final int $stable;
+
+  private static final kotlin.Lazy<kotlin.coroutines.CoroutineContext> Main$delegate;
+
+  private static final java.lang.ThreadLocal<kotlin.coroutines.CoroutineContext> currentThread;
+
+  private androidx.compose.ui.platform.AndroidUiDispatcher(android.view.Choreographer, android.os.Handler);
+    Code:
+       0: aload_0
+       1: invokespecial #9                  // Method kotlinx/coroutines/CoroutineDispatcher."<init>":()V
+       4: aload_0
+       5: aload_1
+       6: putfield      #13                 // Field choreographer:Landroid/view/Choreographer;
+       9: aload_0
+      10: aload_2
+      11: putfield      #17                 // Field handler:Landroid/os/Handler;
+      14: aload_0
+      15: new           #19                 // class java/lang/Object
+      18: dup
+      19: invokespecial #20                 // Method java/lang/Object."<init>":()V
+      22: putfield      #24                 // Field lock:Ljava/lang/Object;
+      25: aload_0
+      26: new           #26                 // class kotlin/collections/ArrayDeque
+      29: dup
+      30: invokespecial #27                 // Method kotlin/collections/ArrayDeque."<init>":()V
+      33: putfield      #31                 // Field toRunTrampolined:Lkotlin/collections/ArrayDeque;
+      36: aload_0
+      37: new           #33                 // class java/util/ArrayList
+      40: dup
+      41: invokespecial #34                 // Method java/util/ArrayList."<init>":()V
+      44: checkcast     #36                 // class java/util/List
+      47: putfield      #40                 // Field toRunOnFrame:Ljava/util/List;
+      50: aload_0
+      51: new           #33                 // class java/util/ArrayList
+      54: dup
+      55: invokespecial #34                 // Method java/util/ArrayList."<init>":()V
+      58: checkcast     #36                 // class java/util/List
+      61: putfield      #43                 // Field spareToRunOnFrame:Ljava/util/List;
+      64: aload_0
+      65: new           #45                 // class androidx/compose/ui/platform/AndroidUiDispatcher$dispatchCallback$1
+      68: dup
+      69: aload_0
+      70: invokespecial #48                 // Method androidx/compose/ui/platform/AndroidUiDispatcher$dispatchCallback$1."<init>":(Landroidx/compose/ui/platform/AndroidUiDispatcher;)V
+      73: putfield      #52                 // Field dispatchCallback:Landroidx/compose/ui/platform/AndroidUiDispatcher$dispatchCallback$1;
+      76: aload_0
+      77: new           #54                 // class androidx/compose/ui/platform/AndroidUiFrameClock
+      80: dup
+      81: aload_0
+      82: getfield      #13                 // Field choreographer:Landroid/view/Choreographer;
+      85: aload_0
+      86: invokespecial #57                 // Method androidx/compose/ui/platform/AndroidUiFrameClock."<init>":(Landroid/view/Choreographer;Landroidx/compose/ui/platform/AndroidUiDispatcher;)V
+      89: checkcast     #59                 // class androidx/compose/runtime/MonotonicFrameClock
+      92: putfield      #63                 // Field frameClock:Landroidx/compose/runtime/MonotonicFrameClock;
+      95: return
+
+  public final android.view.Choreographer getChoreographer();
+    Code:
+       0: aload_0
+       1: getfield      #13                 // Field choreographer:Landroid/view/Choreographer;
+       4: areturn
+
+  private final java.lang.Runnable nextTask();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field lock:Ljava/lang/Object;
+       4: astore_1
+       5: iconst_0
+       6: istore_2
+       7: aload_1
+       8: astore_3
+       9: aload_3
+      10: monitorenter
+      11: nop
+      12: iconst_0
+      13: istore        4
+      15: aload_0
+      16: getfield      #31                 // Field toRunTrampolined:Lkotlin/collections/ArrayDeque;
+      19: invokevirtual #74                 // Method kotlin/collections/ArrayDeque.removeFirstOrNull:()Ljava/lang/Object;
+      22: checkcast     #76                 // class java/lang/Runnable
+      25: astore        4
+      27: aload_3
+      28: monitorexit
+      29: aload         4
+      31: goto          41
+      34: astore        4
+      36: aload_3
+      37: monitorexit
+      38: aload         4
+      40: athrow
+      41: nop
+      42: areturn
+    Exception table:
+       from    to  target type
+          11    27    34   any
+          34    36    34   any
+
+  private final void performTrampolineDispatch();
+    Code:
+       0: aload_0
+       1: invokespecial #85                 // Method nextTask:()Ljava/lang/Runnable;
+       4: astore_1
+       5: aload_1
+       6: ifnull        23
+       9: aload_1
+      10: invokeinterface #88,  1           // InterfaceMethod java/lang/Runnable.run:()V
+      15: aload_0
+      16: invokespecial #85                 // Method nextTask:()Ljava/lang/Runnable;
+      19: astore_1
+      20: goto          5
+      23: aload_0
+      24: getfield      #24                 // Field lock:Ljava/lang/Object;
+      27: astore_2
+      28: iconst_0
+      29: istore_3
+      30: aload_2
+      31: astore        4
+      33: aload         4
+      35: monitorenter
+      36: nop
+      37: iconst_0
+      38: istore        5
+      40: aload_0
+      41: getfield      #31                 // Field toRunTrampolined:Lkotlin/collections/ArrayDeque;
+      44: invokevirtual #92                 // Method kotlin/collections/ArrayDeque.isEmpty:()Z
+      47: ifeq          59
+      50: aload_0
+      51: iconst_0
+      52: putfield      #96                 // Field scheduledTrampolineDispatch:Z
+      55: iconst_0
+      56: goto          60
+      59: iconst_1
+      60: nop
+      61: istore        5
+      63: aload         4
+      65: monitorexit
+      66: iload         5
+      68: goto          79
+      71: astore        5
+      73: aload         4
+      75: monitorexit
+      76: aload         5
+      78: athrow
+      79: nop
+      80: ifne          0
+      83: return
+    Exception table:
+       from    to  target type
+          36    63    71   any
+          71    73    71   any
+
+  private final void performFrameDispatch(long);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field lock:Ljava/lang/Object;
+       4: astore        4
+       6: iconst_0
+       7: istore        5
+       9: aload         4
+      11: astore        6
+      13: aload         6
+      15: monitorenter
+      16: nop
+      17: iconst_0
+      18: istore        7
+      20: aload_0
+      21: getfield      #104                // Field scheduledFrameDispatch:Z
+      24: ifne          31
+      27: aload         6
+      29: monitorexit
+      30: return
+      31: aload_0
+      32: iconst_0
+      33: putfield      #104                // Field scheduledFrameDispatch:Z
+      36: aload_0
+      37: getfield      #40                 // Field toRunOnFrame:Ljava/util/List;
+      40: astore        8
+      42: aload_0
+      43: aload_0
+      44: getfield      #43                 // Field spareToRunOnFrame:Ljava/util/List;
+      47: putfield      #40                 // Field toRunOnFrame:Ljava/util/List;
+      50: aload_0
+      51: aload         8
+      53: putfield      #43                 // Field spareToRunOnFrame:Ljava/util/List;
+      56: aload         8
+      58: astore        7
+      60: aload         6
+      62: monitorexit
+      63: aload         7
+      65: goto          76
+      68: astore        7
+      70: aload         6
+      72: monitorexit
+      73: aload         7
+      75: athrow
+      76: nop
+      77: astore_3
+      78: iconst_0
+      79: istore        4
+      81: aload_3
+      82: invokeinterface #108,  1          // InterfaceMethod java/util/List.size:()I
+      87: istore        5
+      89: iload         4
+      91: iload         5
+      93: if_icmpge     119
+      96: aload_3
+      97: iload         4
+      99: invokeinterface #112,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     104: checkcast     #114                // class android/view/Choreographer$FrameCallback
+     107: lload_1
+     108: invokeinterface #117,  3          // InterfaceMethod android/view/Choreographer$FrameCallback.doFrame:(J)V
+     113: iinc          4, 1
+     116: goto          89
+     119: aload_3
+     120: invokeinterface #120,  1          // InterfaceMethod java/util/List.clear:()V
+     125: return
+    Exception table:
+       from    to  target type
+          16    27    68   any
+          31    60    68   any
+          68    70    68   any
+
+  public final void postFrameCallback$ui_release(android.view.Choreographer$FrameCallback);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field lock:Ljava/lang/Object;
+       4: astore_2
+       5: iconst_0
+       6: istore_3
+       7: aload_2
+       8: astore        4
+      10: aload         4
+      12: monitorenter
+      13: nop
+      14: iconst_0
+      15: istore        5
+      17: aload_0
+      18: getfield      #40                 // Field toRunOnFrame:Ljava/util/List;
+      21: aload_1
+      22: invokeinterface #132,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      27: pop
+      28: aload_0
+      29: getfield      #104                // Field scheduledFrameDispatch:Z
+      32: ifne          54
+      35: aload_0
+      36: iconst_1
+      37: putfield      #104                // Field scheduledFrameDispatch:Z
+      40: aload_0
+      41: getfield      #13                 // Field choreographer:Landroid/view/Choreographer;
+      44: aload_0
+      45: getfield      #52                 // Field dispatchCallback:Landroidx/compose/ui/platform/AndroidUiDispatcher$dispatchCallback$1;
+      48: checkcast     #114                // class android/view/Choreographer$FrameCallback
+      51: invokevirtual #137                // Method android/view/Choreographer.postFrameCallback:(Landroid/view/Choreographer$FrameCallback;)V
+      54: nop
+      55: getstatic     #143                // Field kotlin/Unit.INSTANCE:Lkotlin/Unit;
+      58: astore        6
+      60: aload         4
+      62: monitorexit
+      63: goto          74
+      66: astore        6
+      68: aload         4
+      70: monitorexit
+      71: aload         6
+      73: athrow
+      74: nop
+      75: return
+    Exception table:
+       from    to  target type
+          13    60    66   any
+          66    68    66   any
+
+  public final void removeFrameCallback$ui_release(android.view.Choreographer$FrameCallback);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field lock:Ljava/lang/Object;
+       4: astore_2
+       5: iconst_0
+       6: istore_3
+       7: aload_2
+       8: astore        4
+      10: aload         4
+      12: monitorenter
+      13: nop
+      14: iconst_0
+      15: istore        5
+      17: aload_0
+      18: getfield      #40                 // Field toRunOnFrame:Ljava/util/List;
+      21: aload_1
+      22: invokeinterface #150,  2          // InterfaceMethod java/util/List.remove:(Ljava/lang/Object;)Z
+      27: istore        6
+      29: aload         4
+      31: monitorexit
+      32: goto          43
+      35: astore        6
+      37: aload         4
+      39: monitorexit
+      40: aload         6
+      42: athrow
+      43: nop
+      44: return
+    Exception table:
+       from    to  target type
+          13    29    35   any
+          35    37    35   any
+
+  public final androidx.compose.runtime.MonotonicFrameClock getFrameClock();
+    Code:
+       0: aload_0
+       1: getfield      #63                 // Field frameClock:Landroidx/compose/runtime/MonotonicFrameClock;
+       4: areturn
+
+  public void dispatch(kotlin.coroutines.CoroutineContext, java.lang.Runnable);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field lock:Ljava/lang/Object;
+       4: astore_3
+       5: iconst_0
+       6: istore        4
+       8: aload_3
+       9: astore        5
+      11: aload         5
+      13: monitorenter
+      14: nop
+      15: iconst_0
+      16: istore        6
+      18: aload_0
+      19: getfield      #31                 // Field toRunTrampolined:Lkotlin/collections/ArrayDeque;
+      22: aload_2
+      23: invokevirtual #159                // Method kotlin/collections/ArrayDeque.addLast:(Ljava/lang/Object;)V
+      26: aload_0
+      27: getfield      #96                 // Field scheduledTrampolineDispatch:Z
+      30: ifne          79
+      33: aload_0
+      34: iconst_1
+      35: putfield      #96                 // Field scheduledTrampolineDispatch:Z
+      38: aload_0
+      39: getfield      #17                 // Field handler:Landroid/os/Handler;
+      42: aload_0
+      43: getfield      #52                 // Field dispatchCallback:Landroidx/compose/ui/platform/AndroidUiDispatcher$dispatchCallback$1;
+      46: checkcast     #76                 // class java/lang/Runnable
+      49: invokevirtual #165                // Method android/os/Handler.post:(Ljava/lang/Runnable;)Z
+      52: pop
+      53: aload_0
+      54: getfield      #104                // Field scheduledFrameDispatch:Z
+      57: ifne          79
+      60: aload_0
+      61: iconst_1
+      62: putfield      #104                // Field scheduledFrameDispatch:Z
+      65: aload_0
+      66: getfield      #13                 // Field choreographer:Landroid/view/Choreographer;
+      69: aload_0
+      70: getfield      #52                 // Field dispatchCallback:Landroidx/compose/ui/platform/AndroidUiDispatcher$dispatchCallback$1;
+      73: checkcast     #114                // class android/view/Choreographer$FrameCallback
+      76: invokevirtual #137                // Method android/view/Choreographer.postFrameCallback:(Landroid/view/Choreographer$FrameCallback;)V
+      79: nop
+      80: getstatic     #143                // Field kotlin/Unit.INSTANCE:Lkotlin/Unit;
+      83: astore        7
+      85: aload         5
+      87: monitorexit
+      88: goto          99
+      91: astore        7
+      93: aload         5
+      95: monitorexit
+      96: aload         7
+      98: athrow
+      99: nop
+     100: return
+    Exception table:
+       from    to  target type
+          14    85    91   any
+          91    93    91   any
+
+  public static final kotlin.Lazy access$getMain$delegate$cp();
+    Code:
+       0: getstatic     #177                // Field Main$delegate:Lkotlin/Lazy;
+       3: areturn
+
+  public static final java.lang.ThreadLocal access$getCurrentThread$cp();
+    Code:
+       0: getstatic     #183                // Field currentThread:Ljava/lang/ThreadLocal;
+       3: areturn
+
+  public static final void access$performTrampolineDispatch(androidx.compose.ui.platform.AndroidUiDispatcher);
+    Code:
+       0: aload_0
+       1: invokespecial #186                // Method performTrampolineDispatch:()V
+       4: return
+
+  public static final java.lang.Object access$getLock$p(androidx.compose.ui.platform.AndroidUiDispatcher);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field lock:Ljava/lang/Object;
+       4: areturn
+
+  public static final android.os.Handler access$getHandler$p(androidx.compose.ui.platform.AndroidUiDispatcher);
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field handler:Landroid/os/Handler;
+       4: areturn
+
+  public static final void access$performFrameDispatch(androidx.compose.ui.platform.AndroidUiDispatcher, long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: invokespecial #195                // Method performFrameDispatch:(J)V
+       5: return
+
+  public static final java.util.List access$getToRunOnFrame$p(androidx.compose.ui.platform.AndroidUiDispatcher);
+    Code:
+       0: aload_0
+       1: getfield      #40                 // Field toRunOnFrame:Ljava/util/List;
+       4: areturn
+
+  public static final void access$setScheduledFrameDispatch$p(androidx.compose.ui.platform.AndroidUiDispatcher, boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #104                // Field scheduledFrameDispatch:Z
+       5: return
+
+  public androidx.compose.ui.platform.AndroidUiDispatcher(android.view.Choreographer, android.os.Handler, kotlin.jvm.internal.DefaultConstructorMarker);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokespecial #203                // Method "<init>":(Landroid/view/Choreographer;Landroid/os/Handler;)V
+       6: return
+
+  static {};
+    Code:
+       0: new           #208                // class androidx/compose/ui/platform/AndroidUiDispatcher$Companion
+       3: dup
+       4: aconst_null
+       5: invokespecial #211                // Method androidx/compose/ui/platform/AndroidUiDispatcher$Companion."<init>":(Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+       8: putstatic     #215                // Field Companion:Landroidx/compose/ui/platform/AndroidUiDispatcher$Companion;
+      11: bipush        8
+      13: putstatic     #218                // Field $stable:I
+      16: getstatic     #223                // Field androidx/compose/ui/platform/AndroidUiDispatcher$Companion$Main$2.INSTANCE:Landroidx/compose/ui/platform/AndroidUiDispatcher$Companion$Main$2;
+      19: checkcast     #225                // class kotlin/jvm/functions/Function0
+      22: invokestatic  #231                // Method kotlin/LazyKt.lazy:(Lkotlin/jvm/functions/Function0;)Lkotlin/Lazy;
+      25: putstatic     #177                // Field Main$delegate:Lkotlin/Lazy;
+      28: new           #233                // class androidx/compose/ui/platform/AndroidUiDispatcher$Companion$currentThread$1
+      31: dup
+      32: invokespecial #234                // Method androidx/compose/ui/platform/AndroidUiDispatcher$Companion$currentThread$1."<init>":()V
+      35: checkcast     #236                // class java/lang/ThreadLocal
+      38: putstatic     #183                // Field currentThread:Ljava/lang/ThreadLocal;
+      41: return
+}

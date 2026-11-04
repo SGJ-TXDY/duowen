@@ -1,0 +1,5 @@
+VC02 ORDER 1/2 START AiConversationUiTest.cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble mode=minimal
+VC02 ORDER 1/2 END AiConversationUiTest.cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble
+VC02 ORDER 2/2 START CodeDraftSaveUiTest.onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip mode=minimal
+VC02 ORDER 2/2 END CodeDraftSaveUiTest.onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip
+

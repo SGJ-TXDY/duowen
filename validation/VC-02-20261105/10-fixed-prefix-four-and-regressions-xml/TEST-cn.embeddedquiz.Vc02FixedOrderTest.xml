@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.Vc02FixedOrderTest" tests="0" skipped="0" failures="0" errors="0" timestamp="1970-01-01T00:00:00" hostname="LAPTOP-0JLS131B" time="0.0">
+  <properties/>
+  <system-out><![CDATA[VC02 ORDER 1/15 START AccentPreferenceTest.defaultsToFirstAccentAndSurvivesARestart mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 1/15 END AccentPreferenceTest.defaultsToFirstAccentAndSurvivesARestart
+VC02 ORDER 2/15 START AccentPreferenceTest.staleStoredValueFallsBackAndUnknownChoiceIsRejected mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 2/15 END AccentPreferenceTest.staleStoredValueFallsBackAndUnknownChoiceIsRejected
+VC02 ORDER 3/15 START AiConversationUiTest.slowRequestOnAStaysOnAAndItsFailureNeverReachesB mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 3/15 END AiConversationUiTest.slowRequestOnAStaysOnAAndItsFailureNeverReachesB
+VC02 ORDER 4/15 START AiConversationUiTest.changedQuestionVersionHidesTheOldVersionRequestUntilYouReturn mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 4/15 END AiConversationUiTest.changedQuestionVersionHidesTheOldVersionRequestUntilYouReturn
+VC02 ORDER 5/15 START AiConversationUiTest.costLineUsesReadableTextColorInLightAndDark mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 5/15 END AiConversationUiTest.costLineUsesReadableTextColorInLightAndDark
+VC02 ORDER 6/15 START AiConversationUiTest.cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 6/15 END AiConversationUiTest.cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble
+VC02 ORDER 7/15 START CodeDraftBoundaryTest.<class> mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 7/15 END CodeDraftBoundaryTest.<class>
+VC02 ORDER 8/15 START CodeDraftPersistenceTest.<class> mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 8/15 END CodeDraftPersistenceTest.<class>
+VC02 ORDER 9/15 START CodeDraftSaveUiTest.onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 9/15 END CodeDraftSaveUiTest.onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip
+VC02 ORDER 10/15 START CodeDraftSaveUiTest.indentInsertsAtTheCaretAsOneChange mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 10/15 END CodeDraftSaveUiTest.indentInsertsAtTheCaretAsOneChange
+VC02 ORDER 11/15 START CodeDraftSaveUiTest.disabledEditorKeepsTheTextReadableButAcceptsNoEdit mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 11/15 END CodeDraftSaveUiTest.disabledEditorKeepsTheTextReadableButAcceptsNoEdit
+VC02 ORDER 12/15 START CodeDraftSaveUiTest.theExclusiveBoundaryFreezesCodeAndNotesUntilItEnds mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 12/15 END CodeDraftSaveUiTest.theExclusiveBoundaryFreezesCodeAndNotesUntilItEnds
+VC02 ORDER 13/15 START EnhancedAiTest.<class> mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 13/15 END EnhancedAiTest.<class>
+VC02 ORDER 14/15 START LearningDatesAndReadingTest.<class> mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 14/15 END LearningDatesAndReadingTest.<class>
+VC02 ORDER 15/15 START ComposeMainQueueTest.<class> mode=accent-allai-draftprefix-four-regressions
+VC02 ORDER 15/15 END ComposeMainQueueTest.<class>
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

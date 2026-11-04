@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.ComposeMainQueueTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-04T15:41:33" hostname="LAPTOP-0JLS131B" time="0.11">
+  <properties/>
+  <testcase name="anIdleDispatcherIsLeftAlone" classname="cn.embeddedquiz.ComposeMainQueueTest" time="0.036"/>
+  <testcase name="anAlreadyQueuedCallbackIsNotPostedAgain" classname="cn.embeddedquiz.ComposeMainQueueTest" time="0.028"/>
+  <testcase name="aRemovedNotificationStillDeliversTheLatestTextAndSelection" classname="cn.embeddedquiz.ComposeMainQueueTest" time="0.046"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

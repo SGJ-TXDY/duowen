@@ -1,0 +1,138 @@
+Compiled from "AbstractMainTestClock.jvm.kt"
+public abstract class androidx.compose.ui.test.AbstractMainTestClock implements androidx.compose.ui.test.MainTestClock {
+  private final kotlinx.coroutines.test.TestCoroutineScheduler testScheduler;
+
+  private final long frameDelayMillis;
+
+  private final kotlin.jvm.functions.Function1<kotlin.jvm.functions.Function0<kotlin.Unit>, kotlin.Unit> runOnUiThread;
+
+  private boolean autoAdvance;
+
+  public static final int $stable;
+
+  public androidx.compose.ui.test.AbstractMainTestClock(kotlinx.coroutines.test.TestCoroutineScheduler, long, kotlin.jvm.functions.Function1<? super kotlin.jvm.functions.Function0<kotlin.Unit>, kotlin.Unit>);
+    Code:
+       0: aload_0
+       1: invokespecial #13                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: aload_1
+       6: putfield      #17                 // Field testScheduler:Lkotlinx/coroutines/test/TestCoroutineScheduler;
+       9: aload_0
+      10: lload_2
+      11: putfield      #21                 // Field frameDelayMillis:J
+      14: aload_0
+      15: aload         4
+      17: putfield      #25                 // Field runOnUiThread:Lkotlin/jvm/functions/Function1;
+      20: aload_0
+      21: iconst_1
+      22: putfield      #29                 // Field autoAdvance:Z
+      25: return
+
+  public long getCurrentTime();
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field testScheduler:Lkotlinx/coroutines/test/TestCoroutineScheduler;
+       4: invokevirtual #37                 // Method kotlinx/coroutines/test/TestCoroutineScheduler.getCurrentTime:()J
+       7: lreturn
+
+  public boolean getAutoAdvance();
+    Code:
+       0: aload_0
+       1: getfield      #29                 // Field autoAdvance:Z
+       4: ireturn
+
+  public void setAutoAdvance(boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #29                 // Field autoAdvance:Z
+       5: return
+
+  public void advanceTimeByFrame();
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #21                 // Field frameDelayMillis:J
+       5: invokespecial #47                 // Method advanceDispatcher:(J)V
+       8: return
+
+  public void advanceTimeBy(long, boolean);
+    Code:
+       0: iload_3
+       1: ifeq          8
+       4: lload_1
+       5: goto          26
+       8: nop
+       9: lload_1
+      10: l2d
+      11: aload_0
+      12: getfield      #21                 // Field frameDelayMillis:J
+      15: l2d
+      16: ddiv
+      17: invokestatic  #55                 // Method java/lang/Math.ceil:(D)D
+      20: d2l
+      21: aload_0
+      22: getfield      #21                 // Field frameDelayMillis:J
+      25: lmul
+      26: lstore        4
+      28: aload_0
+      29: lload         4
+      31: invokespecial #47                 // Method advanceDispatcher:(J)V
+      34: return
+
+  public void advanceTimeUntil(long, kotlin.jvm.functions.Function0<java.lang.Boolean>);
+    Code:
+       0: aload_0
+       1: invokevirtual #62                 // Method getCurrentTime:()J
+       4: lstore        4
+       6: aload_0
+       7: getfield      #25                 // Field runOnUiThread:Lkotlin/jvm/functions/Function1;
+      10: new           #64                 // class androidx/compose/ui/test/AbstractMainTestClock$advanceTimeUntil$1
+      13: dup
+      14: aload_3
+      15: aload_0
+      16: lload         4
+      18: lload_1
+      19: invokespecial #67                 // Method androidx/compose/ui/test/AbstractMainTestClock$advanceTimeUntil$1."<init>":(Lkotlin/jvm/functions/Function0;Landroidx/compose/ui/test/AbstractMainTestClock;JJ)V
+      22: invokeinterface #73,  2           // InterfaceMethod kotlin/jvm/functions/Function1.invoke:(Ljava/lang/Object;)Ljava/lang/Object;
+      27: pop
+      28: return
+
+  private final void advanceDispatcher(long);
+    Code:
+       0: aload_0
+       1: getfield      #25                 // Field runOnUiThread:Lkotlin/jvm/functions/Function1;
+       4: new           #79                 // class androidx/compose/ui/test/AbstractMainTestClock$advanceDispatcher$1
+       7: dup
+       8: aload_0
+       9: lload_1
+      10: invokespecial #82                 // Method androidx/compose/ui/test/AbstractMainTestClock$advanceDispatcher$1."<init>":(Landroidx/compose/ui/test/AbstractMainTestClock;J)V
+      13: invokeinterface #73,  2           // InterfaceMethod kotlin/jvm/functions/Function1.invoke:(Ljava/lang/Object;)Ljava/lang/Object;
+      18: pop
+      19: return
+
+  public static final void access$advanceDispatcher(androidx.compose.ui.test.AbstractMainTestClock, long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: invokespecial #47                 // Method advanceDispatcher:(J)V
+       5: return
+
+  public static final long access$getFrameDelayMillis$p(androidx.compose.ui.test.AbstractMainTestClock);
+    Code:
+       0: aload_0
+       1: getfield      #21                 // Field frameDelayMillis:J
+       4: lreturn
+
+  public static final kotlinx.coroutines.test.TestCoroutineScheduler access$getTestScheduler$p(androidx.compose.ui.test.AbstractMainTestClock);
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field testScheduler:Lkotlinx/coroutines/test/TestCoroutineScheduler;
+       4: areturn
+
+  static {};
+    Code:
+       0: bipush        8
+       2: putstatic     #94                 // Field $stable:I
+       5: return
+}

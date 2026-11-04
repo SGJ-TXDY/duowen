@@ -1,0 +1,80 @@
+Compiled from "GlobalSnapshotManager.android.kt"
+public final class androidx.compose.ui.platform.GlobalSnapshotManager {
+  public static final androidx.compose.ui.platform.GlobalSnapshotManager INSTANCE;
+
+  private static final java.util.concurrent.atomic.AtomicBoolean started;
+
+  private static final java.util.concurrent.atomic.AtomicBoolean sent;
+
+  public static final int $stable;
+
+  private androidx.compose.ui.platform.GlobalSnapshotManager();
+    Code:
+       0: aload_0
+       1: invokespecial #8                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public final void ensureStarted();
+    Code:
+       0: getstatic     #15                 // Field started:Ljava/util/concurrent/atomic/AtomicBoolean;
+       3: iconst_0
+       4: iconst_1
+       5: invokevirtual #21                 // Method java/util/concurrent/atomic/AtomicBoolean.compareAndSet:(ZZ)Z
+       8: ifeq          68
+      11: iconst_1
+      12: aconst_null
+      13: aconst_null
+      14: bipush        6
+      16: aconst_null
+      17: invokestatic  #27                 // Method kotlinx/coroutines/channels/ChannelKt.Channel$default:(ILkotlinx/coroutines/channels/BufferOverflow;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lkotlinx/coroutines/channels/Channel;
+      20: astore_1
+      21: getstatic     #33                 // Field androidx/compose/ui/platform/AndroidUiDispatcher.Companion:Landroidx/compose/ui/platform/AndroidUiDispatcher$Companion;
+      24: invokevirtual #39                 // Method androidx/compose/ui/platform/AndroidUiDispatcher$Companion.getMain:()Lkotlin/coroutines/CoroutineContext;
+      27: invokestatic  #45                 // Method kotlinx/coroutines/CoroutineScopeKt.CoroutineScope:(Lkotlin/coroutines/CoroutineContext;)Lkotlinx/coroutines/CoroutineScope;
+      30: aconst_null
+      31: aconst_null
+      32: new           #47                 // class androidx/compose/ui/platform/GlobalSnapshotManager$ensureStarted$1
+      35: dup
+      36: aload_1
+      37: aconst_null
+      38: invokespecial #50                 // Method androidx/compose/ui/platform/GlobalSnapshotManager$ensureStarted$1."<init>":(Lkotlinx/coroutines/channels/Channel;Lkotlin/coroutines/Continuation;)V
+      41: checkcast     #52                 // class kotlin/jvm/functions/Function2
+      44: iconst_3
+      45: aconst_null
+      46: invokestatic  #58                 // Method kotlinx/coroutines/BuildersKt.launch$default:(Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/CoroutineContext;Lkotlinx/coroutines/CoroutineStart;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lkotlinx/coroutines/Job;
+      49: pop
+      50: getstatic     #63                 // Field androidx/compose/runtime/snapshots/Snapshot.Companion:Landroidx/compose/runtime/snapshots/Snapshot$Companion;
+      53: new           #65                 // class androidx/compose/ui/platform/GlobalSnapshotManager$ensureStarted$2
+      56: dup
+      57: aload_1
+      58: invokespecial #68                 // Method androidx/compose/ui/platform/GlobalSnapshotManager$ensureStarted$2."<init>":(Lkotlinx/coroutines/channels/Channel;)V
+      61: checkcast     #70                 // class kotlin/jvm/functions/Function1
+      64: invokevirtual #76                 // Method androidx/compose/runtime/snapshots/Snapshot$Companion.registerGlobalWriteObserver:(Lkotlin/jvm/functions/Function1;)Landroidx/compose/runtime/snapshots/ObserverHandle;
+      67: pop
+      68: return
+
+  public static final java.util.concurrent.atomic.AtomicBoolean access$getSent$p();
+    Code:
+       0: getstatic     #83                 // Field sent:Ljava/util/concurrent/atomic/AtomicBoolean;
+       3: areturn
+
+  static {};
+    Code:
+       0: new           #2                  // class androidx/compose/ui/platform/GlobalSnapshotManager
+       3: dup
+       4: invokespecial #85                 // Method "<init>":()V
+       7: putstatic     #88                 // Field INSTANCE:Landroidx/compose/ui/platform/GlobalSnapshotManager;
+      10: new           #17                 // class java/util/concurrent/atomic/AtomicBoolean
+      13: dup
+      14: iconst_0
+      15: invokespecial #91                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+      18: putstatic     #15                 // Field started:Ljava/util/concurrent/atomic/AtomicBoolean;
+      21: new           #17                 // class java/util/concurrent/atomic/AtomicBoolean
+      24: dup
+      25: iconst_0
+      26: invokespecial #91                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+      29: putstatic     #83                 // Field sent:Ljava/util/concurrent/atomic/AtomicBoolean;
+      32: bipush        8
+      34: putstatic     #95                 // Field $stable:I
+      37: return
+}

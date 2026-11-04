@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.Vc02FixedOrderTest" tests="0" skipped="0" failures="0" errors="0" timestamp="1970-01-01T00:00:00" hostname="LAPTOP-0JLS131B" time="0.0">
+  <properties/>
+  <system-out><![CDATA[VC02 ORDER 1/5 START AccentPreferenceTest.defaultsToFirstAccentAndSurvivesARestart mode=accent-boundaryprefix
+VC02 ORDER 1/5 END AccentPreferenceTest.defaultsToFirstAccentAndSurvivesARestart
+VC02 ORDER 2/5 START AccentPreferenceTest.staleStoredValueFallsBackAndUnknownChoiceIsRejected mode=accent-boundaryprefix
+VC02 ORDER 2/5 END AccentPreferenceTest.staleStoredValueFallsBackAndUnknownChoiceIsRejected
+VC02 ORDER 3/5 START AiConversationUiTest.cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble mode=accent-boundaryprefix
+VC02 ORDER 3/5 END AiConversationUiTest.cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble
+VC02 ORDER 4/5 START CodeDraftBoundaryTest.<class> mode=accent-boundaryprefix
+VC02 ORDER 4/5 END CodeDraftBoundaryTest.<class>
+VC02 ORDER 5/5 START CodeDraftSaveUiTest.onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip mode=accent-boundaryprefix
+VC02 ORDER 5/5 END CodeDraftSaveUiTest.onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

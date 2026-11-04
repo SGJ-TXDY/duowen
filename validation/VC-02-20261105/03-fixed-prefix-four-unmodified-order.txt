@@ -1,0 +1,25 @@
+VC02 ORDER 1/12 START AccentPreferenceTest.defaultsToFirstAccentAndSurvivesARestart mode=accent-allai-draftprefix-four
+VC02 ORDER 1/12 END AccentPreferenceTest.defaultsToFirstAccentAndSurvivesARestart
+VC02 ORDER 2/12 START AccentPreferenceTest.staleStoredValueFallsBackAndUnknownChoiceIsRejected mode=accent-allai-draftprefix-four
+VC02 ORDER 2/12 END AccentPreferenceTest.staleStoredValueFallsBackAndUnknownChoiceIsRejected
+VC02 ORDER 3/12 START AiConversationUiTest.slowRequestOnAStaysOnAAndItsFailureNeverReachesB mode=accent-allai-draftprefix-four
+VC02 ORDER 3/12 END AiConversationUiTest.slowRequestOnAStaysOnAAndItsFailureNeverReachesB
+VC02 ORDER 4/12 START AiConversationUiTest.changedQuestionVersionHidesTheOldVersionRequestUntilYouReturn mode=accent-allai-draftprefix-four
+VC02 ORDER 4/12 END AiConversationUiTest.changedQuestionVersionHidesTheOldVersionRequestUntilYouReturn
+VC02 ORDER 5/12 START AiConversationUiTest.costLineUsesReadableTextColorInLightAndDark mode=accent-allai-draftprefix-four
+VC02 ORDER 5/12 END AiConversationUiTest.costLineUsesReadableTextColorInLightAndDark
+VC02 ORDER 6/12 START AiConversationUiTest.cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble mode=accent-allai-draftprefix-four
+VC02 ORDER 6/12 END AiConversationUiTest.cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble
+VC02 ORDER 7/12 START CodeDraftBoundaryTest.<class> mode=accent-allai-draftprefix-four
+VC02 ORDER 7/12 END CodeDraftBoundaryTest.<class>
+VC02 ORDER 8/12 START CodeDraftPersistenceTest.<class> mode=accent-allai-draftprefix-four
+VC02 ORDER 8/12 END CodeDraftPersistenceTest.<class>
+VC02 ORDER 9/12 START CodeDraftSaveUiTest.onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip mode=accent-allai-draftprefix-four
+VC02 ORDER 9/12 END CodeDraftSaveUiTest.onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip
+VC02 ORDER 10/12 START CodeDraftSaveUiTest.indentInsertsAtTheCaretAsOneChange mode=accent-allai-draftprefix-four
+VC02 ORDER 10/12 END CodeDraftSaveUiTest.indentInsertsAtTheCaretAsOneChange
+VC02 ORDER 11/12 START CodeDraftSaveUiTest.disabledEditorKeepsTheTextReadableButAcceptsNoEdit mode=accent-allai-draftprefix-four
+VC02 ORDER 11/12 END CodeDraftSaveUiTest.disabledEditorKeepsTheTextReadableButAcceptsNoEdit
+VC02 ORDER 12/12 START CodeDraftSaveUiTest.theExclusiveBoundaryFreezesCodeAndNotesUntilItEnds mode=accent-allai-draftprefix-four
+VC02 ORDER 12/12 END CodeDraftSaveUiTest.theExclusiveBoundaryFreezesCodeAndNotesUntilItEnds
+

@@ -44,6 +44,9 @@ import org.robolectric.annotation.Config
 @Config(sdk = [28])
 @OptIn(ExperimentalTestApi::class)
 class CodeDraftSaveUiTest {
+    @org.junit.Before
+    fun prepareComposeMainQueue() { ComposeMainQueue.deliverStrandedCallbacks() }
+
     @get:Rule val ui = createAndroidComposeRule<ComponentActivity>()
 
     // ---- The editor on its own ----

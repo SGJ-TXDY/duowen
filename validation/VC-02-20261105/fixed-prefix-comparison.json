@@ -1,0 +1,20 @@
+{
+  "Baseline": "03",
+  "Final": "11",
+  "PrefixSteps": 12,
+  "SameOrder": true,
+  "Steps": [
+    "AccentPreferenceTest.defaultsToFirstAccentAndSurvivesARestart",
+    "AccentPreferenceTest.staleStoredValueFallsBackAndUnknownChoiceIsRejected",
+    "AiConversationUiTest.slowRequestOnAStaysOnAAndItsFailureNeverReachesB",
+    "AiConversationUiTest.changedQuestionVersionHidesTheOldVersionRequestUntilYouReturn",
+    "AiConversationUiTest.costLineUsesReadableTextColorInLightAndDark",
+    "AiConversationUiTest.cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble",
+    "CodeDraftBoundaryTest.<class>",
+    "CodeDraftPersistenceTest.<class>",
+    "CodeDraftSaveUiTest.onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip",
+    "CodeDraftSaveUiTest.indentInsertsAtTheCaretAsOneChange",
+    "CodeDraftSaveUiTest.disabledEditorKeepsTheTextReadableButAcceptsNoEdit",
+    "CodeDraftSaveUiTest.theExclusiveBoundaryFreezesCodeAndNotesUntilItEnds"
+  ]
+}

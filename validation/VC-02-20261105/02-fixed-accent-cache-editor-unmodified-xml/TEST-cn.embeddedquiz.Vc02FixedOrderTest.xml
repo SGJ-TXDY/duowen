@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.Vc02FixedOrderTest" tests="0" skipped="0" failures="0" errors="0" timestamp="1970-01-01T00:00:00" hostname="LAPTOP-0JLS131B" time="0.0">
+  <properties/>
+  <system-out><![CDATA[VC02 ORDER 1/4 START AccentPreferenceTest.defaultsToFirstAccentAndSurvivesARestart mode=accent
+VC02 ORDER 1/4 END AccentPreferenceTest.defaultsToFirstAccentAndSurvivesARestart
+VC02 ORDER 2/4 START AccentPreferenceTest.staleStoredValueFallsBackAndUnknownChoiceIsRejected mode=accent
+VC02 ORDER 2/4 END AccentPreferenceTest.staleStoredValueFallsBackAndUnknownChoiceIsRejected
+VC02 ORDER 3/4 START AiConversationUiTest.cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble mode=accent
+VC02 ORDER 3/4 END AiConversationUiTest.cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble
+VC02 ORDER 4/4 START CodeDraftSaveUiTest.onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip mode=accent
+VC02 ORDER 4/4 END CodeDraftSaveUiTest.onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiConversationUiTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-04T15:22:17" hostname="LAPTOP-0JLS131B" time="6.783">
+  <properties/>
+  <testcase name="cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble" classname="cn.embeddedquiz.AiConversationUiTest" time="6.783"/>
+  <system-out><![CDATA[VC02 AI before cancel children=["coroutine#7":StandaloneCoroutine{Active}@6416a2e3]
+VC02 AI owner completed
+VC02 AI immediately after cancel completed=true children=[]
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

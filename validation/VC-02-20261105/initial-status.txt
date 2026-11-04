@@ -1,0 +1,4 @@
+ M docs/REPAIR_DISPATCH.md
+?? docs/VISUAL_CHAT_REVIEW_20261104.md
+?? validation/VC-02-20261105/
+?? validation/visual-chat-review-20261104/

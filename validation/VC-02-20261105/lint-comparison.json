@@ -1,0 +1,12 @@
+{
+  "PreviousWarningCount": 5,
+  "CurrentWarningCount": 5,
+  "SameIdsSeverityMessages": true,
+  "Issues": [
+    "GradleDependency|Warning|A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.9.4",
+    "GradleDependency|Warning|A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.9.4",
+    "IconLauncherShape|Warning|Launcher icons should not fill every pixel of their square region; see the design guide for details",
+    "ModifierParameter|Warning|Modifier parameter should be the first optional parameter",
+    "MonochromeLauncherIcon|Warning|The application adaptive icon is missing a monochrome tag"
+  ]
+}
