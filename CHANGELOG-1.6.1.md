@@ -1,6 +1,6 @@
 # 1.6.1 验证候选
 
-日期：2026-11-04（Asia/Tokyo）。versionName 1.6.1，versionCode 8，applicationId cn.embeddedquiz。状态：**候选准备/设备待验收**，未推送、未建稳定标签或 GitHub Release。候选为 Debug 构建，沿用历史 Debug 签名身份，不声称已有正式 Release 签名产物。
+日期：2026-11-04（Asia/Tokyo）。versionName 1.6.1，versionCode 8，applicationId cn.embeddedquiz。状态：**候选核验和用户设备回报已记录，待 Architect 最终发布裁定**，未推送、未建稳定标签或 GitHub Release。候选为 Debug 构建，沿用历史 Debug 签名身份，不声称已有正式 Release 签名产物。
 
 ## 行为修复
 
@@ -20,7 +20,7 @@
 ## 验证与设备状态
 
 - 实现固定 492b361，Android **248/248**、构建及 Lint 可信结果复用 T4 最终集成；只改版本/说明不重复全套。本候选另运行 README 的 Python unittest discover、assembleDebug、lintDebug，并核对 APK 元数据、证书和 SHA-256，实际结果见 [G2 记录](validation/G2-candidate-1.6.1-20261104/README.md)。
-- 真机由用户自行试装并回报，GPT 统一组织步骤和记录。覆盖安装、通知/未完成考试、长代码/输入法、后台恢复、备份/恢复/重置、大字号/TalkBack 尚待设备结果，不能把 Robolectric 或代码审阅当作通过。
+- 用户自行试装回报：一加 Ace 2、ColorOS 16、原应用 1.6.0、备份可读取，D01–D16 均无问题。覆盖安装、考试/通知、代码/输入法/后台、数据替换及可访问性等按用户整组回报记为通过；不是 GPT/ADB 独立实测，底层 Android 版本与分项数值未另行提供，完整原文和记录见 G2 设备证据。
 - 加载中与缺题共用草稿离页协调器；加载态没有可控停顿的独立正式测试，仅经代码审查。合并/IO 调度不保证物理磁盘繁忙时墙钟硬截止，不承诺立即强杀前未落盘修改保全。
 
 ## 候选与发布

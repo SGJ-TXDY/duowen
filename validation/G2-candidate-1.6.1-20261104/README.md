@@ -1,6 +1,6 @@
 # G2 / 1.6.1 Debug 验证候选统一交付
 
-日期：2026-11-04（Asia/Tokyo）。按共享文档 §19.2–19.3 单人直接交付；Claude 无需再接任务。开工 HEAD `31ea8b2`，原工作区仅 Architect 的五个未跟踪项，未修改/暂存。当前状态：**候选产物核验完成，待用户设备结果与 Architect 最终发布裁定**，不是稳定 Release。
+日期：2026-11-04（Asia/Tokyo）。按共享文档 §19.2–19.3 单人直接交付；Claude 无需再接任务。开工 HEAD `31ea8b2`，原工作区仅 Architect 的五个未跟踪项，未修改/暂存。当前状态：**候选产物核验完成，用户设备回报 16/16 通过，待 Architect 最终发布裁定**，不是稳定 Release。
 
 ## 候选与提交
 
@@ -42,7 +42,7 @@ origin 为 `https://github.com/SGJ-TXDY/-app.git`。准备时 git ls-remote 核�
 | Lint | **0 错误、5 个既有警告**，ID/说明与已验收版本一致 | lint/ 原始 XML/HTML/TXT |
 | 新构建输入前后 | 109 项工作区/隔离副本逐字节一致，期间未改源码 | candidate-source-fingerprints.csv、candidate-after-fingerprints.csv |
 | APK 包/版本/SDK/签名/摘要 | 全部从实际新 APK 核对，见上表 | candidate-manifest.json 等 |
-| 设备 | adb 初始无设备；用户选择自行试装并回报，当前无真机通过结论 | adb-devices-initial.txt、DEVICE_RESULTS.json |
+| 设备 | 用户自行试装：一加 Ace 2 / ColorOS 16，原版 1.6.0，备份可读取；D01–D16 全部按用户回报通过 | DEVICE_REPORT-20261104.md、DEVICE_RESULTS.json；准备时 adb 无设备记录保留 |
 
 复用 GPT 自有 `.gpt-t3-backend-20261104` 独立 app/build 和 ASCII 入口；JDK17 / Gradle8.9 / AGP8.7.3 / Kotlin2.0.21 / Room2.7.2，沿用仓库 tools/build.ps1 离线构建，没有覆盖其他执行者输出。build-head.txt 固定提交，build-command.txt 与 verification-commands.txt 记录命令。
 
@@ -64,10 +64,10 @@ C:\Users\woziji\AppData\Local\Programs\Python\Python312\python.exe -m unittest d
 
 请先读 [统一 7 步清单](DEVICE_CHECKLIST.md)，升级前导出并确认学习备份可读取、速记另备份，保留原 APK；传候选到手机后覆盖安装，不卸载/清数据。检查涵盖覆盖数据保留、考试/放弃/重启、冷/热通知、长代码/输入法/快速离页、后台恢复、备份/恢复/重置、手动笔记、诊断与大字号/TalkBack。
 
-用户已选“自行试装，按步骤回报”。DEVICE_RESULTS.json 分 D01–D16 记录，当前 **0 通过/0 失败/16 待用户执行**，设备/Android/旧版本/输入法均待用户提供，手机侧 APK 摘要也未假填。请回报设备信息、备份可读取情况及每项通过/失败/未测与现象，可分批；GPT 更新本记录和交接，不分派 Claude。无通知/安全故障夹具等条件的项明确留未测，不损坏真实用户库造错。
+用户于 2026-11-04 回报“一加Ace2，cokorOS16，1.6.0，可读取，D01-D16都没有任何问题”。DEVICE_RESULTS.json 逐项记录为 **16 通过/0 失败/0 待执行（均为用户回报）**，设备一加 Ace 2、系统规范记为 ColorOS 16、原应用 1.6.0、学习备份可读取。原文/来源见 DEVICE_REPORT-20261104.md；GPT 没有通过 ADB 独立执行。底层 Android 版本、输入法、分项实测数值和手机侧 APK 哈希未单独提供，字段保留未知，不把 ColorOS 16 推断成 Android 16。候选本地哈希再次核对未变，材料已提交最终裁定。
 
 ## 升级、回退与发布边界
 
 Room 5 升级新增考试终止台账，学习备份仍3，不含运行考试/本机台账/API Key，速记独立备份；诊断 ZIP含原库及考试缓存，不能作为学习备份直接导入。旧 v4 APK不能直接读取 v5，源码回退不降级数据库。保留原库/原APK/升级前备份，优先保留 v5 的前向修复；必要旧版恢复需独立干净环境和用户确认数据替换，不能直接卸载清数据绕过。
 
-当前没有业务新补丁，没有修改 Architect 共享派发或 FRONTEND_HANDOFF，没有读取/打印私钥，没有覆盖 1.6.0 APK、推送、创建稳定标签/Release。候选可供试装；设备与产物验收闭环后由 Architect 按用户既有授权作最终发布裁定。状态：**候选已交付，待设备验收/审查**。
+当前没有业务新补丁，没有修改 Architect 共享派发或 FRONTEND_HANDOFF，没有读取/打印私钥，没有覆盖 1.6.0 APK、推送、创建稳定标签/Release。候选可供试装；设备与产物验收闭环后由 Architect 按用户既有授权作最终发布裁定。状态：**候选核验与用户设备回报已记录，待 Architect 最终发布裁定**。

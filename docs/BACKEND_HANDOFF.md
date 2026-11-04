@@ -1,5 +1,19 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-11-04 · G2 用户真机回报：一加 Ace 2 / ColorOS 16，D01–D16 无问题（待最终发布裁定）
+
+用户原文：“一加Ace2，cokorOS16，1.6.0，可读取，D01-D16都没有任何问题”。设备记为一加 Ace 2，系统按拼写规范记为 ColorOS 16，原应用 1.6.0，升级前学习备份可读取。用户此前选择自行试装并回报，D01–D16 全部标记 **PASSED_USER_REPORTED：16 通过、0 失败、0 待执行**；不是 GPT/ADB 独立执行结果，不用自动化代替用户回报。
+
+对应候选仍为 EmbeddedQuiz-1.6.1-candidate-debug.apk，1.6.1 / 8，构建 06796d459e330c2ba40790714dd730acb801072b；APK SHA-256 99DDAA886D09AA0E5428D2B8EA2A88147D93B35BE2CFE99DE44ECBBB5714D49D，再核对本地文件一致。签名与旧 1.6.0 一致、Python 11/11、复用 Android 248/248、新版本构建成功、Lint 0 错误/5 既有警告等产物证据保持不变；此次没有代码修改、重构建或重复不变测试。
+
+记录已同步 validation/G2-candidate-1.6.1-20261104/DEVICE_RESULTS.json、DEVICE_REPORT-20261104.md、candidate-manifest.json、候选 README/步骤，以及根 README/CHANGELOG 当前状态。逐项保留设备、系统、候选 hash、步骤引用、用户整组通过原文和来源。底层 Android 版本、输入法名称、分项计时/操作细节、手机侧 APK hash 和实际执行时间未单独提供，相关字段仍未知，不把 ColorOS 16 推断成 Android 16；报告日期为 2026-11-04，不冒充执行时间。
+
+当前材料为候选核验与用户设备回报均已记录，提交 Architect 按 §19.2–19.3 和既有发布授权作最终发布裁定。未修改共享派发/前端交接、业务、版本或 APK；未推送、创建稳定标签/Release 或覆盖稳定产物。原“设备待执行”段落保留为历史，当前设备状态以本节及 DEVICE_RESULTS.json 为准。
+
+证据：[用户真机回报原文与来源](../validation/G2-candidate-1.6.1-20261104/DEVICE_REPORT-20261104.md)、[统一候选记录](../validation/G2-candidate-1.6.1-20261104/README.md)。状态：**待 Architect 最终发布裁定**。
+
+---
+
 ## 2026-11-04 · G2 / 1.6.1 Debug 验证候选统一交付（待设备验收）
 
 按共享文档 §19.2–19.3 单人直接执行，Claude 无需再接任务。开工 HEAD 31ea8b2，原工作区仅 Architect 五个未跟踪项，未编辑/暂存。远端 origin SGJ-TXDY/-app，准备时 main 92d1cd7、仅 v1.6.0，无 v1.6.1 标签；确切远端 build 文件为 1.6.0/7，本地历史未占用 1.6.1/8。未创建/覆盖标签或发布。

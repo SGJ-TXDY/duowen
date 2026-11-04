@@ -22,6 +22,7 @@
   "LintWarnings": 5,
   "LintWarningsUnchanged": true,
   "BaselineAPKUnchanged": true,
-  "DeviceAcceptance": "PENDING_USER",
-  "Published": false
+  "DeviceAcceptance": "PASSED_USER_REPORTED_PENDING_ARCHITECT",
+  "Published": false,
+  "DeviceReport": "DEVICE_RESULTS.json"
 }
