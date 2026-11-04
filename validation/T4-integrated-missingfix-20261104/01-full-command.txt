@@ -1,0 +1,4 @@
+HEAD: 492b361b8a2729ac2ce25b49dab427f17f798ffa
+109 inputs byte-for-byte equal; 2 delivered repair files match; no extra app/src.
+./tools/build.ps1 -Tasks @('assembleDebug','testDebugUnitTest','--rerun','lintDebug','--continue','--no-daemon')
+No source or test modifications in this integration run. Original GPT diagnostic not added.

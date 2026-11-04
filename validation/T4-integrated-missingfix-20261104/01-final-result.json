@@ -1,0 +1,19 @@
+{
+  "TestedHead": "492b361b8a2729ac2ce25b49dab427f17f798ffa",
+  "Tests": 248.0,
+  "Classes": 31,
+  "Failures": 0.0,
+  "Errors": 0.0,
+  "Skipped": 0.0,
+  "CodeDraftSaveUiTests": 15,
+  "MissingQuestionRegressions": 3,
+  "DebugBuild": "SUCCESS",
+  "LintErrors": 0,
+  "LintWarnings": 5,
+  "WarningsUnchanged": true,
+  "AndroidInputs": 109,
+  "InputsUnchanged": true,
+  "CompleteSuite": true,
+  "BuildExit": 0,
+  "Duration": "3m 44s"
+}

@@ -1,5 +1,23 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-11-04 · T4 缺题补修后统一复测：248/248（待审查）
+
+固定受测 HEAD `492b361b8a2729ac2ce25b49dab427f17f798ffa`，包含 GPT 后端、Claude 完整前端及缺题/加载离页补修。开工仅 Architect 原五个未跟踪项，未修改或暂存。本轮 GPT 不改生产代码/UI/正式测试/接口，只复测与更新交接、独立证据；不要求 Claude 再接一轮。
+
+必要统一命令一次 assembleDebug testDebugUnitTest --rerun lintDebug --continue --no-daemon：**248/248 通过，0 失败/错误/跳过，31 类**；Debug 构建成功，Lint **0 错误/5 既有警告**（ID/说明未变），退出 0，BUILD SUCCESSFUL in 3m 44s。109 项 Android 输入运行前后/隔离副本 SHA-256 一致，Claude 两个补修交付文件的原指纹匹配，无额外 app/src 或临时诊断混入。CodeDraftSaveUiTest 15/15，包含系统返回等待、失败后顶部/系统返回留页与显式重试、通知接管三个正式缺题回归；其余草稿/考试/通知/启动/迁移/便签/速记全部共同执行。实际事务/调度证据仍为 100 次输入写 1 次，虚拟 2000/4000/6000ms 阶段提交并重开数据库保留文本。
+
+原问题补修：QuestionScreen 的加载分支和 MissingQuestion 按 queue 当前 id 使用 rememberPracticeDraftLeave，普通练习挂同一草稿系统返回/失败对话框，缺题顶部返回也走此协调器，等待时禁用按钮，展示实际保存状态和重试；考试继续 ExamLeave，通知仍核对 page/practiceSession/index 丢弃旧结果。前文 db90bcc 的“待 Claude 补修”是旧版本状态；当前修复已经交付并进入本次完整回归，不把历史失败删改。
+
+复现依据严格区分：核对 Claude 报告的原样 GPT 诊断 SHA-256 与旧 probe-source 完全一致，其原始 XML 为 2/2 通过，旧 db90bcc 的同源码 2/2 失败保留。Claude 新增三个正式测试的旧版失败点是新增状态行，早于离页断言，不当作独立导航复现。本轮复用其可信诊断记录，不重复执行原样定向。加载分支与缺题同一协调器已代码审阅，但缺少受控加载停顿的独立测试，未将其说成单独自动化通过。
+
+证据：[T4 补修后统一验证](../validation/T4-integrated-missingfix-20261104/README.md)。含固定 HEAD/命令、完整原始 XML/日志、逐类结果、三项新正式用例、两份交付指纹和 109 项前后指纹、Lint XML/HTML/TXT、schema 1～5、独立 Debug 指纹及原诊断核对。没有拼接定向通过数或重复不变全套。
+
+交由 Architect 集中审查。本轮未发现新增需要 Claude 编码的确定问题；7 步设备清单仍未执行，尤其输入法拼字/选词和真实转后台保存，以及长代码延迟、物理存储/强杀、大字号/TalkBack，均不以 Robolectric 或代码阅读替代。onStop 已在共同版本，但无新增专用生命周期/真机证据。Room 5、备份 3、版本 1.6.0 / 7 保持；没有编辑共享派发/前端交接、改版本、推送、标签、Release 或覆盖稳定 APK。
+
+状态：**待审查**，不自行宣布 T4 或 G2 最终验收。
+
+---
+
 ## 2026-11-04 · T4 双方统一集成：完整套件 245/245，缺题离页待补修（待审查）
 
 任务/职责：按 §18.5 和用户指示，GPT 固定含 db90bcc 的共同版本统一运行。受测 HEAD `db90bcc5e3e0a40b650e03fd0a1465a322dcd4c4`，含后端 38cb7c3/42be3e4 及 Claude 两部分 UI ac387ac/db90bcc。开工只有 Architect 原五个未跟踪项，未修改/暂存。本轮只更新本文和独立证据，没有更改生产代码、正式测试、UI、接口、迁移、schema、版本或依赖。

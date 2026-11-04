@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.DomainTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-04T10:23:23" hostname="LAPTOP-0JLS131B" time="0.026">
+  <properties/>
+  <testcase name="singleAndMultipleAreExactSets" classname="cn.embeddedquiz.DomainTest" time="0.01"/>
+  <testcase name="judgmentAndUncertainAnswers" classname="cn.embeddedquiz.DomainTest" time="0.001"/>
+  <testcase name="datesHandleLeapYearAndYearBoundary" classname="cn.embeddedquiz.DomainTest" time="0.014"/>
+  <testcase name="programmingNeverDaily" classname="cn.embeddedquiz.DomainTest" time="0.0"/>
+  <testcase name="successfulReviewsGrowAndLapseResets" classname="cn.embeddedquiz.DomainTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

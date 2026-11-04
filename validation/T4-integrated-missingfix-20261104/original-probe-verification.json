@@ -1,0 +1,11 @@
+{
+  "OriginalProbeSHA256": "92F2CB6997B89DAC79D4D9B11647839B168CB8926E50AD2B024AC91FE06B6C72",
+  "FrontendReportedSHA256": "92F2CB6997B89DAC79D4D9B11647839B168CB8926E50AD2B024AC91FE06B6C72",
+  "SameSource": true,
+  "Tests": 2.0,
+  "Failures": 0.0,
+  "Errors": 0.0,
+  "Skipped": 0.0,
+  "ExecutedBy": "Claude in isolated copy; not rerun by GPT",
+  "RawEvidence": "../T4-frontend-missing-20261104/02-gpt-probe-on-fixed-ui-xml"
+}
