@@ -206,6 +206,30 @@ fun ExpandableSection(
     }
 }
 
+/** Chip look shared by every FilterChip: white when idle, accent tint and outline when chosen. */
+@Composable
+fun appChipColors() =
+    FilterChipDefaults.filterChipColors(
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        selectedContainerColor = MaterialTheme.selection.container,
+        selectedLabelColor = MaterialTheme.colorScheme.primary,
+        selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
+        selectedTrailingIconColor = MaterialTheme.colorScheme.primary,
+    )
+
+@Composable
+fun appChipBorder(enabled: Boolean, selected: Boolean) =
+    FilterChipDefaults.filterChipBorder(
+        enabled = enabled,
+        selected = selected,
+        borderColor = MaterialTheme.colorScheme.outlineVariant,
+        selectedBorderColor = MaterialTheme.selection.line,
+        borderWidth = 1.dp,
+        selectedBorderWidth = 1.dp,
+    )
+
 /** Filter chip that opens a menu; highlighted once a value other than [allLabel] is chosen. */
 @Composable
 fun FilterMenuChip(
@@ -226,12 +250,8 @@ fun FilterMenuChip(
                 Icon(AppIcons.ChevronDown, contentDescription = null, modifier = Modifier.size(16.dp))
             },
             shape = MaterialTheme.shapes.small,
-            colors =
-                FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.primary,
-                    selectedTrailingIconColor = MaterialTheme.colorScheme.primary,
-                ),
+            colors = appChipColors(),
+            border = appChipBorder(enabled = true, selected = active),
             modifier =
                 Modifier.heightIn(min = 40.dp).semantics {
                     contentDescription = "$label：$value"

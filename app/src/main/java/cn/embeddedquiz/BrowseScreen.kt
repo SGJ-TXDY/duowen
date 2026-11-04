@@ -241,12 +241,8 @@ private fun ChoiceChips(options: List<String>, value: String, onChange: (String)
                         { Icon(AppIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
                     } else null,
                 shape = MaterialTheme.shapes.small,
-                colors =
-                    FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.primary,
-                        selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
-                    ),
+                colors = appChipColors(),
+                border = appChipBorder(enabled = true, selected = option == value),
                 modifier = Modifier.heightIn(min = 40.dp),
             )
         }

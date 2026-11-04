@@ -10,14 +10,22 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
@@ -111,6 +119,12 @@ fun Settings(vm: QuizViewModel) {
                         fontSize = FontChoice.entries.first { choice -> choice.label == label }.name
                     )
                 }
+            }
+        }
+        item {
+            AccentPicker(vm.accent.id) { id ->
+                runCatching { vm.accent.choose(id) }
+                    .onFailure { vm.notice = "主题色保存失败，请重试" }
             }
         }
         item { Heading("每日学习") }
@@ -247,6 +261,47 @@ fun Settings(vm: QuizViewModel) {
                 modifier = Modifier.heightIn(min = 48.dp),
             ) {
                 Text("查看本地错误记录")
+            }
+        }
+    }
+}
+
+/** Eight round swatches; each keeps a 48dp touch target around its 36dp color dot. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AccentPicker(selected: String, onChoose: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("主题色：${accentOf(selected).label}", style = MaterialTheme.typography.labelLarge)
+        FlowRow(Modifier.testTag("accent-picker")) {
+            ACCENTS.forEach { accent ->
+                val chosen = accent.id == selected
+                Box(
+                    Modifier.size(48.dp)
+                        .clip(CircleShape)
+                        .selectable(selected = chosen, role = Role.RadioButton) { onChoose(accent.id) }
+                        .semantics { contentDescription = "主题色${accent.label}" },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier.size(40.dp)
+                            .then(
+                                if (chosen) Modifier.border(2.dp, accent.color, CircleShape)
+                                else Modifier
+                            )
+                            .padding(if (chosen) 4.dp else 2.dp)
+                            .clip(CircleShape)
+                            .background(accent.color),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (chosen)
+                            Icon(
+                                AppIcons.Check,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp),
+                            )
+                    }
+                }
             }
         }
     }

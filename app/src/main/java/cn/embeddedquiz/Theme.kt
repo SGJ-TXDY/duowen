@@ -24,80 +24,139 @@ private tailrec fun Context.activity(): Activity? =
         else -> null
     }
 
-/** Indigo primary with warm amber accents; answer states keep their own green / amber / red. */
-fun appColors(dark: Boolean) =
+/**
+ * One theme accent. [color] is the light-mode primary; dark mode derives its tones by mixing.
+ * [selected] / [selectedLine] tint chosen chips and the user's chat bubbles.
+ */
+@Immutable
+data class Accent(
+    val id: String,
+    val label: String,
+    val color: Color,
+    val container: Color,
+    val onContainer: Color,
+    val selected: Color,
+    val selectedLine: Color,
+    /** How far the dark-mode primary is mixed toward white. */
+    val darkLift: Float = 0.42f,
+)
+
+/**
+ * Teal and green are darker than their usual swatches so white text on them stays above 4.5:1;
+ * graphite lifts further in dark mode so its primary text stays readable on dark cards.
+ */
+val ACCENTS =
+    listOf(
+        Accent("blue", "景泰蓝", Color(0xFF2563EB), Color(0xFFE3EDFF), Color(0xFF0C2D6B), Color(0xFFEDF3FE), Color(0xFFBFD5F7)),
+        Accent("graphite", "石墨黑", Color(0xFF1F2937), Color(0xFFE8EAEE), Color(0xFF0B1017), Color(0xFFEDEFF2), Color(0xFFCDD2D9), darkLift = 0.5f),
+        Accent("teal", "青瓷", Color(0xFF0A7A6A), Color(0xFFDDF6F1), Color(0xFF053B33), Color(0xFFE7F8F5), Color(0xFFA9E0D6)),
+        Accent("green", "竹青", Color(0xFF2B7A52), Color(0xFFE2F3E9), Color(0xFF0B3823), Color(0xFFEAF7EF), Color(0xFFB7DEC7)),
+        Accent("orange", "朱砂", Color(0xFFC2410C), Color(0xFFFDE9DF), Color(0xFF4A1804), Color(0xFFFDF0E9), Color(0xFFF3C4AB)),
+        Accent("purple", "绛紫", Color(0xFF7C3AED), Color(0xFFEDE6FD), Color(0xFF2E1065), Color(0xFFF2EDFE), Color(0xFFCDBBF8)),
+        Accent("rose", "胭脂", Color(0xFFBE185D), Color(0xFFFCE4EF), Color(0xFF4C0519), Color(0xFFFDEDF4), Color(0xFFF2B6CF)),
+        Accent("amber", "焦糖", Color(0xFF92400E), Color(0xFFFBEEDA), Color(0xFF3D1B04), Color(0xFFFCF3E6), Color(0xFFEBC79A)),
+    )
+
+/** Unknown or missing ids fall back to the first accent, so a stale preference never breaks the theme. */
+fun accentOf(id: String?): Accent = ACCENTS.firstOrNull { it.id == id } ?: ACCENTS.first()
+
+private val DarkBase = Color(0xFF10131A)
+
+private fun mix(a: Color, b: Color, ratioB: Float) =
+    Color(
+        red = a.red * (1 - ratioB) + b.red * ratioB,
+        green = a.green * (1 - ratioB) + b.green * ratioB,
+        blue = a.blue * (1 - ratioB) + b.blue * ratioB,
+    )
+
+/** Neutral gray surfaces with white cards; only the primary tones follow the chosen accent. */
+fun appColors(dark: Boolean, accent: Accent = ACCENTS.first()) =
     if (dark)
         darkColorScheme(
-            primary = Color(0xFFBAC3FF),
-            onPrimary = Color(0xFF08218A),
-            primaryContainer = Color(0xFF2B3DA0),
-            onPrimaryContainer = Color(0xFFDEE0FF),
-            secondary = Color(0xFFC3C5DD),
-            onSecondary = Color(0xFF2D2F42),
-            secondaryContainer = Color(0xFF434659),
-            onSecondaryContainer = Color(0xFFE0E1F9),
-            tertiary = Color(0xFFFFB870),
+            primary = mix(accent.color, Color.White, accent.darkLift),
+            onPrimary = mix(accent.color, DarkBase, 0.85f),
+            primaryContainer = mix(accent.color, DarkBase, 0.70f),
+            onPrimaryContainer = mix(accent.color, Color.White, 0.84f),
+            secondary = Color(0xFFC2C7CF),
+            onSecondary = Color(0xFF2A2E35),
+            secondaryContainer = Color(0xFF33373E),
+            onSecondaryContainer = Color(0xFFE3E5E9),
+            tertiary = Color(0xFFFFC069),
             onTertiary = Color(0xFF4A2800),
-            tertiaryContainer = Color(0xFF5E3A00),
-            onTertiaryContainer = Color(0xFFFFDCBE),
+            tertiaryContainer = Color(0xFF5A3B00),
+            onTertiaryContainer = Color(0xFFFFE0B8),
             error = Color(0xFFFFB4AB),
             onError = Color(0xFF690005),
             errorContainer = Color(0xFF93000A),
             onErrorContainer = Color(0xFFFFDAD6),
-            background = Color(0xFF121318),
-            onBackground = Color(0xFFE3E3EC),
-            surface = Color(0xFF121318),
-            onSurface = Color(0xFFE3E3EC),
-            surfaceVariant = Color(0xFF45464F),
-            onSurfaceVariant = Color(0xFFC6C6D2),
-            outline = Color(0xFF90909C),
-            outlineVariant = Color(0xFF3B3C46),
-            inverseSurface = Color(0xFFE3E3EC),
-            inverseOnSurface = Color(0xFF2F3036),
-            inversePrimary = Color(0xFF4355B9),
-            surfaceTint = Color(0xFFBAC3FF),
-            surfaceContainerLowest = Color(0xFF1C1D24),
-            surfaceContainerLow = Color(0xFF18191F),
-            surfaceContainer = Color(0xFF1C1D24),
-            surfaceContainerHigh = Color(0xFF26272F),
-            surfaceContainerHighest = Color(0xFF2D2E36),
+            background = Color(0xFF0F1115),
+            onBackground = Color(0xFFE7E8EA),
+            surface = Color(0xFF0F1115),
+            onSurface = Color(0xFFE7E8EA),
+            surfaceVariant = Color(0xFF2A2E35),
+            onSurfaceVariant = Color(0xFFA5A9AF),
+            outline = Color(0xFF7C828B),
+            outlineVariant = Color(0xFF33373E),
+            inverseSurface = Color(0xFFE7E8EA),
+            inverseOnSurface = Color(0xFF2A2E35),
+            inversePrimary = accent.color,
+            surfaceTint = mix(accent.color, Color.White, accent.darkLift),
+            surfaceContainerLowest = Color(0xFF1A1D23),
+            surfaceContainerLow = Color(0xFF16181D),
+            surfaceContainer = Color(0xFF1A1D23),
+            surfaceContainerHigh = Color(0xFF23262C),
+            surfaceContainerHighest = Color(0xFF2A2E35),
         )
     else
         lightColorScheme(
-            primary = Color(0xFF4355B9),
+            primary = accent.color,
             onPrimary = Color.White,
-            primaryContainer = Color(0xFFE0E3FF),
-            onPrimaryContainer = Color(0xFF00105C),
-            secondary = Color(0xFF5A5D72),
+            primaryContainer = accent.container,
+            onPrimaryContainer = accent.onContainer,
+            secondary = Color(0xFF4B5563),
             onSecondary = Color.White,
-            secondaryContainer = Color(0xFFE0E1F9),
-            onSecondaryContainer = Color(0xFF181A2C),
+            secondaryContainer = Color(0xFFEFF1F4),
+            onSecondaryContainer = Color(0xFF1F2937),
             tertiary = Color(0xFF8B5000),
             onTertiary = Color.White,
-            tertiaryContainer = Color(0xFFFFE6C9),
+            tertiaryContainer = Color(0xFFFFE9C7),
             onTertiaryContainer = Color(0xFF2D1600),
             error = Color(0xFFB42318),
             onError = Color.White,
-            errorContainer = Color(0xFFFDE8E6),
-            onErrorContainer = Color(0xFF7E1B12),
-            background = Color(0xFFF4F5FA),
-            onBackground = Color(0xFF1A1B23),
-            surface = Color(0xFFF4F5FA),
-            onSurface = Color(0xFF1A1B23),
-            surfaceVariant = Color(0xFFE6E7F2),
-            onSurfaceVariant = Color(0xFF565A6E),
-            outline = Color(0xFF7A7D8E),
-            outlineVariant = Color(0xFFDDDFEA),
-            inverseSurface = Color(0xFF2F3038),
-            inverseOnSurface = Color(0xFFF1F0F7),
-            inversePrimary = Color(0xFFBAC3FF),
-            surfaceTint = Color(0xFF4355B9),
+            errorContainer = Color(0xFFFDECEA),
+            onErrorContainer = Color(0xFF7A1B14),
+            background = Color(0xFFF6F7F9),
+            onBackground = Color(0xFF141414),
+            surface = Color(0xFFF6F7F9),
+            onSurface = Color(0xFF141414),
+            surfaceVariant = Color(0xFFF1F2F4),
+            onSurfaceVariant = Color(0xFF6B7075),
+            outline = Color(0xFF7C828B),
+            outlineVariant = Color(0xFFE4E6EA),
+            inverseSurface = Color(0xFF2A2E35),
+            inverseOnSurface = Color(0xFFF1F2F4),
+            inversePrimary = mix(accent.color, Color.White, accent.darkLift),
+            surfaceTint = accent.color,
             surfaceContainerLowest = Color.White,
-            surfaceContainerLow = Color(0xFFFAFAFE),
+            surfaceContainerLow = Color(0xFFFAFAFB),
             surfaceContainer = Color.White,
             surfaceContainerHigh = Color.White,
             surfaceContainerHighest = Color.White,
         )
+
+/** Accent-tinted fill and outline for selected chips and the user's side of a conversation. */
+@Immutable
+data class SelectionColors(val container: Color, val line: Color)
+
+fun selectionColors(dark: Boolean, accent: Accent = ACCENTS.first()) =
+    if (dark)
+        SelectionColors(mix(accent.color, DarkBase, 0.78f), mix(accent.color, DarkBase, 0.54f))
+    else SelectionColors(accent.selected, accent.selectedLine)
+
+val LocalSelectionColors = staticCompositionLocalOf { selectionColors(false) }
+
+val MaterialTheme.selection: SelectionColors
+    @Composable @ReadOnlyComposable get() = LocalSelectionColors.current
 
 /** Answer-state colors that Material's scheme has no slot for. */
 @Immutable
@@ -141,10 +200,12 @@ private val AppTypography =
             headlineSmall = it.headlineSmall.copy(fontSize = 24.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
             titleLarge = it.titleLarge.copy(fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold),
             titleMedium = it.titleMedium.copy(fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold),
-            titleSmall = it.titleSmall.copy(fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium),
+            titleSmall = it.titleSmall.copy(fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
             bodyLarge = it.bodyLarge.copy(fontSize = 16.sp, lineHeight = 26.sp),
             bodyMedium = it.bodyMedium.copy(fontSize = 14.sp, lineHeight = 22.sp),
+            bodySmall = it.bodySmall.copy(fontSize = 12.sp, lineHeight = 18.sp),
             labelLarge = it.labelLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
+            labelMedium = it.labelMedium.copy(fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
         )
     }
 
@@ -153,19 +214,25 @@ private val AppShapes =
         extraSmall = RoundedCornerShape(8.dp),
         small = RoundedCornerShape(12.dp),
         medium = RoundedCornerShape(16.dp),
-        large = RoundedCornerShape(20.dp),
+        // Cards share one 16dp radius across every screen.
+        large = RoundedCornerShape(16.dp),
         extraLarge = RoundedCornerShape(28.dp),
     )
 
 @Composable
-fun AppTheme(settings: LearningSettings, content: @Composable () -> Unit) {
+fun AppTheme(
+    settings: LearningSettings,
+    accentId: String = ACCENTS.first().id,
+    content: @Composable () -> Unit,
+) {
     val dark =
         when (settings.theme) {
             "DARK" -> true
             "LIGHT" -> false
             else -> isSystemInDarkTheme()
         }
-    val colors = appColors(dark)
+    val accent = accentOf(accentId)
+    val colors = appColors(dark, accent)
     val density = LocalDensity.current
     val view = LocalView.current
     SideEffect {
@@ -173,7 +240,7 @@ fun AppTheme(settings: LearningSettings, content: @Composable () -> Unit) {
             activity.window.statusBarColor = android.graphics.Color.TRANSPARENT
             activity.window.navigationBarColor =
                 if (Build.VERSION.SDK_INT >= 29) android.graphics.Color.TRANSPARENT
-                else if (dark) 0xFF121318.toInt() else 0xFFF4F5FA.toInt()
+                else if (dark) 0xFF0F1115.toInt() else 0xFFF6F7F9.toInt()
             if (Build.VERSION.SDK_INT >= 29) activity.window.isNavigationBarContrastEnforced = false
             WindowCompat.getInsetsController(activity.window, view).apply {
                 isAppearanceLightStatusBars = !dark
@@ -185,6 +252,7 @@ fun AppTheme(settings: LearningSettings, content: @Composable () -> Unit) {
     CompositionLocalProvider(
         LocalDensity provides Density(density.density, density.fontScale * scale),
         LocalStatusColors provides statusColors(dark),
+        LocalSelectionColors provides selectionColors(dark, accent),
     ) {
         MaterialTheme(
             colorScheme = colors,

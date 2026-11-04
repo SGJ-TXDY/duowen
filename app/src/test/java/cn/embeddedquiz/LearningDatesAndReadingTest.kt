@@ -87,4 +87,28 @@ class LearningDatesAndReadingTest {
             assertTrue(contrast(status.success, colors.surfaceContainerLowest) >= 3.0)
         }
     }
+
+    @Test
+    fun everyAccentKeepsPrimaryTextReadableInBothModes() {
+        fun contrast(a: Color, b: Color): Double {
+            val x = a.luminance().toDouble()
+            val y = b.luminance().toDouble()
+            return (maxOf(x, y) + 0.05) / (minOf(x, y) + 0.05)
+        }
+        assertEquals(8, ACCENTS.size)
+        assertEquals(ACCENTS.size, ACCENTS.map { it.id }.toSet().size)
+        for (accent in ACCENTS) for (dark in listOf(false, true)) {
+            val colors = appColors(dark, accent)
+            val selection = selectionColors(dark, accent)
+            val where = "${accent.label} dark=$dark"
+            assertTrue(where, contrast(colors.onPrimary, colors.primary) >= 4.5)
+            assertTrue(where, contrast(colors.primary, colors.surfaceContainerLowest) >= 4.5)
+            assertTrue(where, contrast(colors.primary, colors.background) >= 4.5)
+            assertTrue(where, contrast(colors.onPrimaryContainer, colors.primaryContainer) >= 4.5)
+            assertTrue(where, contrast(colors.primary, selection.container) >= 4.5)
+            assertTrue(where, contrast(colors.onSurface, selection.container) >= 4.5)
+        }
+        assertEquals(ACCENTS.first(), accentOf("not-an-accent"))
+        assertEquals(ACCENTS.first(), accentOf(null))
+    }
 }

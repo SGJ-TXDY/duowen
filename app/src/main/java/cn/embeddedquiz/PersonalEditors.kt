@@ -30,12 +30,8 @@ fun PerceivedDifficultyChips(vm: QuizViewModel, q: Question) {
                             { Icon(AppIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
                         } else null,
                     shape = MaterialTheme.shapes.small,
-                    colors =
-                        FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.primary,
-                            selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
-                        ),
+                    colors = appChipColors(),
+                    border = appChipBorder(enabled = !vm.busy, selected = chosen),
                     modifier = Modifier.heightIn(min = 40.dp),
                 )
             }

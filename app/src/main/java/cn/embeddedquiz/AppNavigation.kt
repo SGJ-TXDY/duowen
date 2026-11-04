@@ -19,7 +19,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun QuizApp(vm: QuizViewModel) {
-    AppTheme(vm.learning.settings) { QuizLayout(vm) }
+    AppTheme(vm.learning.settings, vm.accent.id) { QuizLayout(vm) }
 }
 
 @Composable

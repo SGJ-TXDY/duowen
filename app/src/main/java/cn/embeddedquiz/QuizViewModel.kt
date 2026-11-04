@@ -61,6 +61,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     var notice by mutableStateOf("")
+    val accent = AccentPreference(prefs)
     val aiState = AiStateHolder(viewModelScope, repo, vault, prefs) { notice = it }
     val aiEntries
         get() = aiState.entries
