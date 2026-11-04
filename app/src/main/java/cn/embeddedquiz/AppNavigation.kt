@@ -26,7 +26,10 @@ fun QuizApp(vm: QuizViewModel) {
 private fun QuizLayout(vm: QuizViewModel) {
     val practiceState = key(vm.practiceSession) { rememberSaveableStateHolder() }
     val pageState = rememberSaveableStateHolder()
-    BackHandler(enabled = vm.page != Page.HOME) {
+    val startup = vm.startupState
+    // Until Ready only the startup screen exists: no app pages, tab bar or business effects.
+    val started = startup is StartupState.Ready
+    BackHandler(enabled = started && vm.page != Page.HOME) {
         when (vm.page) {
             Page.NOTES -> if (vm.noteDraft != null) vm.closeStickyNote() else vm.leaveStickyNotes()
             Page.QUESTION,
@@ -41,6 +44,8 @@ private fun QuizLayout(vm: QuizViewModel) {
         }
     }
     var today by remember { mutableStateOf(LocalDate.now()) }
+    // Deliberately not gated on Ready: it only sets a date nobody observes before learning starts.
+    // Gating it made later Activity tests in the same process never reach idle (see T3 evidence).
     LaunchedEffect(Unit) {
         while (true) {
             today = LocalDate.now()
@@ -95,13 +100,16 @@ private fun QuizLayout(vm: QuizViewModel) {
     // Each Scaffold slot reads this itself so it reacts to page changes on its own.
     fun answering() = vm.ready && vm.page == Page.QUESTION && vm.queue.isNotEmpty()
     val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(vm.notice) {
+    LaunchedEffect(vm.notice, started) {
         if (vm.notice.isNotEmpty()) {
-            snackbar.showSnackbar(
-                vm.notice,
-                actionLabel = "关闭",
-                duration = SnackbarDuration.Long,
-            )
+            // A startup failure is explained by the error page; its generic notice points at pages
+            // that cannot be opened yet, so it is consumed without a snackbar.
+            if (started)
+                snackbar.showSnackbar(
+                    vm.notice,
+                    actionLabel = "关闭",
+                    duration = SnackbarDuration.Long,
+                )
             vm.notice = ""
         }
     }
@@ -115,7 +123,7 @@ private fun QuizLayout(vm: QuizViewModel) {
         },
         bottomBar = {
             val notes = vm.quickNotes.state.visible
-            if (!answering())
+            if (started && !answering())
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                     bottom.forEach { tab ->
                         val label = tab.label
@@ -155,20 +163,11 @@ private fun QuizLayout(vm: QuizViewModel) {
             else insets
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()) {
             if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            if (!vm.ready) {
-                Column(
-                    Modifier.fillMaxSize().padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text("嵌入式面试助手", style = MaterialTheme.typography.headlineSmall)
-                    Text(vm.loadingMessage, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    LinearProgressIndicator(
-                        progress = { vm.importProgress },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            } else if (answering)
+            if (startup is StartupState.Loading) StartupLoading(vm, startup)
+            // Shown from startupState alone: a failed start never sets ready.
+            else if (startup is StartupState.Error)
+                Box(Modifier.weight(1f)) { StartupErrorScreen(vm, startup) }
+            else if (answering)
                 Box(Modifier.weight(1f)) {
                     practiceState.SaveableStateProvider("question-${vm.index}") {
                         QuestionScreen(vm)

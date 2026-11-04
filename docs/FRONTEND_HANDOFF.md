@@ -1,5 +1,30 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-04 · T3 前端：启动错误页、诊断/导出、重试与备份恢复确认（Claude，REPAIR_DISPATCH §16.3）
+
+起始 HEAD `7a37243`（GPT T3 后端 c21b86f、25b3142）。接口按 API_CONTRACT 顶部 T3 节与 §16.2。后端、迁移、SQL、恢复协议、契约、派发文档未改；MainActivity 未改（文件选择用 Compose 的 `rememberLauncherForActivityResult`）；T4 未开始。Architect 的未跟踪文件未暂存。
+
+### 修改的文件与函数
+
+| 文件 | 改动 |
+| --- | --- |
+| `StartupScreen.kt`（新增） | `StartupLoading`：标题、阶段说明、确定进度条。`StartupErrorScreen`（按 attempt 重建，旧次结果不带到新次）：“应用未能启动”（heading）、后端 message（liveRegion）、错误代码/阶段/第几次启动；“重试启动”调用 `retryInitialization()`；“查看诊断”显示 `readStartupDiagnostics()` 的原文（仅缩进），读取失败有提示；“诊断包”说明包含题库、学习记录与考试缓存、不是学习备份、不会上传，用户选择 ZIP 目的地后才调用导出，取消不调用；成功/失败（含“目标文件可能不完整”）均显示。`canRestoreBackup` 时“选择学习备份”→ 确认对话框（说明替换范围、考试会被拒绝、诊断包不能恢复）→ 确认后才 `restoreStartupBackup(uri, true)`；Rejected/Failed 原样显示并留在页面；Completed 后跟随新启动状态，不显示“启动成功”。不可恢复时说明“数据库尚不可安全使用，不能恢复备份。请先导出诊断包保留原库，再重试启动”，仍可导出和重试。处理中显示“正在处理，请稍候…”，点击即置本地忙标志并结合 `startupRecoveryBusy` 禁用全部操作。整页可滚动。 |
+| `AppNavigation.kt` | 内容区按 `startupState`：Loading → StartupLoading；Error → StartupErrorScreen（不依赖 ready）；Ready → 原应用内容。未 Ready 时不显示底部导航、不启用系统返回处理；启动失败的通用 notice 不弹 Snackbar（它指向尚无法打开的页面），Ready 后照常。考试超时提交原本就以 `vm.ready` 门控。日期刷新循环保持原样不门控（见下）。G1 通知优先级、考试恢复不变。 |
+| `StartupRecoveryUiTest.kt`（新增） | 8 项，见证据 README。 |
+
+### 需要注意 / 开放项
+
+- **日期刷新循环未做 Ready 门控。** 首版把它改为仅 Ready 后运行，结果同一进程中后续 Activity 测试全部 `AppNotIdleException`。二分对照确认这是唯一致因：恢复原写法后全部通过。`refreshDate` 只写内存日期值，Ready 前无人收集，不访问数据库，所以保留原写法是安全的。**门控为何导致测试永不空闲尚未查明**，作为观察项记录在证据 README，请 GPT/Architect 判断是否需要跟进。
+- 诊断与恢复的保数据说明全部使用后端 message，前端没有追加“任何错误都能修好”的承诺。
+- Robolectric 下用 `LocalDensity` 覆盖字体缩放、`-night` 限定符模拟深色；真机大字号/TalkBack/真实文件选择器尚未验证。
+
+### 测试结果（证据：`validation/T3-frontend-20261104/`）
+
+- 定向 11 个类 **82/82 通过**（独立副本自有 build 目录，`--rerun` 真实执行）：新 StartupRecoveryUiTest 8，StartupTest、NotificationEntryUiTest、ReviewReminderTest、ExamSaveUiTest、ExamTerminationUiTest、PracticeEntriesUiTest、NotesAndScoringUiTest、QuickNotesUiTest，以及 GPT 的 StartupRecoveryTest、InitializationNotificationTest。
+- 首次证据运行失败（上述门控问题）和二分对照原样保留在证据目录，不计为通过。开发中另有一处修正：“诊断包”小节标题曾与按钮同名“导出诊断包”，测试和读屏都会遇到两个同名节点，已把标题改为“诊断包”。
+- 未运行完整套件（按 §16.4 由 GPT 集成后统一运行）；无真机验证。
+- 状态：待审查。
+
 ## 2026-11-04 · T2 前端补修：离页回调被通知覆盖（Claude）
 
 起始 HEAD `9221220`（GPT 集成证据；后端关库修复 `ebcffc3`）。处理 [T2 集成证据](../validation/T2-integrated-20261104/README.md) 中的 Claude P1。

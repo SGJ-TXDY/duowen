@@ -1,0 +1,3 @@
+﻿5297a82f683c8ae438874d79eb3d7800ce6ed846387ec7fbdae2daab6a242202  app/src/main/java/cn/embeddedquiz/StartupScreen.kt
+1d0ea2d6ba36fcd5279b3a130228aa64a507df4741663d2b543a3a43a5c5d251  app/src/main/java/cn/embeddedquiz/AppNavigation.kt
+a42a085c25a2b819fedd4c920d4fcd9f92dea30585e19023111c82e290fe8def  app/src/test/java/cn/embeddedquiz/StartupRecoveryUiTest.kt

@@ -1,0 +1,109 @@
+﻿START 2026-11-04T16:37:20.2178613+09:00
+HEAD 7a3724375eb95103cb5d5276323773ef5523299c + uncommitted T3 frontend changes (source-sha256.txt); isolated copy C:\AndroidProjects\EmbeddedQuiz-claude-iso (own app/build)
+CMD C:\AndroidProjects\EmbeddedQuiz-claude-iso\tools\build.ps1 testDebugUnitTest --tests cn.embeddedquiz.StartupRecoveryUiTest --tests cn.embeddedquiz.StartupTest --tests cn.embeddedquiz.NotificationEntryUiTest --tests cn.embeddedquiz.ReviewReminderTest --tests cn.embeddedquiz.ExamSaveUiTest --tests cn.embeddedquiz.ExamTerminationUiTest --tests cn.embeddedquiz.PracticeEntriesUiTest --tests cn.embeddedquiz.NotesAndScoringUiTest --tests cn.embeddedquiz.QuickNotesUiTest --tests cn.embeddedquiz.StartupRecoveryTest --tests cn.embeddedquiz.InitializationNotificationTest --rerun --no-daemon
+powershell : Picked up JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=C:\Users\woziji\Documents\Codex\eqtmp
+At line:14 char:1
++ powershell -ExecutionPolicy Bypass -File "$iso\tools\build.ps1" testD ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Picked up JAVA_...nts\Codex\eqtmp:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :app
+WARNING: The option setting 'android.overridePathCheck=true' is experimental.
+The current default is 'false'.
+
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:kspDebugKotlin UP-TO-DATE
+> Task :app:compileDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:bundleDebugClassesToRuntimeJar UP-TO-DATE
+> Task :app:bundleDebugClassesToCompileJar UP-TO-DATE
+> Task :app:kspDebugUnitTestKotlin UP-TO-DATE
+> Task :app:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:packageDebugUnitTestForUnitTest UP-TO-DATE
+> Task :app:generateDebugUnitTestConfig UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+
+> Task :app:testDebugUnitTest
+Picked up JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=C:\Users\woziji\Documents\Codex\eqtmp
+
+NotificationEntryUiTest > restoredActivityIgnoresTheStaleLaunchNotification FAILED
+    androidx.test.espresso.AppNotIdleException at NotificationEntryUiTest.kt:135
+
+NotificationEntryUiTest > coldNotificationOpensReviewThenUnfinishedExamResumesFromHome FAILED
+    androidx.test.espresso.AppNotIdleException at NotificationEntryUiTest.kt:140
+
+NotificationEntryUiTest > ordinaryStartRestoresUnfinishedExamOnQuestionScreen FAILED
+    androidx.test.espresso.AppNotIdleException at NotificationEntryUiTest.kt:135
+
+NotificationEntryUiTest > notificationWithoutExamOpensReviewAndOrdinaryStartStaysHome FAILED
+    androidx.test.espresso.AppNotIdleException at NotificationEntryUiTest.kt:140
+
+StartupRecoveryUiTest > errorPageIsReachableOnASmallDarkScreenWithLargeText FAILED
+    androidx.test.espresso.AppNotIdleException at StartupRecoveryUiTest.kt:153
+
+StartupRecoveryUiTest > failedRetryStaysOnTheErrorPageForTheNewAttemptWithDataUnchanged FAILED
+    androidx.test.espresso.AppNotIdleException at StartupRecoveryUiTest.kt:126
+
+StartupRecoveryUiTest > failureShowsTheErrorPageAndAnExplicitRetryKeepsNotificationAndExam FAILED
+    androidx.test.espresso.AppNotIdleException at StartupRecoveryUiTest.kt:126
+
+StartupRecoveryUiTest > unusableDatabaseOffersNoRestoreButStillExportsAndRetriesAfterTheFaultIsGone FAILED
+    androidx.test.espresso.AppNotIdleException at StartupRecoveryUiTest.kt:126
+
+StartupRecoveryUiTest > workInProgressDisablesEveryActionAndRetryUntilItEnds FAILED
+    androidx.test.espresso.AppNotIdleException at StartupRecoveryUiTest.kt:126
+
+StartupRecoveryUiTest > diagnosticsExportWarnsAboutUserDataAndHandlesCancelSuccessAndFailure FAILED
+    androidx.test.espresso.AppNotIdleException at StartupRecoveryUiTest.kt:126
+
+StartupRecoveryUiTest > restoreNeedsAPickAndAConfirmationAndThenFollowsTheNewStartup FAILED
+    androidx.test.espresso.AppNotIdleException at StartupRecoveryUiTest.kt:126
+
+StartupRecoveryUiTest > activeExamMakesTheBackendRejectTheRestoreAndThePageSaysSo FAILED
+    androidx.test.espresso.AppNotIdleException at StartupRecoveryUiTest.kt:126
+
+82 tests completed, 12 failed
+
+> Task :app:testDebugUnitTest FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:testDebugUnitTest'.
+> There were failing tests. See the report at: file:///C:/AndroidProjects/EmbeddedQuiz-claude-iso/app/build/reports/tes
+ts/testDebugUnitTest/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 13m 54s
+28 actionable tasks: 1 executed, 27 up-to-date
+END 2026-11-04T16:51:16.7329151+09:00 exit=1
