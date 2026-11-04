@@ -1,0 +1,1 @@
+./tools/build.ps1 -Tasks @('testDebugUnitTest','--tests','cn.embeddedquiz.CodeDraftPersistenceTest','--tests','cn.embeddedquiz.LearningDataTest','--tests','cn.embeddedquiz.StartupRecoveryTest','--tests','cn.embeddedquiz.StickyNoteStorageTest','--tests','cn.embeddedquiz.ExamPersistenceTest','--rerun','--no-daemon')

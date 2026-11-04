@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.StartupRecoveryTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-11-04T09:07:41" hostname="LAPTOP-0JLS131B" time="4.446">
+  <properties/>
+  <testcase name="diagnosticDestinationCannotOverwritePrivateSource" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.228"/>
+  <testcase name="versionFourCanStartWithLearningDataUnchanged" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.207"/>
+  <testcase name="retryIsSingleFlightAndRetainsNotificationExamAndOldOutcome" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.343"/>
+  <testcase name="recoveryIsSingleFlightAndDoesNotImplicitlyRetryStartup" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.202"/>
+  <testcase name="invalidBackupAndActiveExamNeverClearOriginalData" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.343"/>
+  <testcase name="missingDependencyFailsBeforeReadyOrSubscriptions" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.237"/>
+  <testcase name="unreadableExamBlocksReplacementAndSurvivesRepeatedRetry" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.584"/>
+  <testcase name="invalidBackupRollbackKeepsCurrentRowsAndLedger" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.347"/>
+  <testcase name="alreadyCurrentInvalidRowFailsWithoutBundleOverwriteAndCanRestore" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.358"/>
+  <testcase name="partialExamLookupFailureCanRetryTheReservedSession" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.361"/>
+  <testcase name="clearingRetryCancelsWaitersAndNextOwnerCanStart" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.374"/>
+  <testcase name="corruptFileIsPreservedAndDiagnosticsNeedNoRoom" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.861"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Nov 04, 2026 6:07:45 PM com.almworks.sqlite4java.Internal log
+WARNING: [sqlite] [PRAGMA user_version;]DB[268][C]: exception when clearing
+com.almworks.sqlite4java.SQLiteException: [26] DB[268] reset [file is encrypted or is not a database]
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1436)
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1409)
+	at com.almworks.sqlite4java.SQLiteConnection.cacheStatementHandle(SQLiteConnection.java:1338)
+	at com.almworks.sqlite4java.SQLiteConnection.access$900(SQLiteConnection.java:51)
+	at com.almworks.sqlite4java.SQLiteConnection$CachedController.dispose(SQLiteConnection.java:1733)
+	at com.almworks.sqlite4java.SQLiteStatement.dispose(SQLiteStatement.java:187)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.lambda$finalizeStmt$3(ShadowLegacySQLiteConnection.java:416)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+
+Nov 04, 2026 6:07:46 PM com.almworks.sqlite4java.Internal log
+WARNING: [sqlite] [PRAGMA user_version;]DB[271][C]: exception when clearing
+com.almworks.sqlite4java.SQLiteException: [26] DB[271] reset [file is encrypted or is not a database]
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1436)
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1409)
+	at com.almworks.sqlite4java.SQLiteConnection.cacheStatementHandle(SQLiteConnection.java:1338)
+	at com.almworks.sqlite4java.SQLiteConnection.access$900(SQLiteConnection.java:51)
+	at com.almworks.sqlite4java.SQLiteConnection$CachedController.dispose(SQLiteConnection.java:1733)
+	at com.almworks.sqlite4java.SQLiteStatement.dispose(SQLiteStatement.java:187)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.lambda$finalizeStmt$3(ShadowLegacySQLiteConnection.java:416)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+
+]]></system-err>
+</testsuite>

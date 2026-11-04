@@ -1,0 +1,17 @@
+{
+  "Head": "38cb7c3ee2602df1cf0d3553386aea54d4a46dae",
+  "Tests": 105.0,
+  "Classes": 11,
+  "Failures": 0.0,
+  "Errors": 0.0,
+  "Skipped": 0.0,
+  "DebugBuild": "SUCCESS",
+  "LintErrors": 0,
+  "LintWarnings": 5,
+  "WarningsUnchanged": true,
+  "AndroidInputs": 109,
+  "InputsUnchanged": true,
+  "CompleteSuite": false,
+  "Duration": "2m 44s",
+  "BuildExit": 0
+}

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.CodeDraftBoundaryTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-04T09:07:32" hostname="LAPTOP-0JLS131B" time="3.81">
+  <properties/>
+  <testcase name="failedStartupDraftFlushDoesNotReplaceDataOrStartANewAttempt" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.643"/>
+  <testcase name="startupRestoreUsesTheSameDraftBoundaryAndGenerationRules" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.296"/>
+  <testcase name="clearingOwnerAfterFailureDoesNotRetryForeverOrClaimSaved" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.332"/>
+  <testcase name="restoreDrainsOldIoThenInvalidatesOldStateAndCannotReplayOldText" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.525"/>
+  <testcase name="clearingOwnerWaitsForInFlightDraftIoWithoutBlockingMain" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.256"/>
+  <testcase name="clearingOwnerFlushesTheLastWindowBeforeClosingTheDatabase" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.244"/>
+  <testcase name="invalidRestoreKeepsCacheAndTheReliablySavedOriginalText" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.307"/>
+  <testcase name="ordinaryNotesRemainExplicitAndSuccessNoticeRequiresACommittedVersion" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.304"/>
+  <testcase name="resetFlushesLatestTextAndPreservesPersonalAndStickyContent" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.234"/>
+  <testcase name="backupFlushesTheWindowAndBlocksNewDraftAcceptanceUntilExportEnds" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.329"/>
+  <testcase name="saveFailureAbortsBackupRestoreAndResetWithoutClearingTheLatestDraft" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.338"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

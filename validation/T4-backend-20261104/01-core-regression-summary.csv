@@ -1,0 +1,6 @@
+"Class","Tests","Failures","Errors","Skipped","Seconds"
+"cn.embeddedquiz.CodeDraftPersistenceTest","10","1","0","0","4.263"
+"cn.embeddedquiz.ExamPersistenceTest","14","0","0","0","4.255"
+"cn.embeddedquiz.LearningDataTest","7","0","0","0","0.704"
+"cn.embeddedquiz.StartupRecoveryTest","12","0","0","0","4.592"
+"cn.embeddedquiz.StickyNoteStorageTest","2","0","0","0","0.97"

@@ -1,0 +1,8 @@
+HEAD: 38cb7c3ee2602df1cf0d3553386aea54d4a46dae
+109 Android inputs byte-for-byte matched.
+Targeted 11 classes: CodeDraftPersistenceTest, CodeDraftBoundaryTest, LearningDataTest, StartupRecoveryTest, StickyNoteStorageTest, ExamPersistenceTest, ExamLifecycleContractTest, InitializationNotificationTest, QuickNotesIsolationTest, NotesAndScoringUiTest, ExamMigrationTest.
+Tasks: assembleDebug testDebugUnitTest [11 --tests filters] --rerun lintDebug --continue --no-daemon
+Not the complete suite; full integrated run waits for Claude T4 UI delivery, per section 18.5.
+
+Exact PowerShell invocation:
+./tools/build.ps1 -Tasks @('assembleDebug','testDebugUnitTest','--tests','cn.embeddedquiz.CodeDraftPersistenceTest','--tests','cn.embeddedquiz.CodeDraftBoundaryTest','--tests','cn.embeddedquiz.LearningDataTest','--tests','cn.embeddedquiz.StartupRecoveryTest','--tests','cn.embeddedquiz.StickyNoteStorageTest','--tests','cn.embeddedquiz.ExamPersistenceTest','--tests','cn.embeddedquiz.ExamLifecycleContractTest','--tests','cn.embeddedquiz.InitializationNotificationTest','--tests','cn.embeddedquiz.QuickNotesIsolationTest','--tests','cn.embeddedquiz.NotesAndScoringUiTest','--tests','cn.embeddedquiz.ExamMigrationTest','--rerun','lintDebug','--continue','--no-daemon')

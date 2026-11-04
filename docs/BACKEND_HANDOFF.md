@@ -1,5 +1,31 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-11-04 · T4 后端：草稿合并、排他保存边界与独立收尾（待审查）
+
+任务/职责：REPAIR_DISPATCH §18，GPT 后端。开工 HEAD 77c06bd，原工作区仅 Architect 五个未跟踪项，均未修改/暂存。Claude 在实施期间先提交编辑器部分 ac387ac；后端实现 `38cb7c3ee2602df1cf0d3553386aea54d4a46dae` 继承该提交，未由 GPT 修改生产 UI。完整 T4 前端尚待接入，不把后端通过当作整体验收。
+
+修改文件/函数：新增 CodeDraftPersistence（按题合并、可观察状态、flush/retry、代际、排他边界及独立 worker）；OrderedWriter.kt 只改 CodeDraftStateHolder 和兼容适配器，通用 OrderedWriter 主体与基线原文一致；QuizViewModel 的正式草稿门面、QuestionDraft 镜像、saveNotes、backupUri/restoreUri/resetProgress、T3 restoreStartupBackup 和 onCleared；新增 CodeDraftPersistenceTest/CodeDraftBoundaryTest；LearningDataTest 仅补独立 holder 先 shutdown().join() 再关库；API_CONTRACT、本文和独立证据。未改 Repository/Data、生产 Compose/MainActivity/QuestionDraft、评分/SRS、历史迁移、schema、版本、依赖或目录布局，未编辑 Architect 派发/Claude 交接。
+
+实际接口已在 API_CONTRACT 顶部同步，可直接供 Claude 继续 §18.4，不等中间批准：CodeDraftSaveState.Inactive/Saving/Saved/Error、codeDraftSaveState(id)、codeDraftEditingBlocked、updateCodeDraft、retryCodeDrafts(id?)、suspend flushCodeDrafts(id?)；saveNotes 原签名保留。Main 接受内存镜像，IO 写事务；普通 Saving 不占 busy/禁输入，排他边界才拒绝新更新。相同文字不增 revision 或写入，初始加载 Inactive，普通题本地笔记仍原保存按钮触发。
+
+调度/失败：单调时钟尾沿 300ms、最早未保存改动最长 2000ms；一个实际在途写入，每题一个可替换最新待写版本。repo.update 事务内读最新 Progress 再仅改 code/notes，保留同期收藏/flagged/判分/SRS 等字段。flush 捕获最新版本并立即取窗口，可靠提交同代际该版本或更新版才 true，最新失败 false；调用方取消不取消受理写入。无新文字时 Error 不自动循环，retry 只用最新失败 payload；旧失败/旧成功不降级新状态，新成功后不回放旧重试。
+
+保存/替换：备份、恢复、重置与 T3 恢复共用 editingBlocked→flush 全部→写入互斥下操作的边界；失败不清缓存或假报成功，取消/异常释放边界。恢复成功才推进代际并清旧镜像/UI/题目缓存，旧任务/重试不能写回，失效等待 false；恢复失败保持原状态。重置仍只清复习/历史，保留已保存的最新代码/笔记、收藏/flagged/便签；成功换代但保留文字镜像。Room 5、备份 3，无新数据格式；代码回退不撤销已写文字，不自动删库/降级。
+
+关库：clear 先禁止新更新并强制窗口最后受理文本，草稿独立 worker 不随 owner 先取消；IO 收尾等草稿、考试 writer/operation 和 owner 已在途读取退出后关 DB。2500ms drain 预算后协作式取消，不阻塞 Main、不无限重试，失败不报 Saved；仍等待实际 IO 退出，不承诺系统不可取消 IO 卡死时硬限时关库或立即强杀前修改必保全。
+
+实际证据：100 次/10ms 输入的已提交数据库草稿事务 **1 次**，最终空白/换行逐字一致且重开真实 DB 保持；6 秒/100ms 连续输入在虚拟 **2000/4000/6000ms** 提交 v19/v39/v59，最终不晚于停止后 300ms。计数由测试 DB 触发器审计，不是排队数。覆盖 A/B、慢 IO 合并、逐题/批量 flush/retry、旧失败→新成功、取消、代际失效、同期判分/收藏、备份最新与失败、恢复新旧 IO/失败留缓存、重置保留文字、普通笔记显式保存、T3 旁路、clear 窗口/在途/失败/超时与 Main 可推进。
+
+验证：首轮 45 项中 1 项新时间测试因同刻 timer/input 顺序假定而失败，原保存时间断言已通过；用明确屏障固定先后，保留精确时间和 payload 断言，无 sleep/超时放宽。第二轮 **56/56**。固定 38cb7c3 最终 11 类 **105/105**，0 失败/错误/跳过；Debug 构建成功，Lint **0 错误/5 既有警告**（ID/说明与 T3 一致），退出 0，2m 44s。109 个输入前后及隔离副本逐字节匹配，原始失败/通过/事务数/调度证据、XML、Lint、schema/源码指纹见 [T4 后端验证](../validation/T4-backend-20261104/README.md)。本轮是定向验证，未冒充完整套件。
+
+Claude 待接入：编辑器第一部分 ac387ac 已在历史中；继续完整 QuestionScreen 状态/重试、普通切题与所有离页路径 flush、失败留页重试、editingBlocked 禁输入、未点保存的普通笔记不误报 Saved、通知接管后丢弃旧导航/弹窗，考试协议不绕过；仅用正式 VM 门面。测试接缝为 internal codeDrafts.persistence 的 clock/beforeWrite/afterWrite/beforeBoundary/closeBudgetMillis，生产 UI 不依赖它或 writer。前端交付可用后 GPT 固定共同 HEAD 统一运行一次完整 Android + Debug + Lint，Architect 集中审查。
+
+真机长代码输入延迟、输入法组合、写入频率/后台强杀、系统字号和 TalkBack 尚待验收。未推送、标签、Release 或覆盖稳定 APK。
+
+状态：**后端待审查；前端剩余接入和统一完整验证待双方交付后执行**。
+
+---
+
 ## 2026-11-04 · T3 双方统一集成复测（待审查）
 
 任务/职责：按 REPAIR_DISPATCH §16.4，GPT 固定 Claude 前端 f6bcbcb 与后端 c21b86f/25b3142 的共同版本统一验证。§16 已批准后端阶段与实际契约，覆盖下文历史“接口尚待裁定”的状态；T3 整体验收仍交 Architect。开工 HEAD f6bcbcbbefad1f0dc3653c8ed732defcea3565a8，工作区只有 Architect 原五个未跟踪项，未修改、暂存。
