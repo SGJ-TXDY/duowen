@@ -1,5 +1,21 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-11-04 · T2 统一复测（含 64a7cac，待 Architect 集中审查）
+
+固定受测 HEAD：`64a7cac0ea3bf628f4ab17833af61d54c344807f`。包含双方 T2 实现、后端关库修复 ebcffc3 和 Claude 通知竞态补修。工作区仅保留 Architect 原五个未跟踪项，没有暂存或修改。本轮 GPT 不改生产代码/UI/接口/迁移/版本，仅更新本文与新验证目录。
+
+按 §14.4 在独立输出中统一运行一次 `assembleDebug testDebugUnitTest --rerun lintDebug --continue --no-daemon`：**187/187**，0 失败/错误/跳过；Debug 构建成功，Lint **0 错误/5 既有警告**。运行前后核对 97 个 Android 输入的逐字节 SHA-256，Claude 本轮两个交付文件指纹匹配；不是拼接定向通过结果，也没有加入临时诊断测试。
+
+原通知 P1 已在该版本补修：ExamLeave 发起时记录 page/practiceSession，flush 返回后发现来源已变化就丢弃成功导航及失败弹窗。两项正式 ExamSaveUiTest 通知回归保留“通知先设置 REVIEW、IO 随后返回、下一帧 dispose 尚未发生”的时序，均在本次全套中通过；成功返回用例关闭原 REVIEW 被 HOME 覆盖的缺口，失败返回用例是保护（旧版也可通过，未虚称第二个复现）。原关库回归亦通过。此前集成段中的 UI 待修状态描述的是旧 HEAD；当前缺口已补并验证，历史证据不删改。
+
+证据：[T2 含通知补修的统一集成复测](../validation/T2-integrated-racefix-20261104/README.md)。含所有原始 XML/日志、Lint XML/HTML/TXT、schema 1～5、源码双份指纹和 Debug APK SHA-256。01-full-command.txt/tested-head.txt 固定实际受测提交；本轮交付提交仅增加文档/证据，不改变受测 Android 源码。
+
+交由 Architect 集中审查：原 T2 事务内终止台账/去重、匿名身份升级与失败放弃、非破坏性迁移及回退、ebcffc3 的关库资源顺序、64a7cac 的离页请求有效性检查。无需按例重复全套来替代审查；真机进程/存储故障、通知/配置变化与 TalkBack 尚未验收，T3/T4 未开展，本轮不解除其他发布条件。
+
+状态：**待审查**，未自行宣布 T2 最终验收；未修改 REPAIR_DISPATCH/FRONTEND_HANDOFF、版本、稳定 APK 或签名，未推送/标签/Release。
+
+---
+
 ## 2026-11-04 · T2 双方集成：关库竞态修复，通知离页竞态待 Claude 处理（待审查）
 
 起点 e0e4f1b（GPT 后端交付 + Claude T2 UI），工作区仍仅 Architect 原五个未跟踪项。按 §14.4 固定双方提交统一运行，184 项 183 通过、1 失败，构建成功、Lint 0 错误/5 警告；没有把定向结果当成全套验收。

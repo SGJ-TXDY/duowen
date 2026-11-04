@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.ExamMigrationTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-04T04:25:59" hostname="LAPTOP-0JLS131B" time="0.13">
+  <properties/>
+  <testcase name="versionFourToFivePreservesEveryExistingTableValueAndCreatesUniqueLedger" classname="cn.embeddedquiz.ExamMigrationTest" time="0.13"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

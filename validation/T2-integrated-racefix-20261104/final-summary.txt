@@ -1,0 +1,5 @@
+Fixed HEAD: 64a7cac0ea3bf628f4ab17833af61d54c344807f
+One complete run: 187 tests, 0 failures/errors/skips. Debug build successful. Lint: 0 errors/5 warnings.
+Both formal notification-during-leave regressions and cancelled-reader shutdown regression passed.
+97 Android source inputs and Claude's delivered hashes verified; no production changes this round.
+Status: awaiting Architect review; no device acceptance, push, tag or release.

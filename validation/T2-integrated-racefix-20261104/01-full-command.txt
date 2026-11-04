@@ -1,0 +1,6 @@
+HEAD: 64a7cac0ea3bf628f4ab17833af61d54c344807f
+All 97 Android inputs match byte for byte.
+Claude changed-source fingerprints verified.
+Junction: C:\AndroidProjects\EmbeddedQuiz-gpt-t2-racefix-20261104 -> F:\学习\嵌入式学习\知识总结\复习软件\.gpt-t2-racefix-20261104
+Command: tools/build.ps1 -Tasks @('assembleDebug','testDebugUnitTest','--rerun','lintDebug','--continue','--no-daemon')
+Exact committed inputs only; no temporary probe or source overlay.

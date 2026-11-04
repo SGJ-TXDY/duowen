@@ -1,0 +1,59 @@
+C:\AndroidProjects\EmbeddedQuiz-gpt-t2-racefix-20261104\app\build.gradle.kts:36: Warning: A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.9.4 [GradleDependency]
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\AndroidProjects\EmbeddedQuiz-gpt-t2-racefix-20261104\app\build.gradle.kts:37: Warning: A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.9.4 [GradleDependency]
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+C:\AndroidProjects\EmbeddedQuiz-gpt-t2-racefix-20261104\app\src\main\java\cn\embeddedquiz\CommonComponents.kt:35: Warning: Modifier parameter should be the first optional parameter [ModifierParameter from androidx.compose.ui]
+    modifier: Modifier = Modifier,
+    ~~~~~~~~
+
+   Explanation for issues of type "ModifierParameter":
+   The first (or only) Modifier parameter in a Composable function should
+   follow the following rules:
+   - Be named modifier
+   - Have a type of Modifier
+   - Either have no default value, or have a default value of Modifier
+   - If optional, be the first optional parameter in the parameter list
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.ui
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+C:\AndroidProjects\EmbeddedQuiz-gpt-t2-racefix-20261104\app\src\main\res\drawable-nodpi\ic_launcher_anime.png: Warning: Launcher icons should not fill every pixel of their square region; see the design guide for details [IconLauncherShape]
+
+   Explanation for issues of type "IconLauncherShape":
+   According to the Android Design Guide
+   (https://d.android.com/r/studio-ui/designer/material/iconography) your
+   launcher icons should "use a distinct silhouette", a "three-dimensional,
+   front view, with a slight perspective as if viewed from above, so that
+   users perceive some depth."
+
+   The unique silhouette implies that your launcher icon should not be a
+   filled square.
+
+C:\AndroidProjects\EmbeddedQuiz-gpt-t2-racefix-20261104\app\src\main\res\mipmap-anydpi\ic_launcher.xml:2: Warning: The application adaptive icon is missing a monochrome tag [MonochromeLauncherIcon]
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+^
+
+   Explanation for issues of type "MonochromeLauncherIcon":
+   If android:roundIcon and android:icon are both in your manifest, you must
+   either remove the reference to android:roundIcon if it is not needed; or,
+   supply the monochrome icon in the drawable defined by the android:roundIcon
+   and android:icon attribute.
+
+   For example, if android:roundIcon and android:icon are both in the
+   manifest, a launcher might choose to use android:roundIcon over
+   android:icon to display the adaptive app icon. Therefore, your themed
+   application iconwill not show if your monochrome attribute is not also
+   specified in android:roundIcon.
+
+0 errors, 5 warnings

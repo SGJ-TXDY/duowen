@@ -1,0 +1,10 @@
+[
+  {
+    "name": "notificationDuringLeaveWinsWhenTheFlushSucceedsBeforeTheNextFrame",
+    "time": "0.417"
+  },
+  {
+    "name": "notificationDuringLeaveWinsAndNoStaleDialogWhenTheFlushFails",
+    "time": "0.44"
+  }
+]
