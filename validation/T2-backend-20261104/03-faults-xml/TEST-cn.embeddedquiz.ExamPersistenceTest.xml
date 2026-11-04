@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.ExamPersistenceTest" tests="12" skipped="0" failures="1" errors="0" timestamp="2026-11-04T03:00:04" hostname="LAPTOP-0JLS131B" time="12.182">
+  <properties/>
+  <testcase name="blocked500msDiskStillAllowsMainEventsAndEditsThenConflatesLatest" classname="cn.embeddedquiz.ExamPersistenceTest" time="6.396"/>
+  <testcase name="legacyIdentityIsStableOnReopenAndSamePaperNewExamsHaveDifferentIds" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.541"/>
+  <testcase name="faultsBeforeAndInsideTransactionRollbackThenReopenedHolderSubmitsOnce" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.422"/>
+  <testcase name="lifecycleClearWaitsForOwnedTransactionBeforeClosingDatabaseAndReopenedVmDoesNotRecordTwice" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.599">
+    <failure message="android.database.sqlite.SQLiteCantOpenDatabaseException: DB[18] step() [PRAGMA journal_mode=WAL]DB[18][C] [unable to open database file] (code 14 SQLITE_CANTOPEN)" type="android.database.sqlite.SQLiteCantOpenDatabaseException">android.database.sqlite.SQLiteCantOpenDatabaseException: DB[18] step() [PRAGMA journal_mode=WAL]DB[18][C] [unable to open database file] (code 14 SQLITE_CANTOPEN)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.getSqliteException(ShadowLegacySQLiteConnection.java:842)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.getFuture(ShadowLegacySQLiteConnection.java:715)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.lambda$execute$5(ShadowLegacySQLiteConnection.java:702)
+	at app//org.robolectric.util.PerfStatsCollector.measure(PerfStatsCollector.java:51)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.execute(ShadowLegacySQLiteConnection.java:702)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.executeStatementOperation(ShadowLegacySQLiteConnection.java:688)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.executeForString(ShadowLegacySQLiteConnection.java:508)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection.nativeExecuteForString(ShadowLegacySQLiteConnection.java:143)
+	at android.database.sqlite.SQLiteConnection.nativeExecuteForString(SQLiteConnection.java)
+	at android.database.sqlite.SQLiteConnection.executeForString(SQLiteConnection.java:655)
+	at android.database.sqlite.SQLiteConnection.setJournalMode(SQLiteConnection.java:336)
+	at android.database.sqlite.SQLiteConnection.setWalModeFromConfiguration(SQLiteConnection.java:298)
+	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:217)
+	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java:195)
+	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java:503)
+	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:204)
+	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java:196)
+	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java:880)
+	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java:865)
+	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:739)
+	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java:729)
+	at android.database.sqlite.SQLiteOpenHelper.getDatabaseLocked(SQLiteOpenHelper.java:355)
+	at android.database.sqlite.SQLiteOpenHelper.getWritableDatabase(SQLiteOpenHelper.java:298)
+	at androidx.sqlite.db.framework.FrameworkSQLiteOpenHelper$OpenHelper.getWritableOrReadableDatabase(FrameworkSQLiteOpenHelper.android.kt:224)
+	at androidx.sqlite.db.framework.FrameworkSQLiteOpenHelper$OpenHelper.innerGetDatabase(FrameworkSQLiteOpenHelper.android.kt:180)
+	at androidx.sqlite.db.framework.FrameworkSQLiteOpenHelper$OpenHelper.getSupportDatabase(FrameworkSQLiteOpenHelper.android.kt:141)
+	at androidx.sqlite.db.framework.FrameworkSQLiteOpenHelper.getWritableDatabase(FrameworkSQLiteOpenHelper.android.kt:96)
+	at androidx.room.RoomDatabase.internalBeginTransaction(RoomDatabase.android.kt:673)
+	at androidx.room.RoomDatabase.beginTransaction(RoomDatabase.android.kt:665)
+	at androidx.room.RoomDatabaseKt__RoomDatabase_androidKt$withTransaction$2.invokeSuspend(RoomDatabase.android.kt:1999)
+	at androidx.room.RoomDatabaseKt__RoomDatabase_androidKt$withTransaction$2.invoke(RoomDatabase.android.kt)
+	at androidx.room.RoomDatabaseKt__RoomDatabase_androidKt$withTransactionContext$transactionBlock$1.invokeSuspend(RoomDatabase.android.kt:2015)
+	at androidx.room.RoomDatabaseKt__RoomDatabase_androidKt$withTransactionContext$transactionBlock$1.invoke(RoomDatabase.android.kt)
+	at kotlinx.coroutines.intrinsics.UndispatchedKt.startUndispatchedOrReturn(Undispatched.kt:78)
+	at kotlinx.coroutines.BuildersKt__Builders_commonKt.withContext(Builders.common.kt:167)
+	at kotlinx.coroutines.BuildersKt.withContext(Unknown Source)
+	at androidx.room.RoomDatabaseKt__RoomDatabase_androidKt$startTransactionCoroutine$2$1$1.invokeSuspend(RoomDatabase.android.kt:2048)
+	at app//kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)
+	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:108)
+	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:280)
+	at kotlinx.coroutines.BlockingCoroutine.joinBlocking(Builders.kt:85)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking(Builders.kt:59)
+	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source)
+	at androidx.room.RoomDatabaseKt__RoomDatabase_androidKt$startTransactionCoroutine$2$1.run(RoomDatabase.android.kt:2045)
+	at androidx.room.TransactionExecutor.execute$lambda$1$lambda$0(TransactionExecutor.android.kt:38)
+	at java.base@17.0.16/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base@17.0.16/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base@17.0.16/java.lang.Thread.run(Thread.java:840)
+Caused by: java.util.concurrent.ExecutionException: com.almworks.sqlite4java.SQLiteException: [14] DB[18] step() [PRAGMA journal_mode=WAL]DB[18][C] [unable to open database file]
+	at java.base/java.util.concurrent.FutureTask.report(FutureTask.java:122)
+	at java.base/java.util.concurrent.FutureTask.get(FutureTask.java:191)
+	at com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly(Uninterruptibles.java:209)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.getFuture(ShadowLegacySQLiteConnection.java:708)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.lambda$execute$5(ShadowLegacySQLiteConnection.java:702)
+	at org.robolectric.util.PerfStatsCollector.measure(PerfStatsCollector.java:51)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.execute(ShadowLegacySQLiteConnection.java:702)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.executeStatementOperation(ShadowLegacySQLiteConnection.java:688)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.executeForString(ShadowLegacySQLiteConnection.java:508)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection.nativeExecuteForString(ShadowLegacySQLiteConnection.java:143)
+	at android.database.sqlite.SQLiteConnection.nativeExecuteForString(SQLiteConnection.java)
+	at android.database.sqlite.SQLiteConnection.$$robo$$android_database_sqlite_SQLiteConnection$executeForString(SQLiteConnection.java:655)
+	at android.database.sqlite.SQLiteConnection.executeForString(SQLiteConnection.java)
+	at android.database.sqlite.SQLiteConnection.$$robo$$android_database_sqlite_SQLiteConnection$setJournalMode(SQLiteConnection.java:336)
+	at android.database.sqlite.SQLiteConnection.setJournalMode(SQLiteConnection.java)
+	at android.database.sqlite.SQLiteConnection.$$robo$$android_database_sqlite_SQLiteConnection$setWalModeFromConfiguration(SQLiteConnection.java:298)
+	at android.database.sqlite.SQLiteConnection.setWalModeFromConfiguration(SQLiteConnection.java)
+	at android.database.sqlite.SQLiteConnection.$$robo$$android_database_sqlite_SQLiteConnection$open(SQLiteConnection.java:217)
+	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java)
+	at android.database.sqlite.SQLiteConnection.$$robo$$android_database_sqlite_SQLiteConnection$open(SQLiteConnection.java:195)
+	at android.database.sqlite.SQLiteConnection.open(SQLiteConnection.java)
+	at android.database.sqlite.SQLiteConnectionPool.$$robo$$android_database_sqlite_SQLiteConnectionPool$openConnectionLocked(SQLiteConnectionPool.java:503)
+	at android.database.sqlite.SQLiteConnectionPool.openConnectionLocked(SQLiteConnectionPool.java)
+	at android.database.sqlite.SQLiteConnectionPool.$$robo$$android_database_sqlite_SQLiteConnectionPool$open(SQLiteConnectionPool.java:204)
+	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java)
+	at android.database.sqlite.SQLiteConnectionPool.$$robo$$android_database_sqlite_SQLiteConnectionPool$open(SQLiteConnectionPool.java:196)
+	at android.database.sqlite.SQLiteConnectionPool.open(SQLiteConnectionPool.java)
+	at android.database.sqlite.SQLiteDatabase.$$robo$$android_database_sqlite_SQLiteDatabase$openInner(SQLiteDatabase.java:880)
+	at android.database.sqlite.SQLiteDatabase.openInner(SQLiteDatabase.java)
+	at android.database.sqlite.SQLiteDatabase.$$robo$$android_database_sqlite_SQLiteDatabase$open(SQLiteDatabase.java:865)
+	at android.database.sqlite.SQLiteDatabase.open(SQLiteDatabase.java)
+	at android.database.sqlite.SQLiteDatabase.$$robo$$android_database_sqlite_SQLiteDatabase$openDatabase(SQLiteDatabase.java:739)
+	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java)
+	at android.database.sqlite.SQLiteDatabase.$$robo$$android_database_sqlite_SQLiteDatabase$openDatabase(SQLiteDatabase.java:729)
+	at android.database.sqlite.SQLiteDatabase.openDatabase(SQLiteDatabase.java)
+	at android.database.sqlite.SQLiteOpenHelper.$$robo$$android_database_sqlite_SQLiteOpenHelper$getDatabaseLocked(SQLiteOpenHelper.java:355)
+	at android.database.sqlite.SQLiteOpenHelper.getDatabaseLocked(SQLiteOpenHelper.java)
+	at android.database.sqlite.SQLiteOpenHelper.$$robo$$android_database_sqlite_SQLiteOpenHelper$getWritableDatabase(SQLiteOpenHelper.java:298)
+	at android.database.sqlite.SQLiteOpenHelper.getWritableDatabase(SQLiteOpenHelper.java)
+	at androidx.sqlite.db.framework.FrameworkSQLiteOpenHelper$OpenHelper.getWritableOrReadableDatabase(FrameworkSQLiteOpenHelper.android.kt:224)
+	at androidx.sqlite.db.framework.FrameworkSQLiteOpenHelper$OpenHelper.innerGetDatabase(FrameworkSQLiteOpenHelper.android.kt:180)
+	at androidx.sqlite.db.framework.FrameworkSQLiteOpenHelper$OpenHelper.getSupportDatabase(FrameworkSQLiteOpenHelper.android.kt:141)
+	at androidx.sqlite.db.framework.FrameworkSQLiteOpenHelper.getWritableDatabase(FrameworkSQLiteOpenHelper.android.kt:96)
+	at androidx.room.RoomDatabase.internalBeginTransaction(RoomDatabase.android.kt:673)
+	at androidx.room.RoomDatabase.beginTransaction(RoomDatabase.android.kt:665)
+	at androidx.room.RoomDatabaseKt__RoomDatabase_androidKt$withTransaction$2.invokeSuspend(RoomDatabase.android.kt:1999)
+	at androidx.room.RoomDatabaseKt__RoomDatabase_androidKt$withTransaction$2.invoke(RoomDatabase.android.kt)
+	at androidx.room.RoomDatabaseKt__RoomDatabase_androidKt$withTransaction$2.invoke(RoomDatabase.android.kt)
+	at androidx.room.RoomDatabaseKt__RoomDatabase_androidKt$withTransactionContext$transactionBlock$1.invokeSuspend(RoomDatabase.android.kt:2015)
+	at androidx.room.RoomDatabaseKt__RoomDatabase_androidKt$withTransactionContext$transactionBlock$1.invoke(RoomDatabase.android.kt)
+	... 16 more
+Caused by: com.almworks.sqlite4java.SQLiteException: [14] DB[18] step() [PRAGMA journal_mode=WAL]DB[18][C] [unable to open database file]
+	at app//com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1436)
+	at app//com.almworks.sqlite4java.SQLiteConnection$BaseController.throwResult(SQLiteConnection.java:1689)
+	at app//com.almworks.sqlite4java.SQLiteStatement.stepResult(SQLiteStatement.java:1402)
+	at app//com.almworks.sqlite4java.SQLiteStatement.step(SQLiteStatement.java:301)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections$8.call(ShadowLegacySQLiteConnection.java:514)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections$8.call(ShadowLegacySQLiteConnection.java:511)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.lambda$executeStatementOperation$4(ShadowLegacySQLiteConnection.java:690)
+	at java.base@17.0.16/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	... 3 more
+</failure>
+  </testcase>
+  <testcase name="legacyIdentityMustReachDiskBeforeAccountingAndAbandonSurvivesFailedIdentityAndClear" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.225"/>
+  <testcase name="backupRemainsV3GuardsRestoreAndResetAndKeepsTerminalLedger" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.247"/>
+  <testcase name="newViewModelAndIndependentPrefsRecoverCommittedResultBeforeApplyingNotification" classname="cn.embeddedquiz.ExamPersistenceTest" time="1.943"/>
+  <testcase name="afterCommitAndClearFaultsRestoreLedgerResultWithoutRegradingOrDoubleAccounting" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.338"/>
+  <testcase name="viewModelAnswerEventsContinueDuring500msWriteAndBusyStaysFalse" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.905"/>
+  <testcase name="falseCommitChangesCacheButNeverReportsSavedAndNewEditCanRecover" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.225"/>
+  <testcase name="abandonDrainsInFlightSaveAndLateCallbacksCannotResurrectNewSession" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.229"/>
+  <testcase name="cancellingFlushWaiterDoesNotCancelAcceptedWrite" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.112"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Nov 04, 2026 12:00:12 PM com.almworks.sqlite4java.Internal log
+WARNING: [sqlite] [PRAGMA journal_mode=WAL]DB[17][C]: exception when clearing
+com.almworks.sqlite4java.SQLiteException: [14] DB[17] reset [unable to open database file]
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1436)
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1409)
+	at com.almworks.sqlite4java.SQLiteConnection.cacheStatementHandle(SQLiteConnection.java:1338)
+	at com.almworks.sqlite4java.SQLiteConnection.access$900(SQLiteConnection.java:51)
+	at com.almworks.sqlite4java.SQLiteConnection$CachedController.dispose(SQLiteConnection.java:1733)
+	at com.almworks.sqlite4java.SQLiteStatement.dispose(SQLiteStatement.java:187)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.lambda$finalizeStmt$3(ShadowLegacySQLiteConnection.java:416)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+
+Nov 04, 2026 12:00:12 PM com.almworks.sqlite4java.Internal log
+WARNING: [sqlite] [PRAGMA journal_mode=WAL]DB[18][C]: exception when clearing
+com.almworks.sqlite4java.SQLiteException: [14] DB[18] reset [unable to open database file]
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1436)
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1409)
+	at com.almworks.sqlite4java.SQLiteConnection.cacheStatementHandle(SQLiteConnection.java:1338)
+	at com.almworks.sqlite4java.SQLiteConnection.access$900(SQLiteConnection.java:51)
+	at com.almworks.sqlite4java.SQLiteConnection$CachedController.dispose(SQLiteConnection.java:1733)
+	at com.almworks.sqlite4java.SQLiteStatement.dispose(SQLiteStatement.java:187)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.lambda$finalizeStmt$3(ShadowLegacySQLiteConnection.java:416)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+
+]]></system-err>
+</testsuite>

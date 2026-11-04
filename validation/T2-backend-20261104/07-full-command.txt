@@ -1,0 +1,5 @@
+HEAD: 8b88842fdf72a1a23f9c2837e3d9ff1a210353d5
+All 96 Android inputs matched isolated build byte for byte.
+Command: tools/build.ps1 -Tasks @('assembleDebug','testDebugUnitTest','--rerun','lintDebug','--continue','--no-daemon')
+Necessary rerun after 06 obsolete contract assertions corrected; production source unchanged.
+Baseline UI only; Claude T2 UI commit absent.

@@ -6,6 +6,8 @@
 
 修改范围：ExamStateHolder 的快照、冻结提交、恢复与结束状态；新增 ExamPersistence 有序合并写入器；新增 ExamMigration 的终止实体、4→5 迁移与数据替换守卫；Data 的实体/DAO/迁移注册及 schema 5；Repository 仅增加考试事务和 restore/reset 冲突保护；QuizViewModel 的保存门面、启动守卫、结束任务与 DB 关闭协调。专用 ExamPersistenceTest、ExamMigrationTest；旧 ExamLifecycleContractTest 和 InitializationNotificationTest 仅调整异步完成/会话 ID 升级断言并补启动守卫。PersonalMarksContractTest 仅把当前 Room 版本断言改为 5；NotificationEntryUiTest 仅把后台恢复快照原文比较改为 flush 后语义字段和跨通知/重建稳定 ID 比较，原 UI 操作/页面/可见性断言保持。API_CONTRACT 同步实际实现。没有修改生产 UI/MainActivity、DurablePreferences、评分/SRS、普通 record、依赖、版本或历史 schema/迁移。
 
+实际提交与结果：后端 `5923f4f`，完整回归暴露的两处旧存储契约断言适配 `8b88842`；固定后者复测 **177/177**，0 失败/错误/跳过，Debug 构建成功，Lint 0 错误/5 既有警告。首轮完整 177 项中 5 项旧断言失败的原始报告一并保留。定向后端 **56/56**；双方 T2 UI 集成尚待 Claude 提交，不能以当前基线 UI 全绿冒称新版 UI 已验。精确报告、96 项源码指纹及 schema 见 [验证目录](../validation/T2-backend-20261104/README.md)。
+
 固定接口已实现：examSaveState、retryExamSave、suspend flushExamSave；既有 startExam/answerExam/saveExam/finishExam/abandonExam/retryExamOperation 与 T1 状态/成绩签名保留。详细线程、取消、成功/失败语义以 API_CONTRACT 顶部 T2 节为准。
 
 持久化时序：

@@ -1,0 +1,8 @@
+questions: table SQL, index SQL, effective fields unchanged; exporter omits empty arrays/default false
+progress: table SQL, index SQL, effective fields unchanged; exporter omits empty arrays/default false
+attempts: table SQL, index SQL, effective fields unchanged; exporter omits empty arrays/default false
+ai: table SQL, index SQL, effective fields unchanged; exporter omits empty arrays/default false
+sticky_notes: table SQL, index SQL, effective fields unchanged; exporter omits empty arrays/default false
+learning_settings: table SQL, index SQL, effective fields unchanged; exporter omits empty arrays/default false
+personal_answers: table SQL, index SQL, effective fields unchanged; exporter omits empty arrays/default false
+question_personal: table SQL, index SQL, effective fields unchanged; exporter omits empty arrays/default false

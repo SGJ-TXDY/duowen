@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.StickyNoteStorageTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-04T03:17:30" hostname="LAPTOP-0JLS131B" time="1.218">
+  <properties/>
+  <testcase name="notesPersistRestoreAndSurviveResetAndOldBackup" classname="cn.embeddedquiz.StickyNoteStorageTest" time="1.137"/>
+  <testcase name="versionTwoMigrationPreservesExistingLearningData" classname="cn.embeddedquiz.StickyNoteStorageTest" time="0.08"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.LearningDatesAndReadingTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-04T03:16:39" hostname="LAPTOP-0JLS131B" time="0.278">
+  <properties/>
+  <testcase name="reminderFollowsWallClockAcrossDstAndMidnight" classname="cn.embeddedquiz.LearningDatesAndReadingTest" time="0.004"/>
+  <testcase name="markdownIsLocalAndPreservesFencedCode" classname="cn.embeddedquiz.LearningDatesAndReadingTest" time="0.169"/>
+  <testcase name="streakHandlesYearBoundaryAndDuplicateAttempts" classname="cn.embeddedquiz.LearningDatesAndReadingTest" time="0.0"/>
+  <testcase name="streakUsesLocalDaysAcrossLeapDayAndMonthBoundary" classname="cn.embeddedquiz.LearningDatesAndReadingTest" time="0.001"/>
+  <testcase name="sourceReadingKeepsOriginalWhitespaceAndOnlyIndentUsesCodeStyle" classname="cn.embeddedquiz.LearningDatesAndReadingTest" time="0.002"/>
+  <testcase name="lightAndDarkTextAndVerificationColorsMeetContrast" classname="cn.embeddedquiz.LearningDatesAndReadingTest" time="0.102"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

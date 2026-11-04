@@ -1,0 +1,6 @@
+"Class","Tests","Failures","Errors","Skipped"
+"cn.embeddedquiz.ExamLifecycleContractTest","20","0","0","0"
+"cn.embeddedquiz.ExamMigrationTest","1","0","0","0"
+"cn.embeddedquiz.ExamPersistenceTest","14","0","0","0"
+"cn.embeddedquiz.ExamStateHolderTest","8","0","0","0"
+"cn.embeddedquiz.InitializationNotificationTest","13","0","0","0"

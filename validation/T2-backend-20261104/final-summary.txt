@@ -1,0 +1,4 @@
+Fixed HEAD: 8b88842fdf72a1a23f9c2837e3d9ff1a210353d5
+177 tests; 0 failures/errors/skips; assembleDebug successful; lint 0 errors/5 warnings.
+All 96 Android inputs still match source-fingerprints.csv.
+No production UI changes. Claude T2 UI integration and device acceptance pending.

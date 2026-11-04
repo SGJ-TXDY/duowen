@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.InitializationNotificationTest" tests="12" skipped="0" failures="7" errors="0" timestamp="2026-11-04T02:54:17" hostname="LAPTOP-0JLS131B" time="3.029">
+  <properties/>
+  <testcase name="initializationFailureCompletesWithFailureAndKeepsExamAndLearningData" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.504"/>
+  <testcase name="repeatedNotificationsUseOneRestorationAndDoNotRewriteTheExam" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.225">
+    <failure message="org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761457551,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;24e453af-a928-4036-9dea-c6b233d71562&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761457551,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;1d0978f640c3197fb7d4940d1a3eef2201d230e7a15344871f5575b862adb639&quot;]}&gt;" type="org.junit.ComparisonFailure">org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761457551,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;24e453af-a928-4036-9dea-c6b233d71562&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761457551,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;1d0978f640c3197fb7d4940d1a3eef2201d230e7a15344871f5575b862adb639&quot;]}&gt;
+	at org.junit.Assert.assertEquals(Assert.java:117)
+	at org.junit.Assert.assertEquals(Assert.java:146)
+	at cn.embeddedquiz.InitializationNotificationTest.assertExamPreserved(InitializationNotificationTest.kt:105)
+	at cn.embeddedquiz.InitializationNotificationTest.repeatedNotificationsUseOneRestorationAndDoNotRewriteTheExam(InitializationNotificationTest.kt:201)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:26)
+	at org.junit.internal.runners.statements.RunAfters.evaluate(RunAfters.java:27)
+	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at org.robolectric.RobolectricTestRunner$HelperTestRunner$1.evaluate(RobolectricTestRunner.java:502)
+	at org.robolectric.internal.SandboxTestRunner$2.lambda$evaluate$2(SandboxTestRunner.java:285)
+	at org.robolectric.internal.bytecode.Sandbox.lambda$runOnMainThread$0(Sandbox.java:104)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+</failure>
+  </testcase>
+  <testcase name="ordinaryStartupWithoutExamKeepsHomeAndReturnsNoRestoration" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.276"/>
+  <testcase name="cancellingOneWaiterDoesNotCancelOtherWaitersOrInitialization" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.245">
+    <failure message="org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761458057,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;d075aa37-20d4-407f-a4f1-c45b22362b6a&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761458057,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;b5bb3bc957ecd7ed68f14da1904e7485e83c77dd54ca5c3da9a05a37fe974697&quot;]}&gt;" type="org.junit.ComparisonFailure">org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761458057,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;d075aa37-20d4-407f-a4f1-c45b22362b6a&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761458057,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;b5bb3bc957ecd7ed68f14da1904e7485e83c77dd54ca5c3da9a05a37fe974697&quot;]}&gt;
+	at org.junit.Assert.assertEquals(Assert.java:117)
+	at org.junit.Assert.assertEquals(Assert.java:146)
+	at cn.embeddedquiz.InitializationNotificationTest.assertExamPreserved(InitializationNotificationTest.kt:105)
+	at cn.embeddedquiz.InitializationNotificationTest.cancellingOneWaiterDoesNotCancelOtherWaitersOrInitialization(InitializationNotificationTest.kt:233)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:26)
+	at org.junit.internal.runners.statements.RunAfters.evaluate(RunAfters.java:27)
+	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at org.robolectric.RobolectricTestRunner$HelperTestRunner$1.evaluate(RobolectricTestRunner.java:502)
+	at org.robolectric.internal.SandboxTestRunner$2.lambda$evaluate$2(SandboxTestRunner.java:285)
+	at org.robolectric.internal.bytecode.Sandbox.lambda$runOnMainThread$0(Sandbox.java:104)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+</failure>
+  </testcase>
+  <testcase name="clearingOwnerCancelsPendingCompletionInsteadOfLeavingWaitersSuspended" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.182"/>
+  <testcase name="notificationBeforeInitializationWithoutExamOpensReviewWithoutLearningWrites" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.293"/>
+  <testcase name="notificationBeforeInitializationPublishesReviewWithRestoredExam" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.191">
+    <failure message="org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761458766,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;8103ffcb-8433-4e4b-91f1-b9d814a43014&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761458766,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;e3ed8e2f2b9c2945fa4f215044dfac77e83cecaca1bb599d628d03e7b1358e5c&quot;]}&gt;" type="org.junit.ComparisonFailure">org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761458766,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;8103ffcb-8433-4e4b-91f1-b9d814a43014&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761458766,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;e3ed8e2f2b9c2945fa4f215044dfac77e83cecaca1bb599d628d03e7b1358e5c&quot;]}&gt;
+	at org.junit.Assert.assertEquals(Assert.java:117)
+	at org.junit.Assert.assertEquals(Assert.java:146)
+	at cn.embeddedquiz.InitializationNotificationTest.assertExamPreserved(InitializationNotificationTest.kt:105)
+	at cn.embeddedquiz.InitializationNotificationTest.notificationBeforeInitializationPublishesReviewWithRestoredExam(InitializationNotificationTest.kt:127)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:26)
+	at org.junit.internal.runners.statements.RunAfters.evaluate(RunAfters.java:27)
+	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at org.robolectric.RobolectricTestRunner$HelperTestRunner$1.evaluate(RobolectricTestRunner.java:502)
+	at org.robolectric.internal.SandboxTestRunner$2.lambda$evaluate$2(SandboxTestRunner.java:285)
+	at org.robolectric.internal.bytecode.Sandbox.lambda$runOnMainThread$0(Sandbox.java:104)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+</failure>
+  </testcase>
+  <testcase name="notificationAfterInitializationImmediatelyOpensReviewAndKeepsOriginalExam" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.203">
+    <failure message="org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761458957,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;b8282cf9-4324-470e-846e-a796d9181a33&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761458957,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;685cf798db7631bed484ab6c2583bcdc683cecc28a5365760cac46c3085cd7a3&quot;]}&gt;" type="org.junit.ComparisonFailure">org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761458957,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;b8282cf9-4324-470e-846e-a796d9181a33&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761458957,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;685cf798db7631bed484ab6c2583bcdc683cecc28a5365760cac46c3085cd7a3&quot;]}&gt;
+	at org.junit.Assert.assertEquals(Assert.java:117)
+	at org.junit.Assert.assertEquals(Assert.java:146)
+	at cn.embeddedquiz.InitializationNotificationTest.assertExamPreserved(InitializationNotificationTest.kt:105)
+	at cn.embeddedquiz.InitializationNotificationTest.notificationAfterInitializationImmediatelyOpensReviewAndKeepsOriginalExam(InitializationNotificationTest.kt:189)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:26)
+	at org.junit.internal.runners.statements.RunAfters.evaluate(RunAfters.java:27)
+	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at org.robolectric.RobolectricTestRunner$HelperTestRunner$1.evaluate(RobolectricTestRunner.java:502)
+	at org.robolectric.internal.SandboxTestRunner$2.lambda$evaluate$2(SandboxTestRunner.java:285)
+	at org.robolectric.internal.bytecode.Sandbox.lambda$runOnMainThread$0(Sandbox.java:104)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+</failure>
+  </testcase>
+  <testcase name="ordinaryStartupWithoutExamKeepsExplicitNonReviewDestination" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.232"/>
+  <testcase name="ordinaryStartupRestoresExamAsQuestionWithoutNotification" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.215">
+    <failure message="org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761459396,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;1072824d-7b3e-420c-8dfb-03e40fe1997a&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761459396,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;6849efbccdc50ecd6f17dcf00c20053df8a3c59823b2a9f6b478aee1bb58a37e&quot;]}&gt;" type="org.junit.ComparisonFailure">org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761459396,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;1072824d-7b3e-420c-8dfb-03e40fe1997a&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761459396,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;6849efbccdc50ecd6f17dcf00c20053df8a3c59823b2a9f6b478aee1bb58a37e&quot;]}&gt;
+	at org.junit.Assert.assertEquals(Assert.java:117)
+	at org.junit.Assert.assertEquals(Assert.java:146)
+	at cn.embeddedquiz.InitializationNotificationTest.assertExamPreserved(InitializationNotificationTest.kt:105)
+	at cn.embeddedquiz.InitializationNotificationTest.ordinaryStartupRestoresExamAsQuestionWithoutNotification(InitializationNotificationTest.kt:135)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:26)
+	at org.junit.internal.runners.statements.RunAfters.evaluate(RunAfters.java:27)
+	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at org.robolectric.RobolectricTestRunner$HelperTestRunner$1.evaluate(RobolectricTestRunner.java:502)
+	at org.robolectric.internal.SandboxTestRunner$2.lambda$evaluate$2(SandboxTestRunner.java:285)
+	at org.robolectric.internal.bytecode.Sandbox.lambda$runOnMainThread$0(Sandbox.java:104)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+</failure>
+  </testcase>
+  <testcase name="existingMainActivityReviewAssignmentHasSamePriorityAsNewCommand" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.225">
+    <failure message="org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761459608,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;bf7ebe87-a02f-4695-9a8b-ef11933f3adb&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761459608,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;610005659729151b0579c89660ee0831ff378e228c0cd2efbe994b880d18d60d&quot;]}&gt;" type="org.junit.ComparisonFailure">org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761459608,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;bf7ebe87-a02f-4695-9a8b-ef11933f3adb&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761459608,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;610005659729151b0579c89660ee0831ff378e228c0cd2efbe994b880d18d60d&quot;]}&gt;
+	at org.junit.Assert.assertEquals(Assert.java:117)
+	at org.junit.Assert.assertEquals(Assert.java:146)
+	at cn.embeddedquiz.InitializationNotificationTest.assertExamPreserved(InitializationNotificationTest.kt:105)
+	at cn.embeddedquiz.InitializationNotificationTest.existingMainActivityReviewAssignmentHasSamePriorityAsNewCommand(InitializationNotificationTest.kt:179)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:26)
+	at org.junit.internal.runners.statements.RunAfters.evaluate(RunAfters.java:27)
+	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at org.robolectric.RobolectricTestRunner$HelperTestRunner$1.evaluate(RobolectricTestRunner.java:502)
+	at org.robolectric.internal.SandboxTestRunner$2.lambda$evaluate$2(SandboxTestRunner.java:285)
+	at org.robolectric.internal.bytecode.Sandbox.lambda$runOnMainThread$0(Sandbox.java:104)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+</failure>
+  </testcase>
+  <testcase name="notificationIsNotDroppedWhileAnUnrelatedWriteTaskIsBusy" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.236">
+    <failure message="org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761459829,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;4534b376-fc6b-41ce-8384-910c2bf6e41e&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761459829,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;be83b63535569b947273c6e488fcf3a20443097f1e8bb3dc9c7533d14f6108e6&quot;]}&gt;" type="org.junit.ComparisonFailure">org.junit.ComparisonFailure: expected:&lt;{&quot;[ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761459829,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]}]}&gt; but was:&lt;{&quot;[sessionId&quot;:&quot;4534b376-fc6b-41ce-8384-910c2bf6e41e&quot;,&quot;revision&quot;:1,&quot;ids&quot;:[&quot;b&quot;,&quot;a&quot;,&quot;c&quot;],&quot;index&quot;:1,&quot;deadline&quot;:1793761459829,&quot;answers&quot;:{&quot;a&quot;:[&quot;A&quot;],&quot;b&quot;:[&quot;B&quot;]},&quot;legacyHash&quot;:&quot;be83b63535569b947273c6e488fcf3a20443097f1e8bb3dc9c7533d14f6108e6&quot;]}&gt;
+	at org.junit.Assert.assertEquals(Assert.java:117)
+	at org.junit.Assert.assertEquals(Assert.java:146)
+	at cn.embeddedquiz.InitializationNotificationTest.assertExamPreserved(InitializationNotificationTest.kt:105)
+	at cn.embeddedquiz.InitializationNotificationTest.notificationIsNotDroppedWhileAnUnrelatedWriteTaskIsBusy(InitializationNotificationTest.kt:217)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:26)
+	at org.junit.internal.runners.statements.RunAfters.evaluate(RunAfters.java:27)
+	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at org.robolectric.RobolectricTestRunner$HelperTestRunner$1.evaluate(RobolectricTestRunner.java:502)
+	at org.robolectric.internal.SandboxTestRunner$2.lambda$evaluate$2(SandboxTestRunner.java:285)
+	at org.robolectric.internal.bytecode.Sandbox.lambda$runOnMainThread$0(Sandbox.java:104)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+</failure>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
