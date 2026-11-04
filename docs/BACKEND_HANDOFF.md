@@ -1,5 +1,23 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-11-04 · T4 双方统一集成：完整套件 245/245，缺题离页待补修（待审查）
+
+任务/职责：按 §18.5 和用户指示，GPT 固定含 db90bcc 的共同版本统一运行。受测 HEAD `db90bcc5e3e0a40b650e03fd0a1465a322dcd4c4`，含后端 38cb7c3/42be3e4 及 Claude 两部分 UI ac387ac/db90bcc。开工只有 Architect 原五个未跟踪项，未修改/暂存。本轮只更新本文和独立证据，没有更改生产代码、正式测试、UI、接口、迁移、schema、版本或依赖。
+
+正式统一完整命令一次：assembleDebug testDebugUnitTest --rerun lintDebug --continue --no-daemon。**245/245，0 失败/错误/跳过，31 类**；Debug 构建成功，Lint **0 错误/5 既有警告**，退出 0，BUILD SUCCESSFUL in 3m 29s。109 项输入运行前后/隔离副本逐字节一致，Claude 四个交付指纹全部匹配。新草稿 UI 12/12、核心 11/11、边界 12/12 与全部既有测试共同执行；实际数据库事务 100 次输入写 1 次，持续输入虚拟 2000/4000/6000ms 阶段提交证据仍在本轮 XML 中。
+
+补充诊断发现 §18.4 明确要求的缺题离页遗漏，未越界代改 UI：QuestionContent 已接 DraftLeave，但 QuestionScreen 的 q==null 分支未挂普通草稿处理，MissingQuestion 仅 ExamLeave、仅考试开放时的 BackHandler。真实 ViewModel 的测试数据库夹具保留已受理草稿、首次加载前移除源题，IO 屏障固定 Saving 或 Error 后操作。两项独立 UI 业务断言均失败：Saving 时按系统返回、Error 时点顶部返回，期望 QUESTION、实际 HOME。没有把这一诊断计入正式 245 项，也不声称首轮全套中存在失败或已经发生永久数据丢失。加载态同样缺少处理为只读审阅项，未计第三个复现。
+
+Claude 待补修：在加载/缺题期间为当前 queue id 保持普通草稿离页协调，缺题顶部/系统返回按同一 flush/错误重试规则处理；保留考试协议与通知接管后的过期结果检查，补这两个正式回归并覆盖加载态。范围为 QuestionScreen.kt 和专用 UI 测试，无新后端接口需求。本轮不改正式前端文件，修复交付后再必要集成，Architect 集中审查。
+
+证据：[T4 统一集成及独立缺题复现](../validation/T4-integrated-20261104/README.md)，含正式完整原始 XML/日志、Lint/schema/源码指纹、事务数/调度输出、独立 2/2 失败、诊断源码与确切命令。临时诊断只在隔离副本，已在归档后移除，正式输入未变；未重复运行不变全套。
+
+7 步真机清单仍在 validation/T4-frontend-20261104/README.md，尚未执行，尤其输入法拼字与真实转后台保存。长代码输入延迟、物理存储/强杀、系统字号/TalkBack 均不能用本轮自动化代替。onStop 非阻塞 flush 已纳入共同代码，但未新增真机或独立生命周期测试结论。
+
+状态：**待审查；普通缺题离页遗漏待 Claude 补修**。不自行宣布 T4 整体验收；无版本变更、推送、标签、Release 或稳定 APK 覆盖。
+
+---
+
 ## 2026-11-04 · T4 后端：草稿合并、排他保存边界与独立收尾（待审查）
 
 任务/职责：REPAIR_DISPATCH §18，GPT 后端。开工 HEAD 77c06bd，原工作区仅 Architect 五个未跟踪项，均未修改/暂存。Claude 在实施期间先提交编辑器部分 ac387ac；后端实现 `38cb7c3ee2602df1cf0d3553386aea54d4a46dae` 继承该提交，未由 GPT 修改生产 UI。完整 T4 前端尚待接入，不把后端通过当作整体验收。

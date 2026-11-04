@@ -1,0 +1,2 @@
+T4 virtual committed save times ms: [2000, 4000, 6000]; codes=[v19, v39, v59]
+T4 actual committed writes for 100 edits/10ms: 1; reopened bytes match

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.StorageAndApiTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-04T09:44:53" hostname="LAPTOP-0JLS131B" time="0.953">
+  <properties/>
+  <testcase name="apiParsesSuccessAndSanitizesErrors" classname="cn.embeddedquiz.StorageAndApiTest" time="0.053"/>
+  <testcase name="importRejectsBadAnswerReferencesAndDuplicateIds" classname="cn.embeddedquiz.StorageAndApiTest" time="0.024"/>
+  <testcase name="networkTimeoutIsRecoverable" classname="cn.embeddedquiz.StorageAndApiTest" time="0.186"/>
+  <testcase name="manualAssessmentPersistsAndDistinguishesUnknown" classname="cn.embeddedquiz.StorageAndApiTest" time="0.18"/>
+  <testcase name="bundledAnswerUpgradePreservesLearningAndCustomQuestions" classname="cn.embeddedquiz.StorageAndApiTest" time="0.138"/>
+  <testcase name="closeReopenBackupRestoreAndWrongAnswerScheduling" classname="cn.embeddedquiz.StorageAndApiTest" time="0.151"/>
+  <testcase name="embeddedBankIsCompleteAndSafe" classname="cn.embeddedquiz.StorageAndApiTest" time="0.102"/>
+  <testcase name="versionOneDatabaseMigratesWithoutLosingAttempts" classname="cn.embeddedquiz.StorageAndApiTest" time="0.118"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Nov 04, 2026 6:44:53 PM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[54059] connection from /127.0.0.1 didn't make a request
+]]></system-err>
+</testsuite>

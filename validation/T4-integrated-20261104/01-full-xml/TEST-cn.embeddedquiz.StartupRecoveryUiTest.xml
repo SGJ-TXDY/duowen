@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.StartupRecoveryUiTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-04T09:44:45" hostname="LAPTOP-0JLS131B" time="4.868">
+  <properties/>
+  <testcase name="errorPageIsReachableOnASmallDarkScreenWithLargeText" classname="cn.embeddedquiz.StartupRecoveryUiTest" time="0.389"/>
+  <testcase name="failedRetryStaysOnTheErrorPageForTheNewAttemptWithDataUnchanged" classname="cn.embeddedquiz.StartupRecoveryUiTest" time="0.362"/>
+  <testcase name="failureShowsTheErrorPageAndAnExplicitRetryKeepsNotificationAndExam" classname="cn.embeddedquiz.StartupRecoveryUiTest" time="0.72"/>
+  <testcase name="unusableDatabaseOffersNoRestoreButStillExportsAndRetriesAfterTheFaultIsGone" classname="cn.embeddedquiz.StartupRecoveryUiTest" time="1.59"/>
+  <testcase name="workInProgressDisablesEveryActionAndRetryUntilItEnds" classname="cn.embeddedquiz.StartupRecoveryUiTest" time="0.452"/>
+  <testcase name="diagnosticsExportWarnsAboutUserDataAndHandlesCancelSuccessAndFailure" classname="cn.embeddedquiz.StartupRecoveryUiTest" time="0.443"/>
+  <testcase name="restoreNeedsAPickAndAConfirmationAndThenFollowsTheNewStartup" classname="cn.embeddedquiz.StartupRecoveryUiTest" time="0.57"/>
+  <testcase name="activeExamMakesTheBackendRejectTheRestoreAndThePageSaysSo" classname="cn.embeddedquiz.StartupRecoveryUiTest" time="0.341"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Nov 04, 2026 6:44:47 PM com.almworks.sqlite4java.Internal log
+WARNING: [sqlite] [PRAGMA user_version;]DB[1134][C]: exception when clearing
+com.almworks.sqlite4java.SQLiteException: [26] DB[1134] reset [file is encrypted or is not a database]
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1436)
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1409)
+	at com.almworks.sqlite4java.SQLiteConnection.cacheStatementHandle(SQLiteConnection.java:1338)
+	at com.almworks.sqlite4java.SQLiteConnection.access$900(SQLiteConnection.java:51)
+	at com.almworks.sqlite4java.SQLiteConnection$CachedController.dispose(SQLiteConnection.java:1733)
+	at com.almworks.sqlite4java.SQLiteStatement.dispose(SQLiteStatement.java:187)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.lambda$finalizeStmt$3(ShadowLegacySQLiteConnection.java:416)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+
+Nov 04, 2026 6:44:47 PM com.almworks.sqlite4java.Internal log
+WARNING: [sqlite] [PRAGMA user_version;]DB[1137][C]: exception when clearing
+com.almworks.sqlite4java.SQLiteException: [26] DB[1137] reset [file is encrypted or is not a database]
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1436)
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1409)
+	at com.almworks.sqlite4java.SQLiteConnection.cacheStatementHandle(SQLiteConnection.java:1338)
+	at com.almworks.sqlite4java.SQLiteConnection.access$900(SQLiteConnection.java:51)
+	at com.almworks.sqlite4java.SQLiteConnection$CachedController.dispose(SQLiteConnection.java:1733)
+	at com.almworks.sqlite4java.SQLiteStatement.dispose(SQLiteStatement.java:187)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.lambda$finalizeStmt$3(ShadowLegacySQLiteConnection.java:416)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+
+Nov 04, 2026 6:44:47 PM com.almworks.sqlite4java.Internal log
+WARNING: [sqlite] [PRAGMA user_version;]DB[1140][C]: exception when clearing
+com.almworks.sqlite4java.SQLiteException: [26] DB[1140] reset [file is encrypted or is not a database]
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1436)
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1409)
+	at com.almworks.sqlite4java.SQLiteConnection.cacheStatementHandle(SQLiteConnection.java:1338)
+	at com.almworks.sqlite4java.SQLiteConnection.access$900(SQLiteConnection.java:51)
+	at com.almworks.sqlite4java.SQLiteConnection$CachedController.dispose(SQLiteConnection.java:1733)
+	at com.almworks.sqlite4java.SQLiteStatement.dispose(SQLiteStatement.java:187)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.lambda$finalizeStmt$3(ShadowLegacySQLiteConnection.java:416)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+
+Nov 04, 2026 6:44:48 PM com.almworks.sqlite4java.Internal log
+WARNING: [sqlite] [PRAGMA user_version;]DB[1143][C]: exception when clearing
+com.almworks.sqlite4java.SQLiteException: [26] DB[1143] reset [file is encrypted or is not a database]
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1436)
+	at com.almworks.sqlite4java.SQLiteConnection.throwResult(SQLiteConnection.java:1409)
+	at com.almworks.sqlite4java.SQLiteConnection.cacheStatementHandle(SQLiteConnection.java:1338)
+	at com.almworks.sqlite4java.SQLiteConnection.access$900(SQLiteConnection.java:51)
+	at com.almworks.sqlite4java.SQLiteConnection$CachedController.dispose(SQLiteConnection.java:1733)
+	at com.almworks.sqlite4java.SQLiteStatement.dispose(SQLiteStatement.java:187)
+	at org.robolectric.shadows.ShadowLegacySQLiteConnection$Connections.lambda$finalizeStmt$3(ShadowLegacySQLiteConnection.java:416)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+
+]]></system-err>
+</testsuite>

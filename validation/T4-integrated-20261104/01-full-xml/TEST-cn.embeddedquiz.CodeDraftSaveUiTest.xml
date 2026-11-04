@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.CodeDraftSaveUiTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-11-04T09:42:32" hostname="LAPTOP-0JLS131B" time="12.715">
+  <properties/>
+  <testcase name="notificationDuringLeaveWinsAndTheFailureIsShownBackOnTheQuestion" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="6.36"/>
+  <testcase name="manualNotesAreNeverShownAsSavedBeforeTheButtonIsPressed" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.678"/>
+  <testcase name="notificationDuringLeaveWinsWhenTheDraftSaves" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="1.181"/>
+  <testcase name="typingShowsSavingThenSavedAndCaretMovesDoNotWrite" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.706"/>
+  <testcase name="indentInsertsAtTheCaretAsOneChange" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.08"/>
+  <testcase name="failedSaveKeepsTheUserOnTheQuestionUntilAnExplicitRetrySucceeds" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.906"/>
+  <testcase name="aDraftFailureIsReachableOnASmallScreenWithLargeText" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.774"/>
+  <testcase name="errorStaysVisibleKeepsTextAndCaretAndRetrySaves" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.749"/>
+  <testcase name="theExclusiveBoundaryFreezesCodeAndNotesUntilItEnds" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.584"/>
+  <testcase name="disabledEditorKeepsTheTextReadableButAcceptsNoEdit" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.08"/>
+  <testcase name="onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.072"/>
+  <testcase name="movingOnWaitsForTheDraftAndFreezesItsInputUntilItLands" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.544"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

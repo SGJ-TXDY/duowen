@@ -1,0 +1,5 @@
+HEAD: db90bcc5e3e0a40b650e03fd0a1465a322dcd4c4
+109 Android inputs matched exactly; no extra app/src; 4 frontend fingerprints match.
+Isolated GPT-owned copy: F:\学习\嵌入式学习\知识总结\复习软件\.gpt-t3-backend-20261104
+./tools/build.ps1 -Tasks @('assembleDebug','testDebugUnitTest','--rerun','lintDebug','--continue','--no-daemon')
+No production or test modifications during this integration run.

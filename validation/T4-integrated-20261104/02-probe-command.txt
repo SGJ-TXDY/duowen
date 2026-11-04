@@ -1,0 +1,2 @@
+Production HEAD remains db90bcc; independent diagnostic class only, not part of formal 245 tests.
+./tools/build.ps1 -Tasks @('testDebugUnitTest','--tests','cn.embeddedquiz.T4MissingDraftProbeTest.missingQuestion*','--rerun','--no-daemon')

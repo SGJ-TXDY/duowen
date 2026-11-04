@@ -1,0 +1,17 @@
+{
+  "TestedHead": "db90bcc5e3e0a40b650e03fd0a1465a322dcd4c4",
+  "Tests": 245.0,
+  "Classes": 31,
+  "Failures": 0.0,
+  "Errors": 0.0,
+  "Skipped": 0.0,
+  "DebugBuild": "SUCCESS",
+  "LintErrors": 0,
+  "LintWarnings": 5,
+  "WarningsUnchanged": true,
+  "AndroidInputs": 109,
+  "SourceUnchanged": true,
+  "CompleteSuite": true,
+  "BuildExit": 0,
+  "Duration": "3m 29s"
+}
