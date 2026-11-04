@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.CodeDraftPersistenceTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-04T10:09:39" hostname="LAPTOP-0JLS131B" time="1.152">
+  <properties/>
+  <testcase name="retryAllOnlyRetriesTheLatestFailedQuestions" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.088"/>
+  <testcase name="draftTransactionPreservesConcurrentLearningAndPersonalFields" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.086"/>
+  <testcase name="shutdownCancelsAStalledPreWriteWithoutPretendingItWasSaved" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.193"/>
+  <testcase name="failedOldVersionThenNewSuccessCannotBeReplayedByRetry" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.095"/>
+  <testcase name="supersededGenerationDoesNotReportAnOldFlushAsSaved" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.102"/>
+  <testcase name="cancellingAnExclusiveBoundaryReleasesEditingAndPreservesAcceptedText" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.082"/>
+  <testcase name="continuousTypingKeepsTheTwoSecondLimitAndFinalTrailingSave" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.136"/>
+  <testcase name="slowIoHasOneWriterAndOneReplaceablePendingVersionPerQuestion" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.097"/>
+  <testcase name="shutdownFlushesTheWindowAndRejectsLaterUpdates" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.072"/>
+  <testcase name="hundredEditsCoalesceAndIdenticalTextDoesNotWriteAgain" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.116"/>
+  <testcase name="cancellingFlushDoesNotCancelTheAcceptedWrite" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.084"/>
+  <system-out><![CDATA[T4 virtual committed save times ms: [2000, 4000, 6000]; codes=[v19, v39, v59]
+T4 actual committed writes for 100 edits/10ms: 1; reopened bytes match
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

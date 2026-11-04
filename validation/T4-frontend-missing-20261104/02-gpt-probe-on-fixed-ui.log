@@ -1,0 +1,59 @@
+﻿START 2026-11-04T19:08:31.2991479+09:00
+HEAD bdf72bd3f850efc471b783a361b04392cd928acd + fixed QuestionScreen.kt sha256=491cba784a4aaa731cafbd0f14b04e9d256e8ddd6fd29de23aedfb2ef15dc7b1; GPT probe copied unchanged from validation/T4-integrated-20261104/probe-source/T4MissingDraftProbeTest.kt (isolated copy only)
+CMD C:\AndroidProjects\EmbeddedQuiz-claude-iso\tools\build.ps1 testDebugUnitTest --tests cn.embeddedquiz.T4MissingDraftProbeTest.missingQuestion* --rerun --no-daemon
+powershell : Picked up JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=C:\Users\woziji\Documents\Codex\eqtmp
+At line:12 char:1
++ powershell -ExecutionPolicy Bypass -File "$iso\tools\build.ps1" testD ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Picked up JAVA_...nts\Codex\eqtmp:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :app
+WARNING: The option setting 'android.overridePathCheck=true' is experimental.
+The current default is 'false'.
+
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:kspDebugKotlin UP-TO-DATE
+> Task :app:compileDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:bundleDebugClassesToRuntimeJar UP-TO-DATE
+> Task :app:bundleDebugClassesToCompileJar UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:packageDebugUnitTestForUnitTest UP-TO-DATE
+> Task :app:generateDebugUnitTestConfig UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:kspDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+
+> Task :app:testDebugUnitTest
+Picked up JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=C:\Users\woziji\Documents\Codex\eqtmp
+
+BUILD SUCCESSFUL in 26s
+28 actionable tasks: 3 executed, 25 up-to-date
+END 2026-11-04T19:09:00.4701567+09:00 exit=0

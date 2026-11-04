@@ -1,0 +1,82 @@
+﻿START 2026-11-04T19:06:54.2480993+09:00
+HEAD bdf72bd3f850efc471b783a361b04392cd928acd; QuestionScreen.kt sha256=c8399f4427cb000756115095806cc350e55dce3403543d2d1deaaf5205198629; CodeDraftSaveUiTest.kt sha256=a55ed0f8568f0bef53835479128d7db660aff9c87ad0abf36d6a5e621612bc68; isolated copy C:\AndroidProjects\EmbeddedQuiz-claude-iso
+CMD C:\AndroidProjects\EmbeddedQuiz-claude-iso\tools\build.ps1 testDebugUnitTest --tests cn.embeddedquiz.CodeDraftSaveUiTest.missingQuestion* --rerun --no-daemon
+powershell : Picked up JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=C:\Users\woziji\Documents\Codex\eqtmp
+At line:10 char:3
++   powershell -ExecutionPolicy Bypass -File "$iso\tools\build.ps1" tes ...
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Picked up JAVA_...nts\Codex\eqtmp:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :app
+WARNING: The option setting 'android.overridePathCheck=true' is experimental.
+The current default is 'false'.
+
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:packageDebugUnitTestForUnitTest UP-TO-DATE
+> Task :app:generateDebugUnitTestConfig UP-TO-DATE
+> Task :app:kspDebugKotlin
+> Task :app:compileDebugKotlin
+> Task :app:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:bundleDebugClassesToRuntimeJar UP-TO-DATE
+> Task :app:bundleDebugClassesToCompileJar UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:kspDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+Picked up JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=C:\Users\woziji\Documents\Codex\eqtmp
+
+> Task :app:testDebugUnitTest
+
+CodeDraftSaveUiTest > missingQuestionLeaveYieldsToANotificationThatArrivesWhileWaiting FAILED
+    java.lang.AssertionError at CodeDraftSaveUiTest.kt:481
+
+CodeDraftSaveUiTest > missingQuestionTopBackStaysOnFailureAndLeavesAfterAnExplicitRetry FAILED
+    java.lang.AssertionError at CodeDraftSaveUiTest.kt:481
+
+CodeDraftSaveUiTest > missingQuestionSystemBackWaitsForTheAcceptedDraft FAILED
+    java.lang.AssertionError at CodeDraftSaveUiTest.kt:481
+
+3 tests completed, 3 failed
+
+> Task :app:testDebugUnitTest FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:testDebugUnitTest'.
+> There were failing tests. See the report at: file:///C:/AndroidProjects/EmbeddedQuiz-claude-iso/app/build/reports/tes
+ts/testDebugUnitTest/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 35s
+28 actionable tasks: 5 executed, 23 up-to-date
+END 2026-11-04T19:07:32.3094524+09:00 exit=1

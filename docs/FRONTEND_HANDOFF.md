@@ -1,5 +1,15 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-04 · T4 前端补修：缺题页与加载页的草稿离页等待（Claude）
+
+起始 HEAD `bdf72bd`（GPT T4 集成证据）。处理 [T4 集成证据](../validation/T4-integrated-20261104/README.md) 中“普通缺题页绕过草稿等待”。
+
+- **原因**：`DraftLeave` 只挂在已加载题目的 `QuestionContent`。加载中和缺题分支没有草稿协调器：系统返回由外壳直接回首页，缺题页顶部返回走 ExamLeave（非考试时直接放行）。草稿按队列题号受理，与题目能否加载无关。
+- **修复**（只改 `QuestionScreen.kt`）：新增 `rememberPracticeDraftLeave(vm, id)`，非考试时按当前队列题号建立草稿离页协调器（系统返回 + 失败对话框）；加载中分支和缺题页都使用它。缺题页顶部返回在练习中走草稿等待、等待时禁用，考试中仍走 ExamLeave；缺题页显示该题真实草稿状态与重试。通知接管核查沿用 page/practiceSession/index。后端、契约未改。
+- **测试**：`CodeDraftSaveUiTest` 新增 3 项缺题用例（系统返回等待在途草稿；失败时顶部/系统返回留页、显式重试后离开；等待时通知接管）。GPT 的诊断类原样在修复后运行 2/2 通过（db90bcc 上为 2/2 失败）。定向 13 个类 **98/98 通过**。证据：`validation/T4-frontend-missing-20261104/`。
+- **说明**：我自己的 HEAD 对照在 HEAD 上 3/3 失败，但失败在缺题页新增状态行的夹具断言，早于离页断言，不当作导航缺陷的复现；导航缺陷复现以 GPT 诊断为准。加载中分支与缺题页共用同一协调器，但没有可控接缝把加载状态停住，没有单独正式用例，只经代码审查。
+- 未运行完整套件（由 GPT 统一复测）；无真机验证。状态：待审查。
+
 ## 2026-11-04 · T4 前端第二部分：草稿保存状态、重试、切题/离页先保存与排他边界（Claude，REPAIR_DISPATCH §18.4）
 
 起始 HEAD `42be3e4`（GPT T4 后端 38cb7c3；前端第一部分 ac387ac 的编辑器改动已在其中）。接口按 API_CONTRACT 顶部 T4 节，界面不再使用 `codeDrafts.writer`。后端、DAO、契约、派发文档未改；QuestionDraft.kt 未改；考试仍只走 ExamLeave。Architect 的未跟踪文件未暂存。

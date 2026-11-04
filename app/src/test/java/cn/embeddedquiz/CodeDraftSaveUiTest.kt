@@ -460,6 +460,90 @@ class CodeDraftSaveUiTest {
         assertEquals("记住边界", savedNotes("cd-n"))
     }
 
+    /**
+     * The missing-question page of a practice question whose draft is already accepted: only the
+     * source question is removed before it is first loaded; the write is held or fails at the seam.
+     */
+    private fun showMissingQuestionWithAnAcceptedDraft(fail: Boolean) {
+        openModel()
+        val question = vm.questions.first { it.id == "cd-a" }
+        vm.db.openHelper.writableDatabase.execSQL("DELETE FROM questions WHERE id='cd-a'")
+        gate = CompletableDeferred()
+        failWrites = fail
+        ui.runOnUiThread {
+            vm.updateCodeDraft("cd-a", "latest missing-question text", "latest missing notes")
+            vm.start(listOf(question), "编程练习")
+        }
+        await { writes.get() > 0 }
+        await { ui.onAllNodesWithText("本题无法加载，题目可能已从题库移除。").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(Page.QUESTION, vm.page)
+        assertTrue(vm.codeDraftSaveState("cd-a") is CodeDraftSaveState.Saving)
+        ui.onNodeWithText("草稿保存中…").assertExists()
+    }
+
+    @Test
+    fun missingQuestionSystemBackWaitsForTheAcceptedDraft() {
+        showMissingQuestionWithAnAcceptedDraft(fail = false)
+        back()
+        assertEquals("System back must not leave while the accepted draft is still writing", Page.QUESTION, vm.page)
+        ui.onNodeWithContentDescription("返回首页").assertIsNotEnabled()
+        gate!!.complete(Unit)
+        await { vm.page == Page.HOME }
+        assertTrue(vm.codeDraftSaveState("cd-a") is CodeDraftSaveState.Saved)
+        assertEquals("latest missing-question text", savedCode("cd-a"))
+    }
+
+    @Test
+    fun missingQuestionTopBackStaysOnFailureAndLeavesAfterAnExplicitRetry() {
+        showMissingQuestionWithAnAcceptedDraft(fail = true)
+        gate!!.complete(Unit)
+        await { vm.codeDraftSaveState("cd-a") is CodeDraftSaveState.Error }
+        ui.onNodeWithText("草稿保存失败，最新文字尚未保存").assertExists()
+        ui.onNodeWithContentDescription("返回首页").performClick()
+        await { ui.onAllNodesWithText("草稿保存失败，暂未离开").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals("Top back must not bypass the draft Error", Page.QUESTION, vm.page)
+        inDialog("留在本页").performClick()
+        assertEquals(Page.QUESTION, vm.page)
+        assertEquals("latest missing-question text", vm.codeDrafts.drafts["cd-a"]!!.code)
+
+        // System back is held the same way; the dialog's retry then saves and leaves.
+        back()
+        await { ui.onAllNodesWithText("草稿保存失败，暂未离开").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(Page.QUESTION, vm.page)
+        failWrites = false
+        inDialog("重试保存").performClick()
+        await { vm.page == Page.HOME }
+        assertTrue(vm.codeDraftSaveState("cd-a") is CodeDraftSaveState.Saved)
+        assertEquals("latest missing-question text", savedCode("cd-a"))
+    }
+
+    @Test
+    fun missingQuestionLeaveYieldsToANotificationThatArrivesWhileWaiting() {
+        showMissingQuestionWithAnAcceptedDraft(fail = false)
+        back()
+        assertEquals(Page.QUESTION, vm.page)
+        ui.mainClock.autoAdvance = false
+        try {
+            ui.runOnUiThread {
+                vm.requestNotificationReview()
+                assertEquals(Page.REVIEW, vm.page)
+                gate!!.complete(Unit)
+            }
+            await { vm.codeDraftSaveState("cd-a") is CodeDraftSaveState.Saved }
+            repeat(50) {
+                shadowOf(Looper.getMainLooper()).idle()
+                java.util.concurrent.locks.LockSupport.parkNanos(1_000_000)
+            }
+            assertEquals("A late leave must not overwrite the notification's page", Page.REVIEW, vm.page)
+        } finally {
+            gate!!.complete(Unit)
+            ui.mainClock.autoAdvance = true
+        }
+        ui.waitForIdle()
+        assertEquals(Page.REVIEW, vm.page)
+        ui.onNodeWithText("草稿保存失败，暂未离开").assertDoesNotExist()
+    }
+
     @Test
     @Config(qualifiers = "w320dp-h480dp")
     fun aDraftFailureIsReachableOnASmallScreenWithLargeText() {

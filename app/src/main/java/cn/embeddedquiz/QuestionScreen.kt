@@ -44,12 +44,15 @@ fun QuestionScreen(vm: QuizViewModel) {
     }
     val q = question
     if (q == null) {
-        if (missing) MissingQuestion(vm)
-        else
+        if (missing) MissingQuestion(vm, id)
+        else {
+            // The question's draft may already be accepted; leaving still waits for it.
+            rememberPracticeDraftLeave(vm, id)
             // Static text: an indeterminate spinner never lets Compose tests reach idle.
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("正在加载题目…", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
         return
     }
     key(q.id, vm.mode) { QuestionContent(vm, q) }
@@ -424,21 +427,41 @@ internal fun DraftLeaveDialog(leave: DraftLeave) {
     )
 }
 
+/**
+ * For a practice question shown without its editor (still loading, or missing from the bank): the
+ * draft is keyed by the queue id, not by a loaded question, and may already be accepted. Back and
+ * the top-bar back wait for it exactly as on the full question. Exams keep their own protocol.
+ */
+@Composable
+private fun rememberPracticeDraftLeave(vm: QuizViewModel, id: String): DraftLeave? {
+    if (vm.mode == "模拟考试") return null
+    val leave = rememberDraftLeave(vm, id)
+    DraftLeaveDialog(leave)
+    BackHandler { leave.leave { vm.page = Page.HOME } }
+    return leave
+}
+
 /** A question removed from the bank never loads; the exam must still be endable from here. */
 @Composable
-private fun MissingQuestion(vm: QuizViewModel) {
+private fun MissingQuestion(vm: QuizViewModel, id: String) {
     val controls = ExamControls(vm)
     var confirm by remember { mutableStateOf<ExamConfirm?>(null) }
     ExamConfirmDialog(vm, confirm) { confirm = null }
     val leave = rememberExamLeave(vm)
     ExamLeaveDialog(leave)
     BackHandler(enabled = controls.open) { leave.leave { vm.page = Page.HOME } }
+    val draftLeave = rememberPracticeDraftLeave(vm, id)
+    fun goHome() = draftLeave?.leave { vm.page = Page.HOME } ?: leave.leave { vm.page = Page.HOME }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { leave.leave { vm.page = Page.HOME } }, modifier = Modifier.size(48.dp)) {
+            IconButton(
+                onClick = ::goHome,
+                enabled = draftLeave?.pending != true,
+                modifier = Modifier.size(48.dp),
+            ) {
                 Icon(AppIcons.Back, contentDescription = "返回首页")
             }
             Text(
@@ -447,6 +470,9 @@ private fun MissingQuestion(vm: QuizViewModel) {
             )
         }
         ErrorNotice("本题无法加载，题目可能已从题库移除。")
+        // The draft accepted for this question is still being saved or failed; show it truthfully.
+        if (draftLeave != null)
+            DraftSaveStatus(vm, id, allowRetry = !vm.codeDraftEditingBlocked && !draftLeave.pending)
         if (controls.open) ExamSaveStatus(vm, allowRetry = controls.editable)
         if (controls.open) {
             if (controls.state == ExamOperationState.Idle)
