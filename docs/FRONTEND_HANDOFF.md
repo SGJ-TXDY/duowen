@@ -1,5 +1,32 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-04 · T4 前端第二部分：草稿保存状态、重试、切题/离页先保存与排他边界（Claude，REPAIR_DISPATCH §18.4）
+
+起始 HEAD `42be3e4`（GPT T4 后端 38cb7c3；前端第一部分 ac387ac 的编辑器改动已在其中）。接口按 API_CONTRACT 顶部 T4 节，界面不再使用 `codeDrafts.writer`。后端、DAO、契约、派发文档未改；QuestionDraft.kt 未改；考试仍只走 ExamLeave。Architect 的未跟踪文件未暂存。
+
+### 修改的文件与函数
+
+| 文件 | 改动 |
+| --- | --- |
+| `QuestionScreen.kt` | 新增 `DraftSaveStatus`：Saving“草稿保存中…”、Saved“草稿已保存到本机”、Error 显示后端 message（liveRegion Assertive）和“重试保存”（调用 `retryCodeDrafts(id)`）、Inactive 不显示。编程题的状态放在代码编辑器**上方**，输入时可见。新增 `DraftLeave`/`rememberDraftLeave`/`DraftLeaveDialog`：普通练习的上一题/下一题、“完成，回到首页”、顶部返回、系统返回（本页 `BackHandler` 优先于外壳）和“打开全局标签”先 `flushCodeDrafts(id)`；Inactive/Saved 直接通过；true 才执行原动作，false 留页并弹“草稿保存失败，暂未离开”（重试保存 → 成功后继续 / 留在本页）；发起时记录 page/practiceSession/index，返回后有任一变化（通知等外部导航接管）即丢弃成功导航和失败弹窗。等待期间代码与笔记输入、翻题冻结。编辑器 `onChange` 与自动保存笔记改调 `updateCodeDraft`。`codeDraftEditingBlocked` 时代码编辑器只读、笔记只读、“保存笔记/保存代码与笔记”禁用，并显示“正在备份、恢复或重置学习数据，代码和笔记暂时不能修改。”普通客观题手动笔记：本地文字与已受理文字不同时显示“笔记有未保存的修改，点“保存笔记”后才会写入”，一致时才显示草稿状态，不把未点保存的编辑称为已保存。 |
+| `MainActivity.kt` | `onStop` 以 `CoroutineStart.UNDISPATCHED` 发起一次 `flushCodeDrafts()`，不等待结果、不阻塞生命周期。契约中 flush 在首次挂起前强制提交合并窗口，因此转后台时最后文字立即进入写入，而不是最多再等 2 秒；不承诺立即强杀时仍保存。（与 T2 不同：T2 的 flush 只等待、不写入，故当时未加。） |
+| `CodeDraftSaveUiTest.kt` | 在第一部分 3 项基础上新增 9 项真实 ViewModel 用例（规则改为 Activity 宿主以测系统返回），见证据 README。 |
+
+### 设计说明（供 Architect 审查）
+
+- **只有普通练习走草稿离页等待**；考试题没有代码/笔记编辑区（笔记区在考试中隐藏），仍只用 ExamLeave，二者不会同时出现在一题上。
+- **离页失败只给“重试保存 / 留在本页”**，与 T2 一致；不会把用户永久卡住：外部导航（通知）不受拦截，失败状态回到题目仍可见、可重试。
+- **AppNavigation 未改**：答题时底部导航隐藏，外壳返回被本页处理器覆盖，离开入口都在答题页内；缺题页没有草稿编辑区。
+- 读取 `codeDrafts.drafts` 仅用于判断手动笔记是否已受理（VM 的 questionDraft 也用它），不经过 writer、不写入。
+
+### 测试结果（证据：`validation/T4-frontend-20261104/`）
+
+- 定向 13 个类 **95/95 通过**（独立副本自有 build 目录，`--rerun` 真实执行），含 GPT 的 CodeDraftPersistenceTest 11、CodeDraftBoundaryTest 12 及考试/通知/启动/便签/速记 UI 回归。
+- 首轮 12 项中 5 项失败，均为测试问题（高列表项只滚入一部分导致点击落空；滚动辅助误用于“不存在”断言）；其中状态在编辑器下方不易看到也是真实的小屏问题，已把状态移到编辑器上方。未削弱断言、未加等待。
+- 证据 README 附 7 步真机检查步骤（长代码输入延迟、输入法、切题/离页、转后台、备份期间、手动笔记、大字号/TalkBack）。
+- 未运行完整套件（由 GPT 统一集成运行一次）；无真机验证。
+- 状态：T4 前端待审查。
+
 ## 2026-11-04 · T4 前端第一部分：编辑器只在文字变化时通知（Claude，REPAIR_DISPATCH §18.4）
 
 起始 HEAD `77c06bd`。**§18.2 草稿保存门面尚未实现**（`CodeDraftSaveState`、`codeDraftSaveState`、`codeDraftEditingBlocked`、`updateCodeDraft`、`retryCodeDrafts`、`flushCodeDrafts` 在代码中不存在），GPT 本地也没有可对齐的实现。前端不能改 QuizViewModel、不直接访问 writer，也不自建同名类型（会与 GPT 的定义冲突），因此本提交只完成不依赖该接口的部分。

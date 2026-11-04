@@ -303,6 +303,127 @@ internal fun ExamLeaveDialog(leave: ExamLeave) {
     )
 }
 
+/**
+ * Whether this question's code/notes draft is on disk. Typing is never blocked by a save; a failure
+ * stays visible with an explicit retry. Inactive shows nothing: no edit here, nothing to report.
+ */
+@Composable
+internal fun DraftSaveStatus(vm: QuizViewModel, id: String, allowRetry: Boolean) {
+    when (val state = vm.codeDraftSaveState(id)) {
+        is CodeDraftSaveState.Saving -> DraftSaveLabel("草稿保存中…")
+        is CodeDraftSaveState.Saved -> DraftSaveLabel("草稿已保存到本机")
+        is CodeDraftSaveState.Error ->
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        state.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier =
+                            Modifier.weight(1f).padding(vertical = 10.dp).semantics {
+                                liveRegion = LiveRegionMode.Assertive
+                            },
+                    )
+                    if (allowRetry) TextButton(onClick = { vm.retryCodeDrafts(id) }) { Text("重试保存") }
+                }
+            }
+        CodeDraftSaveState.Inactive -> {}
+    }
+}
+
+@Composable
+private fun DraftBlockedNotice(vm: QuizViewModel) {
+    if (vm.codeDraftEditingBlocked)
+        Text(
+            "正在备份、恢复或重置学习数据，代码和笔记暂时不能修改。",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        )
+}
+
+@Composable
+private fun DraftSaveLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/**
+ * Leaving a practice question (previous/next, back, notes) first commits its draft; a failed save
+ * keeps the user on the question with a retry. Nothing pending passes straight through. As with
+ * [ExamLeave], a navigation from elsewhere while waiting (a notification) wins: the request
+ * re-checks page, session and question before acting and otherwise drops both outcomes.
+ */
+@Stable
+internal class DraftLeave(
+    private val vm: QuizViewModel,
+    private val id: String,
+    private val scope: CoroutineScope,
+) {
+    var pending by mutableStateOf(false)
+        private set
+    var blocked by mutableStateOf<(() -> Unit)?>(null)
+        private set
+
+    fun leave(target: () -> Unit) {
+        if (pending || blocked != null) return
+        val state = vm.codeDraftSaveState(id)
+        if (state is CodeDraftSaveState.Inactive || state is CodeDraftSaveState.Saved) return target()
+        val page = vm.page
+        val session = vm.practiceSession
+        val index = vm.index
+        pending = true
+        scope.launch {
+            val saved =
+                try {
+                    vm.flushCodeDrafts(id)
+                } finally {
+                    pending = false
+                }
+            if (vm.page != page || vm.practiceSession != session || vm.index != index) return@launch
+            if (saved) target() else blocked = target
+        }
+    }
+
+    fun retry() {
+        val target = blocked ?: return
+        blocked = null
+        vm.retryCodeDrafts(id)
+        leave(target)
+    }
+
+    fun stay() {
+        blocked = null
+    }
+}
+
+@Composable
+internal fun rememberDraftLeave(vm: QuizViewModel, id: String): DraftLeave {
+    val scope = rememberCoroutineScope()
+    return remember(vm, id) { DraftLeave(vm, id, scope) }
+}
+
+@Composable
+internal fun DraftLeaveDialog(leave: DraftLeave) {
+    if (leave.blocked == null) return
+    AlertDialog(
+        onDismissRequest = leave::stay,
+        title = { Text("草稿保存失败，暂未离开") },
+        text = {
+            Text("代码或笔记的最新修改尚未保存到本机，为避免丢失，已留在本题。可以重试保存，保存成功后会继续离开。")
+        },
+        confirmButton = { TextButton(onClick = leave::retry) { Text("重试保存") } },
+        dismissButton = { TextButton(onClick = leave::stay) { Text("留在本页") } },
+    )
+}
+
 /** A question removed from the bank never loads; the exam must still be endable from here. */
 @Composable
 private fun MissingQuestion(vm: QuizViewModel) {
@@ -389,26 +510,37 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
     val controls = ExamControls(vm)
     var confirm by remember { mutableStateOf<ExamConfirm?>(null) }
     val leave = rememberExamLeave(vm)
+    // Practice questions carry code/notes drafts; the exam keeps its own leave protocol.
+    val draftLeave = rememberDraftLeave(vm, q.id)
     // While waiting to leave, new input would land after the version being confirmed on disk.
     val editable = controls.editable && !leave.pending
+    // Backup, restore and reset hold drafts still; so does a pending leave of this question.
+    val draftEditable = !vm.codeDraftEditingBlocked && !draftLeave.pending
     // While an ending runs, moving between questions would change what the user believes was handed in.
-    val navLocked = exam && (controls.ending || vm.busy || leave.pending)
+    val navLocked = (exam && (controls.ending || vm.busy || leave.pending)) || draftLeave.pending
+    /** Leaves the question: through the exam protocol in an exam, after the draft flush otherwise. */
+    fun leaveQuestion(target: () -> Unit) = if (exam) leave.leave(target) else draftLeave.leave(target)
     val previous: () -> Unit = {
-        if (!navLocked) {
-            vm.index--
-            vm.saveExam()
-        }
+        if (exam) {
+            if (!navLocked) {
+                vm.index--
+                vm.saveExam()
+            }
+        } else draftLeave.leave { vm.index-- }
     }
     val next: () -> Unit = {
-        if (!navLocked) {
-            vm.index++
-            vm.saveExam()
-        }
+        if (exam) {
+            if (!navLocked) {
+                vm.index++
+                vm.saveExam()
+            }
+        } else draftLeave.leave { vm.index++ }
     }
     ExamConfirmDialog(vm, confirm) { confirm = null }
     ExamLeaveDialog(leave)
-    // Takes precedence over the shell's back handler while an exam paper is shown.
-    BackHandler(enabled = exam) { leave.leave { vm.page = Page.HOME } }
+    DraftLeaveDialog(draftLeave)
+    // Takes precedence over the shell's back handler while a question is shown.
+    BackHandler { leaveQuestion { vm.page = Page.HOME } }
 
     Column(Modifier.fillMaxSize()) {
         QuestionTopBar(
@@ -418,8 +550,8 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
             favorite = progress.favorite,
             flagged = progress.flagged,
             showMarks = !exam,
-            onBack = { leave.leave { vm.page = Page.HOME } },
-            onNotes = { leave.leave(vm::openStickyNotes) },
+            onBack = { leaveQuestion { vm.page = Page.HOME } },
+            onNotes = { leaveQuestion(vm::openStickyNotes) },
             onFavorite = { vm.toggleFavorite(q.id) },
             onFlag = { vm.toggleFlag(q.id) },
             examActions =
@@ -681,19 +813,14 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                     }
                     item {
                         SectionCard {
-                            CodeEditor(code, draft.codeEditor) {
+                            // Above the editor: it stays in view while typing, even on small screens.
+                            // Covers code and the auto-saved notes of this programming question.
+                            DraftSaveStatus(vm, q.id, allowRetry = draftEditable)
+                            DraftBlockedNotice(vm)
+                            CodeEditor(code, draft.codeEditor, draftEditable) {
                                 code = it
-                                vm.codeDrafts.update(q.id, code, notes)
+                                vm.updateCodeDraft(q.id, code, notes)
                             }
-                            if (vm.codeDrafts.writer.error.isNotBlank()) {
-                                ErrorNotice(vm.codeDrafts.writer.error)
-                                SecondaryAction("重试保存草稿") { vm.codeDrafts.writer.retry() }
-                            } else
-                                Text(
-                                    if (vm.codeDrafts.writer.pending > 0) "草稿保存中…" else "草稿已保存到本机",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
                             CodingTimer(draft.timer)
                             TonalAction("AI 代码审查", !vm.aiBusy && code.isNotBlank()) {
                                 aiOpen = true
@@ -730,15 +857,24 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                             value = notes,
                             onValueChange = {
                                 notes = it
-                                if (!q.daily) vm.codeDrafts.update(q.id, code, notes)
+                                if (!q.daily) vm.updateCodeDraft(q.id, code, notes)
                             },
                             label = { Text(if (q.daily) "个人笔记（手动保存）" else "个人笔记（自动保存）") },
                             modifier = Modifier.fillMaxWidth(),
                             shape = MaterialTheme.shapes.medium,
                             minLines = 3,
+                            readOnly = !draftEditable,
                         )
-                        Action(if (q.daily) "保存笔记" else "保存代码与笔记", !vm.busy) {
+                        DraftBlockedNotice(vm)
+                        Action(if (q.daily) "保存笔记" else "保存代码与笔记", draftEditable) {
                             vm.saveNotes(q.id, code, notes)
+                        }
+                        if (q.daily) {
+                            // Manual notes: local edits are not saved until the button is pressed.
+                            val accepted = vm.codeDrafts.drafts[q.id]?.notes ?: progress.notes
+                            if (notes != accepted)
+                                DraftSaveLabel("笔记有未保存的修改，点“保存笔记”后才会写入")
+                            else DraftSaveStatus(vm, q.id, allowRetry = draftEditable)
                         }
                     }
                 }
@@ -846,8 +982,10 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                         else revealed = true
                     }
                 atLast ->
-                    PrimaryBarButton("完成，回到首页", true, Modifier.weight(1f)) { vm.page = Page.HOME }
-                else -> PrimaryBarButton("下一题", true, Modifier.weight(1f), AppIcons.ChevronRight, next)
+                    PrimaryBarButton("完成，回到首页", !navLocked, Modifier.weight(1f)) {
+                        leaveQuestion { vm.page = Page.HOME }
+                    }
+                else -> PrimaryBarButton("下一题", !navLocked, Modifier.weight(1f), AppIcons.ChevronRight, next)
             }
             if (exam || !showAnswer)
                 NavIconButton(AppIcons.ChevronRight, "下一题", !atLast && !navLocked, next)
