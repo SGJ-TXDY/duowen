@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.StartupRecoveryTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-04T04:58:32" hostname="LAPTOP-0JLS131B" time="11.575">
+  <properties/>
+  <testcase name="diagnosticDestinationCannotOverwritePrivateSource" classname="cn.embeddedquiz.StartupRecoveryTest" time="5.468"/>
+  <testcase name="versionFourCanStartWithLearningDataUnchanged" classname="cn.embeddedquiz.StartupRecoveryTest" time="1.214"/>
+  <testcase name="retryIsSingleFlightAndRetainsNotificationExamAndOldOutcome" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.653"/>
+  <testcase name="recoveryIsSingleFlightAndDoesNotImplicitlyRetryStartup" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.395"/>
+  <testcase name="invalidBackupAndActiveExamNeverClearOriginalData" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.52"/>
+  <testcase name="unreadableExamBlocksReplacementAndSurvivesRepeatedRetry" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.524"/>
+  <testcase name="invalidBackupRollbackKeepsCurrentRowsAndLedger" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.362"/>
+  <testcase name="alreadyCurrentInvalidRowFailsWithoutBundleOverwriteAndCanRestore" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.526"/>
+  <testcase name="partialExamLookupFailureCanRetryTheReservedSession" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.492"/>
+  <testcase name="clearingRetryCancelsWaitersAndNextOwnerCanStart" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.459"/>
+  <testcase name="corruptFileIsPreservedAndDiagnosticsNeedNoRoom" classname="cn.embeddedquiz.StartupRecoveryTest" time="0.961"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

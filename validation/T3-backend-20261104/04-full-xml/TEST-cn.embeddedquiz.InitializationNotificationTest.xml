@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.InitializationNotificationTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-11-04T05:06:46" hostname="LAPTOP-0JLS131B" time="1.747">
+  <properties/>
+  <testcase name="initializationFailureCompletesWithFailureAndKeepsExamAndLearningData" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.109"/>
+  <testcase name="repeatedNotificationsUseOneRestorationAndDoNotRewriteTheExam" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.106"/>
+  <testcase name="ordinaryStartupWithoutExamKeepsHomeAndReturnsNoRestoration" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.109"/>
+  <testcase name="cancellingOneWaiterDoesNotCancelOtherWaitersOrInitialization" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.104"/>
+  <testcase name="clearingOwnerCancelsPendingCompletionInsteadOfLeavingWaitersSuspended" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.085"/>
+  <testcase name="notificationBeforeInitializationWithoutExamOpensReviewWithoutLearningWrites" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.108"/>
+  <testcase name="notificationBeforeInitializationPublishesReviewWithRestoredExam" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.103"/>
+  <testcase name="notificationAfterInitializationImmediatelyOpensReviewAndKeepsOriginalExam" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.111"/>
+  <testcase name="ordinaryStartupWithoutExamKeepsExplicitNonReviewDestination" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.112"/>
+  <testcase name="ordinaryStartupRestoresExamAsQuestionWithoutNotification" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.114"/>
+  <testcase name="clearingOwnerKeepsDatabaseOpenUntilCancelledReadersFinish" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.375"/>
+  <testcase name="existingMainActivityReviewAssignmentHasSamePriorityAsNewCommand" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.105"/>
+  <testcase name="pendingRestoreRejectsResetBeforeInitializationCanPublishExam" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.105"/>
+  <testcase name="notificationIsNotDroppedWhileAnUnrelatedWriteTaskIsBusy" classname="cn.embeddedquiz.InitializationNotificationTest" time="0.101"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,4 @@
+HEAD: c21b86fa95c7189e5c09cbead23dd6e30acee762
+All 102 Android inputs match byte for byte; no extra app/src sources.
+Command: tools/build.ps1 -Tasks @('assembleDebug','testDebugUnitTest','--rerun','lintDebug','--continue','--no-daemon')
+GPT backend only; Claude T3 error UI is not implemented in this HEAD.

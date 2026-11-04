@@ -1,0 +1,4 @@
+HEAD: 25b3142bfee0c5d5f083d6b1e2566ec9ad999dd2
+All 103 Android inputs copied and SHA256 matched byte for byte.
+Command: tools/build.ps1 -Tasks @('assembleDebug','testDebugUnitTest','--rerun','lintDebug','--continue','--no-daemon')
+GPT backend only; T3 error UI pending Claude after Architect review.

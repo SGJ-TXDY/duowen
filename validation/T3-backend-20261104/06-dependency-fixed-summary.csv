@@ -1,0 +1,4 @@
+"Class","Tests","Failures","Errors","Skipped","Seconds"
+"cn.embeddedquiz.HistoricalMigrationTest","3","0","0","0","11.648"
+"cn.embeddedquiz.InitializationNotificationTest","14","0","0","0","4.922"
+"cn.embeddedquiz.StartupRecoveryTest","12","0","0","0","28.273"

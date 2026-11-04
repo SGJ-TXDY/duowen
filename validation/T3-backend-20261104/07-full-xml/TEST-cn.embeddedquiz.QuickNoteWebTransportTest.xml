@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.QuickNoteWebTransportTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-11-04T07:03:02" hostname="LAPTOP-0JLS131B" time="13.626">
+  <properties/>
+  <testcase name="arbitraryDataFilesOtherDocumentsAndSubframesCannotReadMainHtml[28]" classname="cn.embeddedquiz.QuickNoteWebTransportTest" time="0.993"/>
+  <testcase name="arbitraryDataFilesOtherDocumentsAndSubframesCannotReadMainHtml" classname="cn.embeddedquiz.QuickNoteWebTransportTest" time="10.869"/>
+  <testcase name="originalTransportReproduces404ButPatchedTransportServesUtf8MainDocument[28]" classname="cn.embeddedquiz.QuickNoteWebTransportTest" time="0.167"/>
+  <testcase name="originalTransportReproduces404ButPatchedTransportServesUtf8MainDocument" classname="cn.embeddedquiz.QuickNoteWebTransportTest" time="0.186"/>
+  <testcase name="documentImagesStillComeFromTheIndependentLocalAssetStore[28]" classname="cn.embeddedquiz.QuickNoteWebTransportTest" time="0.214"/>
+  <testcase name="documentImagesStillComeFromTheIndependentLocalAssetStore" classname="cn.embeddedquiz.QuickNoteWebTransportTest" time="0.205"/>
+  <testcase name="themeReloadUpdatesOnlyTrustedDocumentBytesAtStableLocalUrl[28]" classname="cn.embeddedquiz.QuickNoteWebTransportTest" time="0.151"/>
+  <testcase name="themeReloadUpdatesOnlyTrustedDocumentBytesAtStableLocalUrl" classname="cn.embeddedquiz.QuickNoteWebTransportTest" time="0.155"/>
+  <testcase name="missingAndExternalResourcesStayBlocked[28]" classname="cn.embeddedquiz.QuickNoteWebTransportTest" time="0.174"/>
+  <testcase name="missingAndExternalResourcesStayBlocked" classname="cn.embeddedquiz.QuickNoteWebTransportTest" time="0.188"/>
+  <testcase name="fragmentRequestsForThisMainDocumentKeepTheSameUtf8Content[28]" classname="cn.embeddedquiz.QuickNoteWebTransportTest" time="0.149"/>
+  <testcase name="fragmentRequestsForThisMainDocumentKeepTheSameUtf8Content" classname="cn.embeddedquiz.QuickNoteWebTransportTest" time="0.175"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
