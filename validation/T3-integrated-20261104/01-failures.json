@@ -1,0 +1,17 @@
+[
+  {
+    "Class": "cn.embeddedquiz.ExamTerminationUiTest",
+    "Test": "abandonCancelKeepsPaperAndConfirmReturnsToExamTabWithoutResult",
+    "Message": "org.junit.ComparisonFailure: expected:<...e01c9c7\",\"revision\":[2,\"ids\":[\"et-a\",\"et-b\",\"et-c\"],\"index\":0,\"deadline\":1793781886817,\"answers\":{]},\"legacyHash\":null}> but was:<...e01c9c7\",\"revision\":[3,\"ids\":[\"et-a\",\"et-b\",\"et-c\"],\"index\":0,\"deadline\":1793781886817,\"answers\":{\"et-a\":[\"A\"]]},\"legacyHash\":null}>"
+  },
+  {
+    "Class": "cn.embeddedquiz.QuickNotesIsolationTest",
+    "Test": "quickNotesDoNotAffectQuizBackupPracticeDraftsOrHomeReview",
+    "Message": "java.lang.AssertionError: expected:<[]> but was:<[a]>"
+  },
+  {
+    "Class": "cn.embeddedquiz.StartupTest",
+    "Test": "launchOfflineAndOpenQuestion",
+    "Message": "java.lang.AssertionError: expected:<906> but was:<1>"
+  }
+]

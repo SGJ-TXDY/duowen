@@ -1,5 +1,27 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-11-04 · T3 双方统一集成复测（待审查）
+
+任务/职责：按 REPAIR_DISPATCH §16.4，GPT 固定 Claude 前端 f6bcbcb 与后端 c21b86f/25b3142 的共同版本统一验证。§16 已批准后端阶段与实际契约，覆盖下文历史“接口尚待裁定”的状态；T3 整体验收仍交 Architect。开工 HEAD f6bcbcbbefad1f0dc3653c8ed732defcea3565a8，工作区只有 Architect 原五个未跟踪项，未修改、暂存。
+
+首次完整运行 **210 项、207 通过、3 失败**，0 错误/跳过；Debug 构建成功，Lint 0 错误/5 既有警告。原始失败全部保留：ExamTerminationUiTest 在异步答案保存完成前取旧快照作基线；QuickNotesIsolationTest 在 Progress Flow 首次发射前取空复习列表作基线；StartupTest 未隔离默认工厂静态 Application 缓存，期望 906、实际 1。后者的普通定序对照未复现题数错误，但记录到旧 Application；受控旧 Application 一题夹具再现 906/1，重置工厂后关闭该失效机制，未虚称首轮已经记录到相同上下文路径。
+
+经用户明确授权跨既有测试文件修正，提交 `cb4a70a518514ea5f654eaa2939f8f2b0f5ecdc8`：只增加 5 行。ExamTerminationUiTest 在取保存快照基线前等 examSaveState.Saved；QuickNotesIsolationTest 在操作前等夹具 progress[a].seen==1；StartupTest 创建 Activity 前复用 resetDefaultViewModelFactory。原业务/数据断言全部保留，没有增加 sleep、跳过测试或修改生产业务/UI。三个候选修正的受控定向 **21/21**。其余正式源码、接口、迁移、版本、依赖、共享派发与前端交接均未改。
+
+最终固定 cb4a70a，再必要统一运行 assembleDebug testDebugUnitTest --rerun lintDebug --continue --no-daemon：**210/210 通过，0 失败、0 错误、0 跳过**；28 个测试类，包括新 StartupRecoveryUiTest 8 项与全部既有考试/通知/学习/迁移/速记测试。Debug 构建成功，Lint **0 错误/5 条既有警告**，ID/说明与首轮一致；命令退出 0，BUILD SUCCESSFUL in 1m 46s。105 项 Android 输入在运行前后及隔离副本逐字节一致，Claude 三个交付文件的原指纹全部匹配。正式复测前已删除临时诊断 Suite 并覆盖回正式源码，未把隔离探针混入统计。
+
+证据：[T3 统一集成](../validation/T3-integrated-20261104/README.md)。含首轮完整失败、未复现的定序记录、受控原失败/候选通过、最终完整原始 XML/日志、两轮源码指纹、Lint XML/HTML/TXT、schema 1～5 与独立 Debug 产物摘要。复用 GPT 自有隔离构建目录，没有覆盖 Claude 的 app/build；没有为凑全绿重复不变的全套。
+
+Git 自动后台整理 File exists：只读 fsck --full --no-reflogs 返回 0，仅 dangling blob，未发现缺失/损坏对象。不对报错根因作超出证据的判断，未 gc/prune、删锁、改配置或重写历史；本轮交付提交单次禁用自动整理。
+
+接口与数据：仍为 §16.2/正式 API_CONTRACT 的实际 T3 接口，Room 5、备份 3，无新协议。Claude 错误页、显式重试、诊断/导出与恢复确认已经纳入本次真实全套；恢复 Completed 不当 Ready、不可用 DB 不自动替换、活动/未知考试拒绝、通知优先和原考试保留均维持。日期刷新观察项经审阅只写内存日期，Ready 前无业务订阅；保留原循环，未改 UI，门控变体的测试不空闲根因仍未确定，不冒称已修。
+
+交由 Architect 集中审查共同版本、五行测试修正及证据。Claude 后续配合审查/设备验证；本轮没有另派 UI 开发或改变契约。真机文件选择器/真实存储与强杀、TalkBack、系统字号/配置变化仍待验收。T3 整体验收前不开始 T4；没有推送、标签、Release 或覆盖稳定 APK。
+
+状态：**待审查**。
+
+---
+
 ## 2026-11-04 · T3 后端：历史规则隔离、启动诊断与显式恢复（待审查）
 
 任务/职责：用户“修 T3”授权开修，GPT 负责后端；T2 已按共享文档第 15 节验收。起始 HEAD 281d035。原工作区只有 Architect 的五个未跟踪文件/目录，未改或暂存。T3 固定接口尚未补齐，因此先写 T3_BACKEND_PROPOSAL 和实际 API_CONTRACT，供 Architect 审查后 Claude 接入；不冒称新的正式派发已经存在。

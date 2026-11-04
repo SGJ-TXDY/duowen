@@ -1,0 +1,4 @@
+"Class","Tests","Failures","Errors","Skipped","Seconds"
+"cn.embeddedquiz.ReviewReminderTest","4","0","0","0","10.12"
+"cn.embeddedquiz.StartupRecoveryUiTest","8","0","0","0","5.587"
+"cn.embeddedquiz.StartupTest","1","0","0","0","2.309"

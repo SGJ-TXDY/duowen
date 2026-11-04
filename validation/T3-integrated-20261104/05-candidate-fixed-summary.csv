@@ -1,0 +1,6 @@
+"Class","Tests","Failures","Errors","Skipped","Seconds"
+"cn.embeddedquiz.ExamTerminationUiTest","12","0","0","0","25.449"
+"cn.embeddedquiz.QuickNotesIsolationTest","4","0","0","0","2.762"
+"cn.embeddedquiz.ReviewReminderTest","4","0","0","0","6.448"
+"cn.embeddedquiz.StartupTest","1","0","0","0","1.631"
+"cn.embeddedquiz.T3StartupOrderProbeSuite","0","0","0","0","0.0"

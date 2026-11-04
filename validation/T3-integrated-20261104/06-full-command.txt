@@ -1,0 +1,4 @@
+HEAD: cb4a70a518514ea5f654eaa2939f8f2b0f5ecdc8
+105 inputs matched exactly; temporary probe removed; no extra app/src files.
+User explicitly approved the five-line fixes in three existing tests. No production changes.
+Command: tools/build.ps1 -Tasks @('assembleDebug','testDebugUnitTest','--rerun','lintDebug','--continue','--no-daemon')

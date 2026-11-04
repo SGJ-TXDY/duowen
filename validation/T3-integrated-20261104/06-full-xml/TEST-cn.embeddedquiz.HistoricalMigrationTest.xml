@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.HistoricalMigrationTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-04T08:29:38" hostname="LAPTOP-0JLS131B" time="8.94">
+  <properties/>
+  <testcase name="versionsOneTwoThreePreserveEveryOriginalField" classname="cn.embeddedquiz.HistoricalMigrationTest" time="0.258"/>
+  <testcase name="invalidHistoryRollsBackAllMigrationPathsWithoutDeletingRows" classname="cn.embeddedquiz.HistoricalMigrationTest" time="8.666"/>
+  <testcase name="historicalReaderMatchesValidDataAndExternalImportStaysStrict" classname="cn.embeddedquiz.HistoricalMigrationTest" time="0.016"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

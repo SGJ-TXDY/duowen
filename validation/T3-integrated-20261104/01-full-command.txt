@@ -1,0 +1,5 @@
+HEAD: f6bcbcbbefad1f0dc3653c8ed732defcea3565a8
+105 tracked Android inputs copied exactly; no extra app/src files; 3 Claude fingerprints match.
+Reusing GPT-owned isolated build copy: F:\学习\嵌入式学习\知识总结\复习软件\.gpt-t3-backend-20261104
+Command: tools/build.ps1 -Tasks @('assembleDebug','testDebugUnitTest','--rerun','lintDebug','--continue','--no-daemon')
+No production changes during this integration run.
