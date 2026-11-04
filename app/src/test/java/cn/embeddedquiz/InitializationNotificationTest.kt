@@ -122,6 +122,46 @@ class InitializationNotificationTest {
     }
 
     @Test
+    fun clearingOwnerKeepsDatabaseOpenUntilCancelledReadersFinish() {
+        val vm = create()
+        outcome(vm)
+        val flush = vm.viewModelScope.async { vm.flushExamSave() }
+        waitFor { flush.isCompleted }
+        assertTrue(runBlocking { flush.await() })
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val finished = CompletableDeferred<Unit>()
+        val readFailure = java.util.concurrent.atomic.AtomicReference<Throwable?>()
+        vm.viewModelScope.launch(Dispatchers.IO) {
+            // A SQLite call already in progress can finish after its caller is cancelled.
+            withContext(NonCancellable) {
+                entered.complete(Unit)
+                try {
+                    release.await()
+                    vm.repo.dao.allPersonalMetadata()
+                } catch (failure: Throwable) {
+                    readFailure.set(failure)
+                } finally { finished.complete(Unit) }
+            }
+        }
+        waitFor { entered.isCompleted }
+        try {
+            store.clear()
+            val closed = checkNotNull(vm.examResourcesClosed)
+            val closedEarly = runBlocking {
+                withTimeoutOrNull(250) { closed.join(); true } ?: false
+            }
+            assertFalse("Database closed while a cancelled reader still owns it", closedEarly)
+            assertTrue(vm.db.isOpen)
+        } finally {
+            release.complete(Unit)
+            waitFor { finished.isCompleted }
+            waitFor { vm.examResourcesClosed?.isCompleted == true }
+        }
+        assertNull("Reader must finish before its connection pool closes", readFailure.get())
+        assertFalse(vm.db.isOpen)
+    }
+    @Test
     fun pendingRestoreRejectsResetBeforeInitializationCanPublishExam() {
         val vm = create()
         val failure = runBlocking { runCatching { vm.repo.reset() }.exceptionOrNull() }

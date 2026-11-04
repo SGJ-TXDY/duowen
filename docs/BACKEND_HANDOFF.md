@@ -1,5 +1,19 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-11-04 · T2 双方集成：关库竞态修复，通知离页竞态待 Claude 处理（待审查）
+
+起点 e0e4f1b（GPT 后端交付 + Claude T2 UI），工作区仍仅 Architect 原五个未跟踪项。按 §14.4 固定双方提交统一运行，184 项 183 通过、1 失败，构建成功、Lint 0 错误/5 警告；没有把定向结果当成全套验收。
+
+完整运行发现取消中的 Room personalMetadata 读取访问已关闭连接池，随后通知 UI 测试启动前抛 UncaughtExceptionsBeforeTest。新增 InitializationNotificationTest.clearingOwnerKeepsDatabaseOpenUntilCancelledReadersFinish，以受控 IO 读屏障验证：原代码提前关库失败。修复仅在 QuizViewModel.onCleared：取消本实例任务，独立 IO 收尾等待 owner Job、考试 operation 和 writer 退出后关库，不保持活动 collector、不阻塞 Main。API_CONTRACT 同步实际生命周期保证；未修改 UI 或评分/存储格式。六类关联测试 **68/68** 通过（含原失败通知类、新读任务回归、新考试保存 UI）。必要完整复测结果见新证据目录。
+
+另有独立实证的 UI P1，未越界修改：QuestionScreen.kt:263，等待离页 flush 时通知先设 REVIEW，在下一个组合帧 dispose 之前，保存成功回调又执行原 HOME 目的地。隔离实际 Compose 用例期望 REVIEW、实得 HOME，原始 XML 和诊断源码保存在 probe-source/。仅依赖 rememberCoroutineScope 离开组合时取消不足以关闭这个窗口。Claude 需在恢复点核对来源页面/离页请求仍有效，再执行目的地或弹错误；通知已接管就丢弃旧结果。正式加入该回归后再交集成。后台/通知 flush 在 §14.3 是可选项，添加它本身不修复此问题。
+
+证据：[双方集成补充](../validation/T2-integrated-20261104/README.md)，含固定 HEAD、97 项输入指纹、Claude 交付指纹核对、完整首次失败、两个受控原失败、后端修复定向及必要完整复测。隔离 UI 诊断不混入固定 HEAD 的正式套件统计；既有套件全通过也不能冒称该竞态已修。
+
+状态：**待审查；通知竞态待 Claude 修复，T2 尚不能验收。** 未改 REPAIR_DISPATCH、前端交付文档或生产 UI；未暂存 Architect 文件，未推送或发布。
+
+---
+
 ## 2026-11-04 · T2 后端异步保存与持久化幂等（待审查）
 
 任务/执行者：REPAIR_DISPATCH §14，GPT 后端。起始 HEAD `e3be2a6bfb13e077182848625e3a64cbc6b6de19`。开工仅有 Architect 的未跟踪派发、方案和验收目录；均未修改或暂存。当前交付代码 SHA、实际验证数和日志见 validation/T2-backend-20261104/README.md 与最终交付回复。

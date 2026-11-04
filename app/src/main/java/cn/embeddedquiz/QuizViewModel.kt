@@ -617,10 +617,14 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     override fun onCleared() {
         val writer = examState.onOwnerCleared()
         val operation = examOperationJob
+        // Cancel collection first; a Room reader already in IO must finish before closing its pool.
+        val owner = viewModelScope.coroutineContext[Job]
+        owner?.cancel()
         codeDrafts.writer.close()
         notesState.shutdown()
         quickNotes.shutdown()
-        if (writer.isCompleted && (operation == null || operation.isCompleted)) {
+        if (writer.isCompleted && (operation == null || operation.isCompleted) &&
+            (owner == null || owner.isCompleted)) {
             db.close(); examResourcesClosed = Job().apply { complete() }
         }
         else {
@@ -628,6 +632,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
             examResourcesClosed = CoroutineScope(Dispatchers.IO).launch {
                 writer.join()
                 operation?.join()
+                owner?.join()
                 database.close()
             }
         }
