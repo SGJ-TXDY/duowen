@@ -1,5 +1,17 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-04 · T4 前端第一部分：编辑器只在文字变化时通知（Claude，REPAIR_DISPATCH §18.4）
+
+起始 HEAD `77c06bd`。**§18.2 草稿保存门面尚未实现**（`CodeDraftSaveState`、`codeDraftSaveState`、`codeDraftEditingBlocked`、`updateCodeDraft`、`retryCodeDrafts`、`flushCodeDrafts` 在代码中不存在），GPT 本地也没有可对齐的实现。前端不能改 QuizViewModel、不直接访问 writer，也不自建同名类型（会与 GPT 的定义冲突），因此本提交只完成不依赖该接口的部分。
+
+- `CodeEditor.kt`：`onValueChange` 只在文字实际变化时调用 `onChange`；光标、选区和输入法组合态留在本地 `TextFieldValue`，不再产生草稿更新。新增 `enabled`（默认 true）：false 时只读、可选可复制、Tab 缩进禁用，供 `codeDraftEditingBlocked` 接入。QuestionScreen 和 PersonalEditors 的现有调用不变。
+- `CodeDraftSaveUiTest.kt`（新增，3 项）：编辑器本身的改动报告、光标保持、Tab 缩进与禁用态。旧编辑器上第一项失败（三次纯光标移动被报告为三次改动），交付版本 3/3。
+- 定向回归 7 个类 **45/45 通过**（证据：`validation/T4-frontend-editor-20261104/`）。输入法组合无法在 Robolectric 注入，需真机验证。
+
+**待 GPT 实现 §18.2 后继续（同一测试文件扩充）**：QuestionScreen 草稿保存中/已保存/失败显示与 `retryCodeDrafts`；普通练习上一/下一题、返回/系统返回、便签入口、缺题页的“先 flush、成功才离开、失败留页（重试保存/留在本页）”协调器，沿用 T2 的来源页面/会话核查以防通知接管后迟到导航；`codeDraftEditingBlocked` 时禁用代码与笔记输入；普通客观题笔记保存状态不把未点保存的编辑称为已保存；必要时 MainActivity.onStop 的非阻塞尽力 flush。考试模式继续只走 ExamLeave。
+
+状态：第一部分待审查；T4 前端整体未完成。
+
 ## 2026-11-04 · T3 前端：启动错误页、诊断/导出、重试与备份恢复确认（Claude，REPAIR_DISPATCH §16.3）
 
 起始 HEAD `7a37243`（GPT T3 后端 c21b86f、25b3142）。接口按 API_CONTRACT 顶部 T3 节与 §16.2。后端、迁移、SQL、恢复协议、契约、派发文档未改；MainActivity 未改（文件选择用 Compose 的 `rememberLauncherForActivityResult`）；T4 未开始。Architect 的未跟踪文件未暂存。

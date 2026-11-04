@@ -17,10 +17,16 @@ import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
+/**
+ * [onChange] fires only when the text itself changes. Cursor, selection and IME composition stay in
+ * the local [TextFieldValue]: they are editing state, not draft content, and must not cause saves.
+ * With [enabled] false the text stays readable and selectable but cannot be edited.
+ */
 @Composable
 fun CodeEditor(
     value: String,
     state: CodeEditorState = remember { CodeEditorState(value) },
+    enabled: Boolean = true,
     onChange: (String) -> Unit,
 ) {
     var field by state.field
@@ -47,6 +53,7 @@ fun CodeEditor(
                     field = TextFieldValue(text, TextRange(start + 4))
                     onChange(text)
                 },
+                enabled = enabled,
                 modifier =
                     Modifier.heightIn(min = 48.dp).semantics { contentDescription = "插入四个空格缩进" },
             ) {
@@ -79,9 +86,11 @@ fun CodeEditor(
                     BasicTextField(
                         value = field,
                         onValueChange = {
+                            val changed = it.text != field.text
                             field = it
-                            onChange(it.text)
+                            if (changed) onChange(it.text)
                         },
+                        readOnly = !enabled,
                         textStyle = style,
                         keyboardOptions =
                             KeyboardOptions(

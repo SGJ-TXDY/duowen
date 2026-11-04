@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.CodeDraftSaveUiTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-04T08:54:33" hostname="LAPTOP-0JLS131B" time="3.977">
+  <properties/>
+  <testcase name="indentInsertsAtTheCaretAsOneChange" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="3.778"/>
+  <testcase name="disabledEditorKeepsTheTextReadableButAcceptsNoEdit" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.087"/>
+  <testcase name="onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.112"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
