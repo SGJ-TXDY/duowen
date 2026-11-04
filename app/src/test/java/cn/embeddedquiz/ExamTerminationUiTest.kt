@@ -212,6 +212,8 @@ class ExamTerminationUiTest {
         val queue = vm.queue
         val answers = vm.examAnswers
         val deadline = vm.examDeadline
+        // Snapshot the latest accepted answer after its asynchronous save completes.
+        await { vm.examSaveState is ExamSaveState.Saved }
         val saved = prefs.getString("exam", null)
 
         openQuestionAbandon()

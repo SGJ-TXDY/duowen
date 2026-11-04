@@ -102,6 +102,8 @@ class QuickNotesIsolationTest {
     @Test
     fun quickNotesDoNotAffectQuizBackupPracticeDraftsOrHomeReview() {
         val model = model()
+        // Ready does not wait for every initial business Flow emission.
+        await { model.progress["a"]?.seen == 1 }
         model.start(model.questions.filter { it.daily }, "顺序练习")
         val question = runBlocking { model.repo.question("a")!! }
         val draft = model.questionDraft(question)

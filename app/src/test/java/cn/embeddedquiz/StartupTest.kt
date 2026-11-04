@@ -15,6 +15,7 @@ import org.robolectric.annotation.Config
 class StartupTest {
     @Test
     fun launchOfflineAndOpenQuestion() {
+        resetDefaultViewModelFactory()
         // Load ViewModel data before attaching Compose: a paused Robolectric clock
         // cannot drain an indeterminate progress animation during Activity.setup().
         val controller =
