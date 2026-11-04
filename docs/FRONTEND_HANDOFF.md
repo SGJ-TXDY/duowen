@@ -1,5 +1,33 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-04 · VC-01 AI 请求按题目版本归属与费用文字对比（Claude，REPAIR_DISPATCH §21）
+
+```text
+任务 ID：VC-01
+执行者及职责：Claude；本次按 §21 授权含 AiStateHolder 小范围后端例外
+起始 HEAD：6becc3f（加当时未提交的视觉/对话工作区）
+交付 commit：2ff0141 视觉规范与八色主题；21e4268 VC-01 补修（另有本交接与证据的归档提交）
+修改文件与对应函数：
+  AiStateHolder.kt：新增 AiRequestUiState、request、requestFor(q)、retry(requestId)、cancel(requestId)；ask 受理时固定快照；
+    失败/成功/缓存命中在 finally 与 busy 同时落定；局部变量更名避免遮蔽。原 busy/error/ask/retry()/cancel() 行为不变。
+  QuestionScreen.kt：AI 区抽为 AiConversationSection（同文件），只按 requestFor(q) 显示待回复气泡、分析中、错误、重试、取消；
+    其他题目在途时禁发送并显示“AI 正在处理其他题目，完成后可在本题提问。”；删除本地 remember(aiPending)；
+    费用小字改 aiCostTextColor = onSurfaceVariant（原 outline）。代码审查按钮仍走 vm.aiState.ask。
+  测试：EnhancedAiTest 新增快照归属与旧 requestId 用例；新增 AiConversationUiTest 4 项；LearningDatesAndReadingTest 补费用对比。
+  API_CONTRACT.md：顶部追加 VC-01 节。
+接口/行为变化：见 API_CONTRACT 顶部 VC-01 节。DAO/schema、缓存键、4 轮上下文、费用计算、网络协议、凭据、评分/考试/保存均未改。
+是否超出白名单：否（QuizViewModel 未改；QuestionScreen 新增 internal 组件仅在 AI 区内）
+修复前失败场景与证据：审查报告的 A→B 路径；定向第 1 轮发现快照与 busy 分两步落定的短暂不一致，已修（validation/VC-01-20261104/focused-run1-failed）
+修复后测试命令、数量、结果、报告位置：
+  定向 4 类 18/18；完整 21e4268：assembleDebug 成功，lint 0 错误 5 警告，测试 256 中 4 失败（CodeDraftSaveUiTest，已知、未解决）。
+  证据 validation/VC-01-20261104/README.md
+故障注入/生命周期/并发验证：MockWebServer 门控慢请求、500、NO_RESPONSE 取消、缓存命中、contentHash 改变、离开返回
+尚未验证的内容：完整套件的 4 个已知失败根因（已证实由新 AiConversationUiTest 跨类干扰引起，去掉该测试全套 252/252；按用户指示停止排查）；真机与视觉验收
+数据兼容与回退方法：无存储格式变化；回退 21e4268 即恢复原全局 busy/error 展示
+需要另一执行者接入的事项：Architect 裁定已知失败的处理方式（README“可选处理”）
+状态：待审查
+```
+
 ## 2026-11-04 · T4 前端补修：缺题页与加载页的草稿离页等待（Claude）
 
 起始 HEAD `bdf72bd`（GPT T4 集成证据）。处理 [T4 集成证据](../validation/T4-integrated-20261104/README.md) 中“普通缺题页绕过草稿等待”。

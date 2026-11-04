@@ -1,0 +1,25 @@
+HEAD 21e42683b7d6db6487b7e0556fb3e950f21f4931
+branch ui-visual-refresh
+--- git status --short (before full run)
+ M docs/REPAIR_DISPATCH.md
+?? docs/VISUAL_CHAT_REVIEW_20261104.md
+?? validation/VC-01-20261104/
+?? validation/visual-chat-review-20261104/
+--- sha256 of files changed since 6becc3f
+29a16c112c250116156e742fbacef9b7b52e7867b13d2a0e898dd2950fdb6713  app/src/main/java/cn/embeddedquiz/AccentPreference.kt
+57e27095bbb6d87eea887051cb4eadffb7f55d7d653ccf23a2535982171a498d  app/src/main/java/cn/embeddedquiz/AiStateHolder.kt
+e9802ddd6f8959e387ef993496112cddaa7f68d40e0eea04e1b5edf0aa8a9afa  app/src/main/java/cn/embeddedquiz/AppNavigation.kt
+abb133eb8738bf5925a755f50c61c0e7ad2b54bcbcd0ac873c71352610b32f67  app/src/main/java/cn/embeddedquiz/BrowseScreen.kt
+9ed12c29edf8ca4ce6bbe8a87e629ebfac2454b249e0524d224c3fcfe2b7b655  app/src/main/java/cn/embeddedquiz/CommonComponents.kt
+5132bd58a537c426f9aaa250b488154d5e7c82aa91835a374e32f110c33d1b75  app/src/main/java/cn/embeddedquiz/PersonalEditors.kt
+dff0e597a3d49fd807b4069e2f2ddd3725fd12a1d60b3fb8940908fd44938a1e  app/src/main/java/cn/embeddedquiz/QuestionScreen.kt
+9a4fbc6b234acd5954d3c0aa546a4ded567b310608c41e4f4c12973232b02fac  app/src/main/java/cn/embeddedquiz/QuizViewModel.kt
+556ecf94220e90d05f6bff9acacf7dc162e45314629319220d828603b5672367  app/src/main/java/cn/embeddedquiz/SettingsScreen.kt
+03a6a0afedcd803d223dfe48d420703c1e1fa3f9dab7ef17102e11b8f87acf57  app/src/main/java/cn/embeddedquiz/Theme.kt
+c476444c507d2edfcaefe585b863ab9f7b59ee248a14719b5fb4b1469321ef8a  app/src/main/res/values-night/themes.xml
+2903ec7a230ad66795ee8b411c42ec604aad426361ff79d6fa48be003c93d988  app/src/main/res/values/themes.xml
+94afae523c8b07331830f7386cccf8630819bd8ba4e1126723b205cab8c265e4  app/src/test/java/cn/embeddedquiz/AccentPreferenceTest.kt
+39990d09765d7c23adef0943f3cd01df93f4303a013f5785a3ef964a1397510b  app/src/test/java/cn/embeddedquiz/AiConversationUiTest.kt
+16f77fcd35882544c761134b7f21b9762cdb8aa4b3ed5fccad42f13ff21bc271  app/src/test/java/cn/embeddedquiz/EnhancedAiTest.kt
+bcc256e389e63979f05f399f9645e933fcdca6d03449ba7b35f0cc019bc9877d  app/src/test/java/cn/embeddedquiz/LearningDatesAndReadingTest.kt
+868290b8359671b34dc83c8f19af1ea9b8cd9d9bc910007b3a5dcec934880630  docs/API_CONTRACT.md

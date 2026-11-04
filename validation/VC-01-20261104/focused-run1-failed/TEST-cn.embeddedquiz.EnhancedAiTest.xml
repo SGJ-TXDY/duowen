@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.EnhancedAiTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-04T13:53:37" hostname="LAPTOP-0JLS131B" time="0.777">
+  <properties/>
+  <testcase name="contextUsesCurrentContentHashAndOnlyLatestFourRounds" classname="cn.embeddedquiz.EnhancedAiTest" time="0.094"/>
+  <testcase name="cancellationStopsHttpAndDoesNotCreateCacheEntry" classname="cn.embeddedquiz.EnhancedAiTest" time="0.239"/>
+  <testcase name="verifiedModelParametersAndPricesMatchOfficialContract" classname="cn.embeddedquiz.EnhancedAiTest" time="0.023"/>
+  <testcase name="failedRequestDoesNotCacheAndRetryCanSucceedWithExplicitLabel" classname="cn.embeddedquiz.EnhancedAiTest" time="0.114"/>
+  <testcase name="requestSnapshotStaysWithItsQuestionAndStaleIdsCannotRetryOrCancel" classname="cn.embeddedquiz.EnhancedAiTest" time="0.307"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Nov 04, 2026 10:53:37 PM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[55203] connection from /127.0.0.1 didn't make a request
+]]></system-err>
+</testsuite>
