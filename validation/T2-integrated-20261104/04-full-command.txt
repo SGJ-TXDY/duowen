@@ -1,0 +1,4 @@
+HEAD: ebcffc30ea5d9aebeeb099e902d99513622cc223
+All 97 Android inputs match byte for byte; no extra app/src inputs.
+Command: tools/build.ps1 -Tasks @('assembleDebug','testDebugUnitTest','--rerun','lintDebug','--continue','--no-daemon')
+Necessary rerun after verified database-close race fix. Isolated notification probe removed from formal inputs; its independent failure remains unresolved in UI.

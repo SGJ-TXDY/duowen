@@ -1,0 +1,7 @@
+Fixed HEAD: ebcffc30ea5d9aebeeb099e902d99513622cc223
+Formal suite: 185 tests, 0 failures/errors/skips; Debug build successful; lint 0 errors/5 warnings.
+Targeted close fix: 68/68.
+Independent extra UI probe: failed 1/1, expected REVIEW, actual HOME. This is not part of the formal suite and remains unresolved.
+Frontend production and test hashes still match Claude's e0e4f1b delivery. No UI fix was made.
+Status: awaiting review; T2 acceptance blocked by late leave callback overriding notification navigation.
+No push/tag/release.

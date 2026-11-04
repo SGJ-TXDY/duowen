@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.ExamPersistenceTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-11-04T04:01:34" hostname="LAPTOP-0JLS131B" time="2.953">
+  <properties/>
+  <testcase name="blocked500msDiskStillAllowsMainEventsAndEditsThenConflatesLatest" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.623"/>
+  <testcase name="legacyIdentityIsStableOnReopenAndSamePaperNewExamsHaveDifferentIds" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.14"/>
+  <testcase name="flushCapturedOldRevisionWaitsForNewerAttemptAfterOldWriteFails" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.097"/>
+  <testcase name="terminalInsertFailureRollsBackLearningAndRetryIsIdempotent" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.115"/>
+  <testcase name="faultsBeforeAndInsideTransactionRollbackThenReopenedHolderSubmitsOnce" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.18"/>
+  <testcase name="legacyIdentityMustReachDiskBeforeAccountingAndAbandonSurvivesFailedIdentityAndClear" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.13"/>
+  <testcase name="backupRemainsV3GuardsRestoreAndResetAndKeepsTerminalLedger" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.134"/>
+  <testcase name="newViewModelAndIndependentPrefsRecoverCommittedResultBeforeApplyingNotification" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.278"/>
+  <testcase name="ownerClearWaitsForTransactionThenReopensWithoutDuplicate" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.207"/>
+  <testcase name="afterCommitAndClearFaultsRestoreLedgerResultWithoutRegradingOrDoubleAccounting" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.156"/>
+  <testcase name="viewModelAnswerEventsContinueDuring500msWriteAndBusyStaysFalse" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.656"/>
+  <testcase name="falseCommitChangesCacheButNeverReportsSavedAndNewEditCanRecover" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.089"/>
+  <testcase name="abandonDrainsInFlightSaveAndLateCallbacksCannotResurrectNewSession" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.083"/>
+  <testcase name="cancellingFlushWaiterDoesNotCancelAcceptedWrite" classname="cn.embeddedquiz.ExamPersistenceTest" time="0.065"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

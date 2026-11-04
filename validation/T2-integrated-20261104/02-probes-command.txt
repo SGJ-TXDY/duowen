@@ -1,0 +1,3 @@
+Production base e0e4f1b; overlays: new reader regression and isolated probe-source/ExamLeaveNotificationProbeTest.kt.
+./tools/build.ps1 -Tasks @('testDebugUnitTest','--tests','cn.embeddedquiz.InitializationNotificationTest.clearingOwnerKeepsDatabaseOpenUntilCancelledReadersFinish','--tests','cn.embeddedquiz.ExamLeaveNotificationProbeTest.notificationWinsWhileLeaveFlushFinishesBeforeTheNextFrame','--no-daemon')
+2/2 fail, preserved as diagnostic evidence, not acceptance.

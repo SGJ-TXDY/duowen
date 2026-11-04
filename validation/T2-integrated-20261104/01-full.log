@@ -1,0 +1,115 @@
+Picked up JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=C:\Users\woziji\Documents\Codex\eqtmp
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :app
+WARNING: The option setting 'android.overridePathCheck=true' is experimental.
+The current default is 'false'.
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+
+> Task :app:checkDebugAarMetadata
+
+Caught exception: Couldn't add watch, error = 1: C:\AndroidProjects\EmbeddedQuiz-gpt-t2-integrated-20261104
+> Task :app:generateDebugResValues
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+
+> Task :app:processDebugMainManifest
+C:\AndroidProjects\EmbeddedQuiz-gpt-t2-integrated-20261104\app\src\main\AndroidManifest.xml:8:5-107 Warning:
+	uses-permission#android.permission.FOREGROUND_SERVICE_DATA_SYNC was tagged at AndroidManifest.xml:8 to remove other declarations but no other declaration present
+
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugResources
+> Task :app:mergeDebugAssets
+> Task :app:compressDebugAssets
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeDebugJniLibFolders
+> Task :app:mergeLibDexDebug
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:mergeDebugNativeLibs
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:preDebugAndroidTestBuild SKIPPED
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:generateDebugAndroidTestResValues
+> Task :app:desugarDebugFileDependencies
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so.
+
+> Task :app:extractProguardFiles
+> Task :app:processDebugManifestForPackage
+> Task :app:processDebugResources
+> Task :app:mergeExtDexDebug
+> Task :app:packageDebugUnitTestForUnitTest
+> Task :app:generateDebugUnitTestConfig
+> Task :app:kspDebugKotlin
+
+> Task :app:compileDebugKotlin
+w: file:///C:/AndroidProjects/EmbeddedQuiz-gpt-t2-integrated-20261104/app/src/main/java/cn/embeddedquiz/Theme.kt:173:29 'var statusBarColor: Int' is deprecated. Deprecated in Java.
+w: file:///C:/AndroidProjects/EmbeddedQuiz-gpt-t2-integrated-20261104/app/src/main/java/cn/embeddedquiz/Theme.kt:174:29 'var navigationBarColor: Int' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:processDebugJavaRes
+> Task :app:generateDebugLintReportModel
+> Task :app:mergeProjectDexDebug
+> Task :app:mergeDebugJavaResource
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:generateDebugAndroidTestLintModel
+> Task :app:generateDebugUnitTestLintModel
+> Task :app:kspDebugUnitTestKotlin
+> Task :app:lintAnalyzeDebugAndroidTest
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+
+> Task :app:testDebugUnitTest
+Picked up JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=C:\Users\woziji\Documents\Codex\eqtmp
+
+> Task :app:lintAnalyzeDebug
+> Task :app:lintAnalyzeDebugUnitTest
+
+> Task :app:testDebugUnitTest
+
+NotificationEntryUiTest > notificationWithoutExamOpensReviewAndOrdinaryStartStaysHome FAILED
+    kotlinx.coroutines.test.UncaughtExceptionsBeforeTest at TestScope.kt:242
+
+184 tests completed, 1 failed
+
+> Task :app:testDebugUnitTest FAILED
+
+> Task :app:lintReportDebug
+Wrote HTML report to file:///C:/AndroidProjects/EmbeddedQuiz-gpt-t2-integrated-20261104/app/build/reports/lint-results-debug.html
+
+> Task :app:lintDebug
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:testDebugUnitTest'.
+> There were failing tests. See the report at: file:///C:/AndroidProjects/EmbeddedQuiz-gpt-t2-integrated-20261104/app/build/reports/tests/testDebugUnitTest/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 2m 40s
+55 actionable tasks: 55 executed

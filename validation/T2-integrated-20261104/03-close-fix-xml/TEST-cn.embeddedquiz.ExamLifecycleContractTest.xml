@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.ExamLifecycleContractTest" tests="20" skipped="0" failures="0" errors="0" timestamp="2026-11-04T04:08:02" hostname="LAPTOP-0JLS131B" time="7.755">
+  <properties/>
+  <testcase name="committedClearFailureDoesNotAutoRetryOrUnlockWhenPrefsKeyAlreadyGone" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.508"/>
+  <testcase name="endingRejectsEditsAndCompetingCommandsBeforeCriticalSection" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.449"/>
+  <testcase name="rollbackFailurePreservesOldRecordsAndCanBeAbandoned" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.431"/>
+  <testcase name="rollbackCanBeRetriedWithFrozenInputsInsteadOfLaterPageOrAnswers" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.432"/>
+  <testcase name="lostGradingEligibilityFailsWholePaperAndAllowsAbandon" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.476"/>
+  <testcase name="missingQuestionFailureCanBeAbandonedAndIsNotRestored" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.654"/>
+  <testcase name="cancelConfirmationLeavesOriginalExamRecoverableAndDoesNotCreateLearning" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.371"/>
+  <testcase name="timeoutWithAllUnansweredScoresZeroWithoutLearningRows" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.303"/>
+  <testcase name="unknownRetryOrFinishWithoutAnExamDoesNotCreateAnOperation" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.264"/>
+  <testcase name="selectedThenClearedIsUnansweredAndCallerCannotMutateStoredAnswer" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.333"/>
+  <testcase name="repeatedExplicitCleanupFailuresKeepCommittedResultAndNeverRegrade" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.308"/>
+  <testcase name="lifecycleCloseAfterCommitStillReportsKnownCommittedOutcome" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.437"/>
+  <testcase name="validationFailureCanRetryOriginalPaperAfterMissingQuestionIsRestored" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.364"/>
+  <testcase name="lifecycleCancellationAndClosedDatabaseBeforeTransactionReportActualFailure" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.364"/>
+  <testcase name="abandonDoesNotWriteLearningAndLateCallbacksCannotRestoreSession" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.368"/>
+  <testcase name="cancellingExplicitRetryRestoresOriginalFailedStateAndKnownResult" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.39"/>
+  <testcase name="cancellationBeforeCriticalSectionReleasesBusyAndOperationOwnership" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.343"/>
+  <testcase name="manualSubmitIsSingleOperationAndKeepsLegacyFieldsAndPaper" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.332"/>
+  <testcase name="abandonClearFailureOnlyAllowsExplicitCleanupRetryAndLocksWithoutPrefsKey" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.32"/>
+  <testcase name="cancellationInsideTransactionDeterminesOutcomeAndDoesNotStrandBusy" classname="cn.embeddedquiz.ExamLifecycleContractTest" time="0.304"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

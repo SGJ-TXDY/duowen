@@ -1,0 +1,3 @@
+Production e0e4f1b + QuizViewModel close fix + InitializationNotificationTest reader regression; fingerprints in 03-close-fix-fingerprints.csv.
+./tools/build.ps1 -Tasks @('testDebugUnitTest','--tests','cn.embeddedquiz.ExamStateHolderTest','--tests','cn.embeddedquiz.ExamLifecycleContractTest','--tests','cn.embeddedquiz.ExamPersistenceTest','--tests','cn.embeddedquiz.InitializationNotificationTest','--tests','cn.embeddedquiz.ExamSaveUiTest','--tests','cn.embeddedquiz.NotificationEntryUiTest','--no-daemon')
+68/68 pass. Isolated UI notification probe not executed in this selection.

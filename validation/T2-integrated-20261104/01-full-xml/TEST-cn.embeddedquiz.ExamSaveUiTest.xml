@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.ExamSaveUiTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-04T04:01:37" hostname="LAPTOP-0JLS131B" time="6.945">
+  <properties/>
+  <testcase name="failedFlushKeepsTheUserOnThePaperUntilAnExplicitRetrySucceeds" classname="cn.embeddedquiz.ExamSaveUiTest" time="4.295"/>
+  <testcase name="saveBarrierFailureFreezesTheSubmitAndRetriesWithTheFrozenPaper" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.75"/>
+  <testcase name="committedCleanupFailureSurvivesRestartWithItsResultAndRecordsOnce" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.562"/>
+  <testcase name="savingDoesNotBlockAnsweringAndSavedAppearsOnlyForTheLatestVersion" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.334"/>
+  <testcase name="leavingWaitsForTheFlushAndFreezesInputUntilItLands" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.378"/>
+  <testcase name="saveErrorStaysVisibleWhileAnsweringAndOnlyAnExplicitRetrySavesIt" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.293"/>
+  <testcase name="saveFailureIsReadableAndReachableOnASmallScreenWithLargeText" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.333"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

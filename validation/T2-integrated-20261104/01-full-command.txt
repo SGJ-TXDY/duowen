@@ -1,0 +1,4 @@
+HEAD: e0e4f1b2b8d0a122e2011646f5932efb583fee95
+All 97 Android inputs match byte for byte.
+Command: tools/build.ps1 -Tasks @('assembleDebug','testDebugUnitTest','--rerun','lintDebug','--continue','--no-daemon')
+No source overlays beyond exact tracked files.

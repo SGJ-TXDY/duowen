@@ -4,7 +4,7 @@
 
 起点 e0e4f1b（GPT 后端交付 + Claude T2 UI），工作区仍仅 Architect 原五个未跟踪项。按 §14.4 固定双方提交统一运行，184 项 183 通过、1 失败，构建成功、Lint 0 错误/5 警告；没有把定向结果当成全套验收。
 
-完整运行发现取消中的 Room personalMetadata 读取访问已关闭连接池，随后通知 UI 测试启动前抛 UncaughtExceptionsBeforeTest。新增 InitializationNotificationTest.clearingOwnerKeepsDatabaseOpenUntilCancelledReadersFinish，以受控 IO 读屏障验证：原代码提前关库失败。修复仅在 QuizViewModel.onCleared：取消本实例任务，独立 IO 收尾等待 owner Job、考试 operation 和 writer 退出后关库，不保持活动 collector、不阻塞 Main。API_CONTRACT 同步实际生命周期保证；未修改 UI 或评分/存储格式。六类关联测试 **68/68** 通过（含原失败通知类、新读任务回归、新考试保存 UI）。必要完整复测结果见新证据目录。
+完整运行发现取消中的 Room personalMetadata 读取访问已关闭连接池，随后通知 UI 测试启动前抛 UncaughtExceptionsBeforeTest。新增 InitializationNotificationTest.clearingOwnerKeepsDatabaseOpenUntilCancelledReadersFinish，以受控 IO 读屏障验证：原代码提前关库失败。修复仅在 QuizViewModel.onCleared：取消本实例任务，独立 IO 收尾等待 owner Job、考试 operation 和 writer 退出后关库，不保持活动 collector、不阻塞 Main。API_CONTRACT 同步实际生命周期保证；未修改 UI 或评分/存储格式。六类关联测试 **68/68** 通过（含原失败通知类、新读任务回归、新考试保存 UI）。关库修复提交 `ebcffc3`；固定此 HEAD 必要完整复测 **185/185**，0 失败/错误/跳过，Debug 构建成功，Lint 0 错误/5 既有警告，完整报告及 97 项指纹见新证据目录。独立通知竞态测试仍失败，未将其排除后冒称功能验收。
 
 另有独立实证的 UI P1，未越界修改：QuestionScreen.kt:263，等待离页 flush 时通知先设 REVIEW，在下一个组合帧 dispose 之前，保存成功回调又执行原 HOME 目的地。隔离实际 Compose 用例期望 REVIEW、实得 HOME，原始 XML 和诊断源码保存在 probe-source/。仅依赖 rememberCoroutineScope 离开组合时取消不足以关闭这个窗口。Claude 需在恢复点核对来源页面/离页请求仍有效，再执行目的地或弹错误；通知已接管就丢弃旧结果。正式加入该回归后再交集成。后台/通知 flush 在 §14.3 是可选项，添加它本身不修复此问题。
 
