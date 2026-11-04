@@ -282,6 +282,8 @@ private fun ExamSetup(vm: QuizViewModel, filtered: List<QuestionSummary>, search
                     "已答 ${vm.queue.count { vm.examAnswers[it].orEmpty().isNotEmpty() }} / ${vm.queue.size} 题，倒计时仍在进行。交卷或放弃后才能开始新的考试。",
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                // A save failure must stay visible here too, e.g. after a notification left the paper.
+                ExamSaveStatus(vm, allowRetry = ExamControls(vm).editable)
                 Button(
                     onClick = { vm.page = Page.QUESTION },
                     shape = MaterialTheme.shapes.medium,

@@ -2,6 +2,7 @@ package cn.embeddedquiz
 
 import android.graphics.BitmapFactory
 import android.util.Base64
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -187,18 +188,129 @@ private fun ExamStatus(text: String) {
     )
 }
 
+/**
+ * Whether the open paper is on disk. Saving never blocks answering; a failure stays visible until a
+ * later save succeeds. Retry is offered only while answers are still editable: once an ending has
+ * frozen them, the ending panel owns recovery.
+ */
+@Composable
+internal fun ExamSaveStatus(vm: QuizViewModel, allowRetry: Boolean, modifier: Modifier = Modifier) {
+    when (val state = vm.examSaveState) {
+        is ExamSaveState.Saving -> ExamSaveLabel("保存中…", modifier)
+        is ExamSaveState.Saved -> ExamSaveLabel("已保存到本机", modifier)
+        is ExamSaveState.Error ->
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                shape = MaterialTheme.shapes.small,
+                modifier = modifier.fillMaxWidth(),
+            ) {
+                // The message wraps beside the button, so large text stays inside narrow screens.
+                Row(
+                    Modifier.padding(start = 12.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        state.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier =
+                            Modifier.weight(1f).padding(vertical = 10.dp).semantics {
+                                liveRegion = LiveRegionMode.Assertive
+                            },
+                    )
+                    if (allowRetry) TextButton(onClick = vm::retryExamSave) { Text("重试保存") }
+                }
+            }
+        ExamSaveState.Inactive -> {}
+    }
+}
+
+@Composable
+private fun ExamSaveLabel(text: String, modifier: Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Leaving an editable exam waits for its latest answers to reach disk; a failed save keeps the user
+ * on the paper with a retry instead of navigating away. Ending states are not gated: their inputs
+ * are frozen and the ending panel shows what remains to be done. The wait is tied to the screen,
+ * so a navigation from elsewhere (a notification) cancels it rather than firing late.
+ */
+@Stable
+internal class ExamLeave(private val vm: QuizViewModel, private val scope: CoroutineScope) {
+    var pending by mutableStateOf(false)
+        private set
+    var blocked by mutableStateOf<(() -> Unit)?>(null)
+        private set
+
+    fun leave(target: () -> Unit) {
+        if (pending || blocked != null) return
+        val controls = ExamControls(vm)
+        if (!controls.open || controls.state != ExamOperationState.Idle) return target()
+        pending = true
+        scope.launch {
+            val saved =
+                try {
+                    vm.flushExamSave()
+                } finally {
+                    pending = false
+                }
+            if (saved) target() else blocked = target
+        }
+    }
+
+    fun retry() {
+        val target = blocked ?: return
+        blocked = null
+        vm.retryExamSave()
+        leave(target)
+    }
+
+    fun stay() {
+        blocked = null
+    }
+}
+
+@Composable
+internal fun rememberExamLeave(vm: QuizViewModel): ExamLeave {
+    val scope = rememberCoroutineScope()
+    return remember(vm) { ExamLeave(vm, scope) }
+}
+
+@Composable
+internal fun ExamLeaveDialog(leave: ExamLeave) {
+    if (leave.blocked == null) return
+    AlertDialog(
+        onDismissRequest = leave::stay,
+        title = { Text("保存失败，暂未离开") },
+        text = {
+            Text("最新修改尚未保存到本机，为避免丢失，已留在答题页。可以重试保存，保存成功后会继续离开。")
+        },
+        confirmButton = { TextButton(onClick = leave::retry) { Text("重试保存") } },
+        dismissButton = { TextButton(onClick = leave::stay) { Text("留在本页") } },
+    )
+}
+
 /** A question removed from the bank never loads; the exam must still be endable from here. */
 @Composable
 private fun MissingQuestion(vm: QuizViewModel) {
     val controls = ExamControls(vm)
     var confirm by remember { mutableStateOf<ExamConfirm?>(null) }
     ExamConfirmDialog(vm, confirm) { confirm = null }
+    val leave = rememberExamLeave(vm)
+    ExamLeaveDialog(leave)
+    BackHandler(enabled = controls.open) { leave.leave { vm.page = Page.HOME } }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { vm.page = Page.HOME }, modifier = Modifier.size(48.dp)) {
+            IconButton(onClick = { leave.leave { vm.page = Page.HOME } }, modifier = Modifier.size(48.dp)) {
                 Icon(AppIcons.Back, contentDescription = "返回首页")
             }
             Text(
@@ -207,6 +319,7 @@ private fun MissingQuestion(vm: QuizViewModel) {
             )
         }
         ErrorNotice("本题无法加载，题目可能已从题库移除。")
+        if (controls.open) ExamSaveStatus(vm, allowRetry = controls.editable)
         if (controls.open) {
             if (controls.state == ExamOperationState.Idle)
                 Text(
@@ -268,8 +381,11 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
     var infoOpen by rememberSaveable { mutableStateOf(false) }
     val controls = ExamControls(vm)
     var confirm by remember { mutableStateOf<ExamConfirm?>(null) }
+    val leave = rememberExamLeave(vm)
+    // While waiting to leave, new input would land after the version being confirmed on disk.
+    val editable = controls.editable && !leave.pending
     // While an ending runs, moving between questions would change what the user believes was handed in.
-    val navLocked = exam && (controls.ending || vm.busy)
+    val navLocked = exam && (controls.ending || vm.busy || leave.pending)
     val previous: () -> Unit = {
         if (!navLocked) {
             vm.index--
@@ -283,6 +399,9 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
         }
     }
     ExamConfirmDialog(vm, confirm) { confirm = null }
+    ExamLeaveDialog(leave)
+    // Takes precedence over the shell's back handler while an exam paper is shown.
+    BackHandler(enabled = exam) { leave.leave { vm.page = Page.HOME } }
 
     Column(Modifier.fillMaxSize()) {
         QuestionTopBar(
@@ -292,8 +411,8 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
             favorite = progress.favorite,
             flagged = progress.flagged,
             showMarks = !exam,
-            onBack = { vm.page = Page.HOME },
-            onNotes = vm::openStickyNotes,
+            onBack = { leave.leave { vm.page = Page.HOME } },
+            onNotes = { leave.leave(vm::openStickyNotes) },
             onFavorite = { vm.toggleFavorite(q.id) },
             onFlag = { vm.toggleFlag(q.id) },
             examActions =
@@ -314,6 +433,12 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
             gapSize = 0.dp,
             drawStopIndicator = {},
         )
+        if (exam)
+            ExamSaveStatus(
+                vm,
+                allowRetry = editable,
+                Modifier.padding(horizontal = 16.dp).padding(top = 6.dp),
+            )
         LazyColumn(
             Modifier.weight(1f).testTag("question-list").semantics { contentDescription = "题目${q.id}" },
             state = draft.scroll,
@@ -399,11 +524,11 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                     state = state,
                     multiple = q.kind == Kind.MULTIPLE,
                     enabled =
-                        if (exam) remaining > 0 && controls.editable
+                        if (exam) remaining > 0 && editable
                         else !revealed && !recorded && !vm.examFinished,
                 ) {
                     // Re-read at the tap: an ending may have started since this frame was drawn.
-                    if (exam && !ExamControls(vm).editable) return@OptionCard
+                    if (exam && (!ExamControls(vm).editable || leave.pending)) return@OptionCard
                     selected =
                         if (q.kind == Kind.MULTIPLE) {
                             if (o.key in selected) selected - o.key else selected + o.key
@@ -420,7 +545,7 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                         modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.medium,
                         minLines = 3,
-                        readOnly = revealed || vm.examFinished || (exam && !controls.editable),
+                        readOnly = revealed || vm.examFinished || (exam && !editable),
                     )
                 }
             if (!exam && showAnswer) {
@@ -700,7 +825,7 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                         ExamOperationState.Abandoning ->
                             PrimaryBarButton("正在放弃…", false, Modifier.weight(1f)) {}
                         else ->
-                            PrimaryBarButton("交卷", controls.editable, Modifier.weight(1f)) {
+                            PrimaryBarButton("交卷", editable, Modifier.weight(1f)) {
                                 confirm = ExamConfirm.SUBMIT
                             }
                     }

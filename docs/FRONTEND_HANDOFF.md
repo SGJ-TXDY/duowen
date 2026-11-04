@@ -1,5 +1,35 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-04 · T2 前端：考试保存提示、显式重试、离页等待（Claude，REPAIR_DISPATCH §14.3）
+
+起始 HEAD `831bcbe`（GPT T2 后端：`5923f4f`、`8b88842`、`831bcbe`）。接口按 API_CONTRACT 顶部 T2 节：`examSaveState`、`retryExamSave()`、`suspend flushExamSave()`。QuizViewModel、ExamStateHolder、ExamPersistence、DAO、迁移、契约、派发文档未改；Architect 未跟踪文件未暂存。
+
+### 修改的文件与函数
+
+| 文件 | 改动 |
+| --- | --- |
+| `QuestionScreen.kt` | 新增 `ExamSaveStatus`：Saving“保存中…”、Saved“已保存到本机”、Error 显示后端 message（“保存失败，最新修改尚未保存”，liveRegion Assertive）及“重试保存”（仅答案可编辑时提供）、Inactive 不显示。新增 `ExamLeave`/`rememberExamLeave`/`ExamLeaveDialog`：可作答的考试离页先 `flushExamSave()`，true 才执行原导航；false 留页并弹“保存失败，暂未离开”（重试保存 → 成功后继续离开 / 留在本页）。`QuestionContent`：保存提示放在进度条下（不随列表滚动）；顶部返回、系统返回（本页 `BackHandler` 优先于外壳）与“打开全局标签”走离页等待；等待期间选项、简答、翻题、交卷冻结。`MissingQuestion` 同样显示保存状态并走离页等待。T1 结束/失败的冻结权限不变。 |
+| `BrowseScreen.kt` `ExamSetup` | Idle 的未交卷卡片显示同一保存状态与重试，离开试卷（例如被通知切走）后失败仍可见。 |
+| `ExamSaveUiTest.kt`（新增） | 7 项，见证据 README。 |
+
+### 设计说明（供 Architect 审查）
+
+- **只在 Idle 可作答时拦截离页。** 结束中、T1 Failed（包括“考试保存失败，未提交成绩”）和清理失败时答案已冻结，`retryExamSave` 按契约无效，若再拦截会把用户困在页面；这些状态的恢复入口在结束面板和考试标签页，离页不拦。
+- **离页失败只给“重试保存 / 留在本页”，没有“仍然离开”。** 按 §14.3“false 留在原页并提供重试”。持续写入故障时用户仍可交卷（屏障失败后进入 Failed，可自由离页）或确认放弃，不会被永久卡住。
+- **AppNavigation、MainActivity 未改。** 答题时底部导航隐藏，离页入口都在答题页内，由本页处理；外壳返回处理器被本页 `BackHandler` 覆盖。等待协程属于答题页作用域：通知等外部导航使页面离开组合时等待被取消，不会迟到导航，也不拦截 G1 通知优先级。
+- **后台/通知路径没有另加 flush。** 契约中 flush 只等待、不写入、不隐式重试；写入器独立于界面生命周期持续落盘，onStop/通知时调用它不会增加任何保存保证，Error 也不会因此恢复。失败状态在答题页和考试入口持续可见。若 Architect 仍要求“后台尽力 flush”，可在 MainActivity.onStop 加一次不等待结果的 launch，改动很小。
+
+### 测试结果（证据：`validation/T2-frontend-20261104/`）
+
+- 定向 10 个类 **92/92 通过**（`--rerun` 真实执行，独立副本自己的 build 目录）：新 ExamSaveUiTest 7、既有考试/通知/练习 UI 38、GPT 的 ExamPersistenceTest 14 / ExamLifecycleContractTest 20 / InitializationNotificationTest 13。
+- 编写中失败与定位见证据 README：首轮 4 项失败均为测试问题（未等题目加载；重启测试在同一组合内换 ViewModel，旧处理器仍绑定旧实例）。探针确认后端重启后的清理重试工作正常。
+- 未运行完整套件（按 §14.4 由 GPT 合入双方提交后统一运行一次）；无真机验证。
+
+### 需要 GPT 集成时注意
+
+- 本提交基于 `831bcbe`，只改上述三个 UI/测试文件和本文档、证据目录。
+- 状态：待审查。
+
 ## 2026-10-27 · G1 前端：通知入口接入、Activity 测试 Compose 收尾、通知与恢复交互测试（Claude）
 
 起始 HEAD `d21c381`（GPT G1 后端）。接口来自 `API_CONTRACT.md` 顶部 G1 段：`requestNotificationReview()`、`awaitInitialization(): InitializationOutcome`。REPAIR_DISPATCH 尚无 G1 正式派发节，本次按用户指示和 GPT 分析中划给 Claude 的范围（MainActivity 通知接入、Activity 测试收尾、通知 UI 测试）执行；QuizViewModel、API_CONTRACT、REPAIR_DISPATCH 未改。
