@@ -145,6 +145,36 @@ class StartupRecoveryTest {
         unchanged(vm)
     }
 
+    @Test fun missingDependencyFailsBeforeReadyOrSubscriptions() {
+        for (missingColumn in listOf(false, true)) {
+            val raw = app.openOrCreateDatabase("embeddedquiz.db", 0, null)
+            try {
+                raw.execSQL("ALTER TABLE sticky_notes RENAME TO preserved_notes")
+                if (missingColumn) raw.execSQL("CREATE TABLE sticky_notes (id TEXT NOT NULL PRIMARY KEY, content TEXT NOT NULL, created INTEGER NOT NULL, updated INTEGER NOT NULL)")
+            } finally { raw.close() }
+            val vm = create()
+            try {
+                waitFor { vm.ready || vm.startupState is StartupState.Error }
+                assertTrue("Missing dependency must not publish Ready: ${vm.startupState}", vm.startupState is StartupState.Error)
+                val error = vm.startupState as StartupState.Error
+                assertEquals(StartupStage.DATABASE, error.stage)
+                assertFalse(error.canRestoreBackup)
+                assertFalse(vm.ready); assertTrue(vm.notesState.stickyNotes.isEmpty())
+                assertEquals(oldAttempts, runBlocking { vm.repo.dao.allAttempts() })
+                assertEquals(oldProgress, runBlocking { vm.repo.dao.allProgress() })
+                vm.db.openHelper.readableDatabase.query("SELECT content FROM preserved_notes").use {
+                    assertTrue(it.moveToFirst()); assertEquals("original note", it.getString(0))
+                }
+            } finally {
+                store.clear(); waitFor { vm.examResourcesClosed?.isCompleted == true }
+                val repair = app.openOrCreateDatabase("embeddedquiz.db", 0, null)
+                try {
+                    if (missingColumn) repair.execSQL("DROP TABLE sticky_notes")
+                    repair.execSQL("ALTER TABLE preserved_notes RENAME TO sticky_notes")
+                } finally { repair.close() }
+            }
+        }
+    }
     @Test fun versionFourCanStartWithLearningDataUnchanged() {
         val raw = app.openOrCreateDatabase("embeddedquiz.db", 0, null)
         try {

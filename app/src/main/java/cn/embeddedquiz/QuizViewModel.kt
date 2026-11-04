@@ -181,7 +181,10 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 try {
                     phase(StartupStage.DATABASE, "正在打开本机题库")
-                    val count = withContext(Dispatchers.IO) { repo.dao.questionCount() }
+                    val count = withContext(Dispatchers.IO) {
+                        StartupStorageCheck.verify(db)
+                        repo.dao.questionCount()
+                    }
                     databaseOpened = true
                     phase(StartupStage.VALIDATION, "正在检查本机历史数据")
                     withContext(Dispatchers.IO) { repo.validateStoredQuestions() }

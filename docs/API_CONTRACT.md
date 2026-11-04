@@ -28,7 +28,7 @@ sealed interface StartupRecoveryResult {
 }
 ```
 
-Loading.attempt 从 1 递增，stage/message 提供加载阶段；Ready 仅在考试恢复和通知选页完成后发布。Error 的 code 为 DATABASE_UNAVAILABLE / STORED_DATA_INVALID / EXAM_UNAVAILABLE / PREPARATION_FAILED；message 为可展示的固定说明，不含 SQL、题干、路径或异常原文。canRestoreBackup 仅表示本次数据库基本访问已成功，可以尝试恢复；仍须确认和会话守卫，不能把 true 当成保证恢复必成功。
+DATABASE 阶段先对 schema 5 的九张依赖表及其读取列做只读 LIMIT 0 预检，缺表/缺列先进入 Error，不在发布 Ready 后才由订阅报错；不写入或修复数据，也不代替 Room 迁移和后续运行时错误处理。Loading.attempt 从 1 递增，stage/message 提供加载阶段；Ready 仅在考试恢复和通知选页完成后发布。Error 的 code 为 DATABASE_UNAVAILABLE / STORED_DATA_INVALID / EXAM_UNAVAILABLE / PREPARATION_FAILED；message 为可展示的固定说明，不含 SQL、题干、路径或异常原文。canRestoreBackup 仅表示本次数据库基本访问已成功，可以尝试恢复；仍须确认和会话守卫，不能把 true 当成保证恢复必成功。
 
 retryInitialization 只在 Error、无恢复工作、owner 未结束时受理，立即切 Loading；Loading/Ready 时无操作，不自动无限重试。每次初始化串行，失败前不启动 Room 订阅；成功后一次性开始题目、学习、便签等观察。不是在失败之后不断创建新 collector。ready / loadingMessage / importProgress 保留兼容。
 

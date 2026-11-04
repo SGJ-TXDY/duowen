@@ -28,7 +28,7 @@
 
 ## 文件与双方边界
 
-GPT：LearningMigration.kt；Data.kt 的保留损坏文件打开回调注册；新增 PreservingOpenHelperFactory.kt（拦截损坏删库，allowDataLossOnRecovery=false）；新增 HistoricalQuestionV3.kt、StartupRecovery.kt；Repository.kt 的存储读取/启动验证；QuizViewModel.kt 初始化/恢复门面；NotesStateHolder.kt 仅延迟首次订阅（默认行为兼容其他使用者）；ExamStateHolder.kt 仅失败初始化后的恢复守卫重入；专用业务/文件迁移测试；API_CONTRACT、BACKEND_HANDOFF、独立 validation。
+GPT：LearningMigration.kt；Data.kt 的保留损坏文件打开回调注册；新增 PreservingOpenHelperFactory.kt（拦截损坏删库，allowDataLossOnRecovery=false）；新增 HistoricalQuestionV3.kt、StartupRecovery.kt、StartupStorageCheck.kt（Ready 前只读检查依赖表/列）；Repository.kt 的存储读取/启动验证；QuizViewModel.kt 初始化/恢复门面；NotesStateHolder.kt 仅延迟首次订阅（默认行为兼容其他使用者）；ExamStateHolder.kt 仅失败初始化后的恢复守卫重入；专用业务/文件迁移测试；API_CONTRACT、BACKEND_HANDOFF、独立 validation。
 
 Claude：待上述接口交付后，在 AppNavigation 启动分支消费 StartupState，必要的独立错误页；诊断/重试/导出/恢复确认和 Compose 测试。Error 页不依赖 ready=true，不读 SQL/偏好；不得自行清库或绕开 confirmReplace/考试守卫。本轮 GPT 不动这些 UI 文件，不在其他聊天派发任务。
 
