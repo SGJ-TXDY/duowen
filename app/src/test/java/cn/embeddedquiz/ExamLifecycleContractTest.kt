@@ -141,7 +141,7 @@ class ExamLifecycleContractTest {
         assertEquals(beforeAttempts, attempts())
         assertEquals(beforeProgress, progress())
         assertFalse(prefs.contains("exam"))
-        clearModel(); model()
+        clearModel(); await { vm.examResourcesClosed?.isCompleted != false }; model()
         assertTrue(vm.queue.isEmpty())
         assertFalse(vm.examState.active())
     }
@@ -153,7 +153,7 @@ class ExamLifecycleContractTest {
         val answers = vm.examAnswers
         val deadline = vm.examDeadline
         // Cancel confirmation means no abandonExam call.
-        clearModel(); model()
+        clearModel(); await { vm.examResourcesClosed?.isCompleted != false }; model()
         assertEquals(queue, vm.queue)
         assertEquals(answers, vm.examAnswers)
         assertEquals(deadline, vm.examDeadline)
@@ -171,7 +171,7 @@ class ExamLifecycleContractTest {
         assertTrue(attempts().isEmpty())
         vm.abandonExam(); settle()
         assertEquals(ExamOperationState.Abandoned, vm.examOperationState)
-        clearModel(); model()
+        clearModel(); await { vm.examResourcesClosed?.isCompleted != false }; model()
         assertFalse(vm.examState.active())
         assertTrue(vm.queue.isEmpty())
     }
@@ -188,7 +188,7 @@ class ExamLifecycleContractTest {
         assertTrue(progress().isEmpty())
         vm.abandonExam(); settle()
         assertEquals(ExamOperationState.Abandoned, vm.examOperationState)
-        clearModel(); model()
+        clearModel(); await { vm.examResourcesClosed?.isCompleted != false }; model()
         assertFalse(vm.examState.active())
     }
 
@@ -310,6 +310,9 @@ class ExamLifecycleContractTest {
         assertEquals(ExamOperationState.Submitting, vm.examOperationState)
         val paper = vm.queue
         val answers = vm.examAnswers
+        val flushed = vm.viewModelScope.async { vm.flushExamSave() }
+        await { flushed.isCompleted }
+        assertTrue(runBlocking { flushed.await() })
         val saved = prefs.getString("exam", null)
         vm.answerExam("a", emptySet()); vm.saveExam()
         vm.start(vm.questions, "顺序练习"); vm.startExam(vm.questions, 3, 30)

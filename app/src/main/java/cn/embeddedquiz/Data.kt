@@ -107,6 +107,12 @@ data class AiEntry(
 
 @Dao
 interface QuizDao {
+    @Query("SELECT * FROM exam_terminations WHERE sessionId=:id OR (:legacyHash IS NOT NULL AND legacyHash=:legacyHash) LIMIT 1")
+    suspend fun examTermination(id: String, legacyHash: String? = null): ExamTermination?
+
+    @Insert
+    suspend fun addExamTermination(value: ExamTermination)
+
     @Query("SELECT id,category FROM questions") suspend fun categoryRows(): List<CategoryRow>
 
     @Query("UPDATE questions SET normalizedCategory=:category WHERE id=:id")
@@ -289,6 +295,7 @@ interface QuizDao {
     entities =
         [
             QuestionRow::class,
+            ExamTermination::class,
             Progress::class,
             Attempt::class,
             AiEntry::class,
@@ -297,10 +304,11 @@ interface QuizDao {
             PersonalAnswer::class,
             QuestionPersonal::class,
         ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class QuizDatabase : RoomDatabase() {
+    internal val examAccess = ExamAccess()
     abstract fun dao(): QuizDao
 
     companion object {
@@ -322,11 +330,12 @@ abstract class QuizDatabase : RoomDatabase() {
             }
 
         val MIGRATION_3_4 = LearningMigration
+        val MIGRATION_4_5 = ExamMigration
 
         fun open(context: Context, name: String = "embeddedquiz.db"): QuizDatabase {
             CategoryMap.load(context)
             return Room.databaseBuilder(context, QuizDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
         }
     }

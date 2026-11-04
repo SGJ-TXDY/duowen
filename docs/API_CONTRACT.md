@@ -1,5 +1,49 @@
 # Android 业务接口契约
 
+## 2026-11-04 · T2 异步考试持久化（GPT 后端已实现，待审查）
+
+本节以 REPAIR_DISPATCH §14 为准，覆盖下文 T1 的同步保存、仅实例内防重复和 Room 4 限制；其他普通练习、通知优先级和备份契约保持。Room 现在为 **5**，备份仍 **3**。Claude 的 T2 UI 接入与双方集成验收另行记录，不将后端实现视为整个 T2 验收完成。
+
+Main 入口（既有结束/成绩接口签名不变）：
+
+```kotlin
+sealed interface ExamSaveState {
+    data object Inactive : ExamSaveState
+    data class Saving(val revision: Long) : ExamSaveState
+    data class Saved(val revision: Long) : ExamSaveState
+    data class Error(val revision: Long, val message: String) : ExamSaveState
+}
+val examSaveState: ExamSaveState
+fun retryExamSave(): Unit
+suspend fun flushExamSave(): Boolean
+```
+
+`startExam/answerExam/saveExam` 只复制内存数据、递增本场 revision、排队后返回；JSON 编码和 commit 在独立 IO 写入器中执行。不占 busy，不使用 runBlocking。每份不可变快照含随机 UUID sessionId、revision、完整题序、index、deadline、答案副本。一个在途加一个可替换的待写版本，版本不重排、任务不无界累积。旧版本完成不得覆盖新版本保存状态。Saved 仅为最新版本得到 commit=true；commit=false 即使改变偏好内存也不能证明落盘。
+
+Error 不丢输入、普通答题仍可进行；每次新改动触发一次新尝试，无改动不自动循环。retryExamSave 仅在可作答的活动考试重排最新快照；结束中、Failed 和终态无副作用。Inactive 表示无待保存考试；已终止但待清理考试由 examOperationState 表达，不能把 Inactive 当成“可以继续作答”。
+
+flushExamSave 在调用方 Main 协程挂起，捕获调用时的 sessionId/revision，直到该版本或同会话更高版本可靠保存，返回 true；无活动/待保存快照 true。保存失败返回 false，保留最新 Error；有较新尝试在途则等待较新尝试结果。调用方取消向上传播，不取消已经受理的后台写入。接口不会做隐式重试；Error 后应显式 retryExamSave，再等待 flush。对超时/立即强杀前未落盘输入不作保全承诺。
+
+finishExam 同步冻结完整快照并进入 Submitting；IO 成绩事务前等待保存屏障。失败为 Failed(SUBMIT, RECORDS, false)，message 精确为“考试保存失败，未提交成绩”，保留 Error，零学习写入。retryExamOperation 重试原冻结快照及操作；该失败可确认 abandonExam。未答/空选择计零分，仅非空选择调用原 record，普通练习与 SRS 未改。
+
+同一持久化互斥协议串行保存和结束。放弃隔离未开始快照，等待在途写入，直接写 ABANDONED 终止记录再清理，不要求答案先保存成功。已提交不改成放弃。事务/清理失败继续使用 T1 Failed；ABANDON 故障为 SESSION_CLEAR。终止标记一旦已知，保存状态 Inactive、答案冻结，仅允许显式清理重试，不能重新评分或改变终止结果。提交和放弃都成功清理后，迟到保存无副作用。
+
+Room 外层事务先查询终止记录，再加载题目、评分、写学习记录；学习副作用与 SUBMITTED 标记、成绩五字段共同提交/回滚。已有 SUBMITTED 直接返回原成绩，不依赖题目当前内容；已有 ABANDONED 不写学习记录。唯一冲突导致整个事务回滚，不在事务外吞冲突后继续记账。终止记录不自动裁剪。
+
+恢复在 IO 解析偏好并先查台账：已终止恢复原结果与 Failed(SESSION_CLEAR)，只清理；未终止恢复输入并重新确认保存。初始化恢复完成后仍由同一 G1 顺序决定页面：通知优先 REVIEW，无通知继续 QUESTION；awaitInitialization 不等同于快照已保存，请观察 examSaveState/flush。损坏快照不静默删除，初始化返回 Failed，原内容保留。
+
+旧无 ID 快照分配 UUID，并将身份与提交输入可靠落盘后才允许记账。额外 legacyHash 是原匿名快照原文的 SHA-256 迁移别名，存入同一新表的可空唯一索引：身份写失败且放弃清理也失败时，旧匿名磁盘快照仍能命中 ABANDONED，不能重生为可答考试。它不是新场次 ID；新考试始终随机 UUID、别名为空。无法追溯去重升级前已经提交的历史考试。
+
+ViewModel clear 后拒绝新考试输入，独立写入器完成已受理写入；只等待本次考试操作和写入任务结束才关闭数据库，避免与受保护事务竞争。clear 前尚未进入事务的操作可按原取消语义退出/失败，不承诺必须提交；不会无限重试或保活整个应用。
+
+备份/重置共享数据库所属考试守卫与数据替换互斥锁。活动、结束失败或待清理考试明确拒绝导入/重置，提示“请先结束当前考试，再恢复备份或重置学习记录”；不依赖 prefs.contains，不静默清理。备份 v3 不含考试快照和台账；成功导入/重置保留本机台账。外部直接替换整份数据库、回退到不遵守台账的 APK 不在去重保证内。
+
+迁移仅新增 exam_terminations 表和 legacyHash 唯一索引；1→4 历史迁移与 schema 不变，不使用 destructiveMigration。升级前结束考试并导出可恢复 v3 备份，保留旧 APK 和原备份。v4 APK 不能直接读取 v5 数据库，源码 revert 不是数据库降级。优先采用继续识别 v5/台账的前向修复；必须回旧版时，在明确确认数据替换之后，把升级前 v3 备份导入独立的干净旧版数据环境并核验，再切换。禁止自动删库、卸载清数据或破坏性降级；当前 v3 导出不含台账，不能拿它宣称保留跨版本幂等保证。
+
+Claude 接入：保存文案按 Saving/Saved/Error/Inactive；选项权限仍优先受 examOperationState 控制。主动离页在调用方协程等待 flush=true 后执行原导航，false 留页并提供 retryExamSave；后台仅尽力异步 flush，不阻塞 onStop/onPause，不阻挡通知复习入口。清理失败重启使用既有成绩和 retryExamOperation，禁止生产 UI 访问偏好/DAO。internal 故障接缝：examState.persistence.beforeWrite、examState.hooks 与 examState.sessionPreferences，仅测试使用。
+
+---
+
 ## 2026-10-26 · G1 初始化完成与通知复习入口（GPT 后端，待审查）
 
 新增主线程门面 `requestNotificationReview(): Unit`：初始化前只记住请求；先完整恢复考试 queue/index/answers/deadline，再决定初始页面，有复习请求时 REVIEW 优先，否则普通启动继续 QUESTION。初始化成功后调用立即转 REVIEW，不受普通写任务 busy 限制。重复请求合并为同一目标，不写学习记录、不重置或保存考试快照。返回 Unit 只表示请求已受理，初始化失败不伪报导航完成。

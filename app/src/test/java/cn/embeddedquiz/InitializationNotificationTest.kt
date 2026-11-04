@@ -102,7 +102,15 @@ class InitializationNotificationTest {
         assertTrue(vm.examState.active())
         assertFalse(vm.examFinished)
         assertNull(vm.examSummary)
-        assertEquals(saved, prefs.getString("exam", null))
+        val flushed = vm.viewModelScope.async { vm.flushExamSave() }
+        waitFor { flushed.isCompleted }
+        assertTrue(runBlocking { flushed.await() })
+        val persisted = DurableExamSnapshot.decode(prefs.getString("exam", null)!!)
+        assertEquals(vm.queue, persisted.ids)
+        assertEquals(vm.index, persisted.index)
+        assertEquals(vm.examAnswers, persisted.answers)
+        assertEquals(vm.examDeadline, persisted.deadline)
+        java.util.UUID.fromString(persisted.sessionId)
         assertLearningPreserved(vm)
     }
 
@@ -113,6 +121,17 @@ class InitializationNotificationTest {
         assertNull(vm.repo.dao.getProgress("c"))
     }
 
+    @Test
+    fun pendingRestoreRejectsResetBeforeInitializationCanPublishExam() {
+        val vm = create()
+        val failure = runBlocking { runCatching { vm.repo.reset() }.exceptionOrNull() }
+        assertTrue(failure is IllegalStateException)
+        assertTrue(failure!!.message!!.contains("请先结束"))
+        vm.requestNotificationReview()
+        assertEquals(InitializationOutcome.Ready(true), outcome(vm))
+        assertEquals(Page.REVIEW, vm.page)
+        assertExamPreserved(vm)
+    }
     @Test
     fun notificationBeforeInitializationPublishesReviewWithRestoredExam() {
         val vm = create()

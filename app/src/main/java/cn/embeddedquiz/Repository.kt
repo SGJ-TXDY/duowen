@@ -87,7 +87,45 @@ class QuizRepository(val db: QuizDatabase) {
         dao.putPersonalMetadata(next)
     }
 
-    suspend fun reset() =
+    internal suspend fun endExam(
+        snapshot: DurableExamSnapshot,
+        submit: Boolean,
+        afterRecord: suspend (Int) -> Unit = {},
+    ): ExamTermination = db.withTransaction {
+        // This lookup MUST precede loading questions or invoking any learning side effect.
+        dao.examTermination(snapshot.sessionId, snapshot.legacyHash)?.let { return@withTransaction it }
+        var result: ExamResult? = null
+        if (submit) {
+            val ids = snapshot.ids
+            if (ids.isEmpty() || ids.distinct().size != ids.size)
+                throw ExamValidationException("考试队列无效")
+            val questions = ids.map { question(it) ?: throw ExamValidationException("考试题目不存在") }
+            val grades = questions.map { q ->
+                if (!q.daily) throw ExamValidationException("考试题目不可判分")
+                Grader.grade(q, snapshot.answers[q.id].orEmpty(), dao.personalAnswer(q.id))
+                    ?: throw ExamValidationException("考试题目不可判分")
+            }
+            var recorded = 0
+            questions.forEach { q ->
+                val selected = snapshot.answers[q.id].orEmpty()
+                if (selected.isNotEmpty()) {
+                    record(q, selected.joinToString(), selected, "模拟考试")
+                    afterRecord(++recorded)
+                }
+            }
+            val answered = questions.count { snapshot.answers[it.id].orEmpty().isNotEmpty() }
+            val correct = questions.indices.count {
+                snapshot.answers[questions[it].id].orEmpty().isNotEmpty() && grades[it]
+            }
+            result = ExamResult(ids.size, answered, ids.size - answered, correct, correct * 100 / ids.size)
+        }
+        val terminal = ExamTermination(snapshot.sessionId, if (submit) "SUBMITTED" else "ABANDONED",
+            result?.total, result?.answered, result?.unanswered, result?.correct, result?.score,
+            System.currentTimeMillis(), snapshot.revision, snapshot.legacyHash)
+        dao.addExamTermination(terminal)
+        terminal
+    }
+    suspend fun reset() = db.examAccess.replaceLearning {
         db.withTransaction {
             dao.allProgress().forEach {
                 dao.putProgress(
@@ -102,6 +140,8 @@ class QuizRepository(val db: QuizDatabase) {
             }
             dao.clearAttempts()
         }
+
+    }
 
     suspend fun importBank(text: String): Pair<Int, Int> {
         val rows = BankCodec.parseBank(text)
@@ -217,7 +257,7 @@ class QuizRepository(val db: QuizDatabase) {
                 .toString()
         }
 
-    suspend fun restore(text: String) {
+    suspend fun restore(text: String) = db.examAccess.replaceLearning {
         val root = JSONObject(text)
         val version = root.getInt("backupVersion")
         require(version in 1..3) { "不是有效备份" }

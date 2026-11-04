@@ -1,5 +1,56 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-11-04 · T2 后端异步保存与持久化幂等（待审查）
+
+任务/执行者：REPAIR_DISPATCH §14，GPT 后端。起始 HEAD `e3be2a6bfb13e077182848625e3a64cbc6b6de19`。开工仅有 Architect 的未跟踪派发、方案和验收目录；均未修改或暂存。当前交付代码 SHA、实际验证数和日志见 validation/T2-backend-20261104/README.md 与最终交付回复。
+
+修改范围：ExamStateHolder 的快照、冻结提交、恢复与结束状态；新增 ExamPersistence 有序合并写入器；新增 ExamMigration 的终止实体、4→5 迁移与数据替换守卫；Data 的实体/DAO/迁移注册及 schema 5；Repository 仅增加考试事务和 restore/reset 冲突保护；QuizViewModel 的保存门面、启动守卫、结束任务与 DB 关闭协调。专用 ExamPersistenceTest、ExamMigrationTest；旧 ExamLifecycleContractTest 和 InitializationNotificationTest 仅调整异步完成/会话 ID 升级断言并补启动守卫。API_CONTRACT 同步实际实现。没有修改 UI/MainActivity、DurablePreferences、评分/SRS、普通 record、依赖、版本或历史 schema/迁移。
+
+固定接口已实现：examSaveState、retryExamSave、suspend flushExamSave；既有 startExam/answerExam/saveExam/finishExam/abandonExam/retryExamOperation 与 T1 状态/成绩签名保留。详细线程、取消、成功/失败语义以 API_CONTRACT 顶部 T2 节为准。
+
+持久化时序：
+
+1. Main 生成随机 UUID；复制不可变快照，revision 递增，发布 Saving。后台写入器最多一份在途加一份最新待写，不占 busy。
+2. IO 构建 JSON、commit。仅成功确认最新快照 Saved；失败保留 Error 和输入，不自动无限重试。flush 等到捕获版本或更高版本可靠写入，调用方取消不取消队列。
+3. 交卷同步冻结并 Submitting；保存屏障失败明确“考试保存失败，未提交成绩”，允许显式重试或确认放弃。屏障成功后，同一互斥锁内进入 Room 事务。
+4. 事务首先查 sessionId/匿名迁移别名；已有终止结果直接复用。否则整卷校验、仅非空作答调用原 record，并与 SUBMITTED/五字段结果共同提交。未答题只参与考试分母，零学习副作用。
+5. 放弃先隔离待写并等在途写完，写 ABANDONED 后删除偏好快照；不以答案保存成功为前提，不写学习表。
+6. 终止标记已知后禁止保存，清理失败保持锁定及原结果；启动恢复先查询标记，只进入清理，不重新判分。G1 仍在恢复状态之后统一选页，通知优先 REVIEW。
+7. clear 拒绝新输入，有限等待本次考试写入/受保护操作，再关闭 DB；没有无限重试/全局 runBlocking。启动恢复期间也先预留守卫，防止尚未读出考试时 reset/restore 清场。
+
+崩溃/故障点：
+
+| 点位 | 已持久化内容 | 新实例行为 |
+| --- | --- | --- |
+| 首次/最新快照保存失败 | 可能只有更旧快照；未提交学习 | Error、提交屏障失败；允许放弃。立即强杀前新输入可丢 |
+| 旧匿名身份升级失败 | 原匿名快照 | 不允许记账；放弃使用原文散列迁移别名识别旧快照 |
+| 成绩事务前失败 | 已确认提交快照 | 无学习记录，恢复后可重提 |
+| 事务中 record 或 marker 插入失败 | 整个事务回滚 | Attempt/Progress/DailyCount 不变，恢复后一次重提 |
+| 事务提交后、清理前失败 | 学习记录和 SUBMITTED/结果共同存在 | 恢复原成绩，只清理；即使题目改变也不重判 |
+| 放弃 marker 后清理失败 | ABANDONED 存在，无学习写入 | 冻结清理态，不能恢复为可答考试 |
+| 删除偏好 commit=false、内存键已丢 | 不把内存视作持久化证明 | 本实例守卫继续锁定；独立缓存按磁盘和台账恢复 |
+| 终止后旧快照再次出现 | 台账保留 | 再次识别并只清理；不重记、不复活 |
+
+迁移：Room 4→5 只新增 exam_terminations 表及 legacyHash 可空唯一索引；1/2/3→4 代码、schema 1～4 原封保留，由现有历史迁移测试继续验证到当前 v5。新场次 sessionId 始终随机 UUID。legacyHash 仅为旧匿名快照的迁移一致性别名，不是新场次身份；解决匿名 ID 写失败、放弃清理也失败后的重启识别。终止台账不自动清除。
+
+备份/回退：刷题备份仍 v3，不含本机活动考试、台账或 API Key。活动、恢复中、结束失败或待清理考试时，恢复/重置明确拒绝；成功恢复/重置保留本机台账。升级前结束考试、保存并核验可恢复 v3 备份，保留原 APK/原备份。v4 APK 不能直接读 v5；源码 revert 不降级 DB。优先前向修复并保留 v5 识别和台账。必须退旧版时，在用户明确确认数据替换后，用升级前备份在独立干净旧版环境恢复、核验后再切换；本轮不执行删库/卸载/自动降级。v3 备份不携带去重台账，回旧 APK 或外部替换整份 DB 不受当前幂等协议保证。升级前历史重复无法追溯判定。
+
+测试与证据：独立副本、独立 ASCII 构建入口，原始失败和修复后报告均保留。最终统计在 validation README；不将前轮失败与后轮通过拼接成全绿。故障覆盖真实文件偏好（false 可改缓存、不改磁盘）、重新打开 Room DB/独立偏好、旧 ID 失败/稳定、新场次不同 UUID、事务前/中/marker/后/清理、保存/结束交错、旧完成、新会话、取消 flush、owner clear、备份与冲突。500ms 屏障实际运行主线程事件和连续 answerExam，未仅断言 dispatcher。新 ViewModel 验证提交后恢复原成绩、通知 REVIEW 和无重复学习记录。
+
+Claude 待接入：
+
+- 按 saveState 显示“保存中 / 已保存到本机 / 保存失败，最新修改尚未保存”；Inactive 不显示已保存。
+- 保存任务不禁答题/翻题；T1 结束/失败状态先冻结输入，清理失败只显示原结果和 retryExamOperation。
+- 主动离页 await flushExamSave=true 再导航，false 保持原页，显式 retryExamSave 后再 flush；后台仅一次尽力异步 flush，不阻塞生命周期，不拦 G1 通知优先级。
+- 测试可用 internal examState.persistence.beforeWrite、hooks、sessionPreferences；生产 UI 不访问偏好/DAO。恢复后 result 来自台账，不能自行重提成绩。
+- 本仓库尚未出现 Claude 的 T2 UI 聚焦提交。当前后端与基线 UI 的全套回归不代替双方 T2 集成；其提交可用后按 §14.4 固定共同 HEAD 做统一验证。
+
+未验证：Android 真进程强杀/真实设备存储故障、通知/配置变化真机和新版保存 UI；不以文件重开单测替代真机验收。T3/T4 不在范围内。未修改共享派发文档、未覆盖他人改动、未发布。
+
+状态：**待审查**。
+
+---
+
 ## 2026-10-26 · G1 后端：统一初始化完成与通知复习顺序（待审查）
 
 任务 ID：G1 后端。执行者：GPT。本轮用户明确要求实施初始化/通知顺序修复并补业务测试；共享派发状态仍由 Architect 维护，没有修改 REPAIR_DISPATCH。

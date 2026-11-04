@@ -116,7 +116,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
 
-    val examState = ExamStateHolder(prefs, repo)
+    val examState = ExamStateHolder(prefs, repo).also { it.reserveForRestore() }
     var examDeadline: Long
         get() = examState.deadline
         set(value) {
@@ -275,7 +275,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun start(list: List<QuestionSummary>, selectedMode: String) {
-        if (examState.active() || (prefs.contains("exam") && !examFinished)) {
+        if (examState.active()) {
             notice = "请先继续并交卷当前考试，再开始其他练习"
             page = Page.QUESTION
             return
@@ -284,6 +284,8 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
             notice = "当前没有符合条件的题目"
             return
         }
+        if (selectedMode == "模拟考试" && (busy || !ready)) return
+        if (!examState.startSession(selectedMode == "模拟考试")) return
         questionDrafts.clear()
         practiceSession++
         practiceRecords = emptyMap()
@@ -291,21 +293,22 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         index = 0
         mode = selectedMode
         page = Page.QUESTION
-        examState.startSession(selectedMode == "模拟考试")
     }
 
     fun startExam(list: List<QuestionSummary>, count: Int, minutes: Int) {
-        if (examState.active() || (prefs.contains("exam") && !examFinished)) {
+        if (examState.active()) {
             notice = "已有未交卷考试，请先完成"
             page = Page.QUESTION
             return
         }
+        if (busy || !ready) return
         val eligible = list.filter { it.daily && learning.canGrade(it) }
         if (eligible.isEmpty()) {
             notice = "当前筛选范围没有可判分客观题，请扩大筛选范围或导入含已核对标准答案的 JSON。"
             return
         }
         start(eligible.shuffled().take(count), "模拟考试")
+        if (mode != "模拟考试" || !examState.active()) return
         examAnswers = emptyMap()
         examDeadline = System.currentTimeMillis() + minutes * 60000L
         saveExam()
@@ -316,6 +319,12 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     val examSummary: ExamResult?
         get() = examState.summary
+
+    val examSaveState: ExamSaveState
+        get() = examState.saveState
+
+    fun retryExamSave() = examState.retrySave()
+    suspend fun flushExamSave(): Boolean = examState.flushSave()
 
     fun saveExam() = examState.save(queue, index, mode)
 
@@ -332,12 +341,12 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     fun finishExam() {
         // In particular, periodic timeout callbacks never implicitly retry a failed operation.
         if (examOperationState != ExamOperationState.Idle || busy || mode != "模拟考试") return
-        if (examState.accept(ExamOperation.SUBMIT, queue)) launchExamOperation()
+        if (examState.accept(ExamOperation.SUBMIT, queue, index)) launchExamOperation()
     }
 
     fun abandonExam() {
         if (busy || mode != "模拟考试") return
-        if (examState.accept(ExamOperation.ABANDON, queue)) launchExamOperation()
+        if (examState.accept(ExamOperation.ABANDON, queue, index)) launchExamOperation()
     }
 
     fun retryExamOperation() {
@@ -345,10 +354,15 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         if (examState.acceptRetry()) launchExamOperation()
     }
 
+    internal var examOperationJob: Job? = null
+        private set
+    internal var examResourcesClosed: Job? = null
+        private set
+
     private fun launchExamOperation() {
         busy = true
         // Enter try/finally even when cancellation arrives before the first dispatch.
-        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+        examOperationJob = viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
             try {
                 examState.executeOperation()
                 (examOperationState as? ExamOperationState.Failed)?.let { notice = it.message }
@@ -470,7 +484,6 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         codeDrafts.writer.flush()
         repo.restore(readUri(uri))
         fullQuestionCache.evictAll()
-        examState.clear()
         withContext(Dispatchers.Main) {
             questionDrafts.clear()
             practiceSession++
@@ -496,7 +509,6 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     fun resetProgress() = launchTask {
         repo.reset()
-        examState.clear()
         withContext(Dispatchers.Main) {
             questionDrafts.clear()
             practiceSession++
@@ -603,10 +615,21 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     override fun onCleared() {
-        examState.onOwnerCleared()
+        val writer = examState.onOwnerCleared()
+        val operation = examOperationJob
         codeDrafts.writer.close()
         notesState.shutdown()
         quickNotes.shutdown()
-        db.close()
+        if (writer.isCompleted && (operation == null || operation.isCompleted)) {
+            db.close(); examResourcesClosed = Job().apply { complete() }
+        }
+        else {
+            val database = db
+            examResourcesClosed = CoroutineScope(Dispatchers.IO).launch {
+                writer.join()
+                operation?.join()
+                database.close()
+            }
+        }
     }
 }
