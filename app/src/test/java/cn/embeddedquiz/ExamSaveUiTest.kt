@@ -269,6 +269,67 @@ class ExamSaveUiTest {
         assertEquals(setOf("B"), savedOnDisk().answers["et-a"])
     }
 
+    /**
+     * A notification opens the review while a leave is waiting for its flush, and the flush then
+     * finishes before the next frame disposes the paper. The order is fixed with a paused clock.
+     */
+    private fun notifyWhileLeaving(saveFails: Boolean) {
+        startExam()
+        await { vm.examSaveState is ExamSaveState.Saved }
+        gate = CompletableDeferred()
+        option("甲一").performClick()
+        await { vm.examSaveState is ExamSaveState.Saving }
+        failWrites = saveFails
+        bar("返回首页").performClick()
+        ui.waitForIdle()
+        assertEquals(Page.QUESTION, vm.page)
+
+        ui.mainClock.autoAdvance = false
+        try {
+            ui.runOnUiThread {
+                vm.requestNotificationReview()
+                assertEquals(Page.REVIEW, vm.page)
+                gate!!.complete(Unit)
+            }
+            // Let the flush resume on Main without a frame, which is when a stale callback would run.
+            await {
+                if (saveFails) vm.examSaveState is ExamSaveState.Error
+                else vm.examSaveState is ExamSaveState.Saved
+            }
+            repeat(50) {
+                shadowOf(Looper.getMainLooper()).idle()
+                java.util.concurrent.locks.LockSupport.parkNanos(1_000_000)
+            }
+            assertEquals("A late leave must not overwrite the notification's page", Page.REVIEW, vm.page)
+        } finally {
+            gate!!.complete(Unit)
+            ui.mainClock.autoAdvance = true
+        }
+        ui.waitForIdle()
+        assertEquals(Page.REVIEW, vm.page)
+        ui.onNodeWithText("智能复习").assertExists()
+        ui.onNodeWithText("保存失败，暂未离开").assertDoesNotExist()
+    }
+
+    @Test
+    fun notificationDuringLeaveWinsWhenTheFlushSucceedsBeforeTheNextFrame() {
+        notifyWhileLeaving(saveFails = false)
+        assertEquals(setOf("A"), savedOnDisk().answers["et-a"])
+    }
+
+    @Test
+    fun notificationDuringLeaveWinsAndNoStaleDialogWhenTheFlushFails() {
+        notifyWhileLeaving(saveFails = true)
+        // The failure itself is not lost: the exam tab still shows it with a retry.
+        failWrites = false
+        ui.onNodeWithContentDescription("导航到模拟考试").performClick()
+        await { vm.page == Page.EXAM }
+        ui.onNodeWithText("保存失败，最新修改尚未保存").assertExists()
+        ui.onNodeWithText("重试保存").performScrollTo().performClick()
+        await { vm.examSaveState is ExamSaveState.Saved }
+        assertEquals(setOf("A"), savedOnDisk().answers["et-a"])
+    }
+
     @Test
     fun failedFlushKeepsTheUserOnThePaperUntilAnExplicitRetrySucceeds() {
         startExam()

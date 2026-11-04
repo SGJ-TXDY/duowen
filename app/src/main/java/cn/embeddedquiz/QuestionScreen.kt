@@ -238,8 +238,12 @@ private fun ExamSaveLabel(text: String, modifier: Modifier) {
 /**
  * Leaving an editable exam waits for its latest answers to reach disk; a failed save keeps the user
  * on the paper with a retry instead of navigating away. Ending states are not gated: their inputs
- * are frozen and the ending panel shows what remains to be done. The wait is tied to the screen,
- * so a navigation from elsewhere (a notification) cancels it rather than firing late.
+ * are frozen and the ending panel shows what remains to be done.
+ *
+ * A navigation from elsewhere (a notification opening the review) may land while the flush is
+ * still pending. The screen's scope is only cancelled on the next frame, so a flush finishing in
+ * between would still resume here; the request therefore re-checks that it still owns the screen
+ * and otherwise drops both the navigation and the failure dialog.
  */
 @Stable
 internal class ExamLeave(private val vm: QuizViewModel, private val scope: CoroutineScope) {
@@ -252,6 +256,8 @@ internal class ExamLeave(private val vm: QuizViewModel, private val scope: Corou
         if (pending || blocked != null) return
         val controls = ExamControls(vm)
         if (!controls.open || controls.state != ExamOperationState.Idle) return target()
+        val page = vm.page
+        val session = vm.practiceSession
         pending = true
         scope.launch {
             val saved =
@@ -260,6 +266,7 @@ internal class ExamLeave(private val vm: QuizViewModel, private val scope: Corou
                 } finally {
                     pending = false
                 }
+            if (vm.page != page || vm.practiceSession != session) return@launch
             if (saved) target() else blocked = target
         }
     }

@@ -1,5 +1,17 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-04 · T2 前端补修：离页回调被通知覆盖（Claude）
+
+起始 HEAD `9221220`（GPT 集成证据；后端关库修复 `ebcffc3`）。处理 [T2 集成证据](../validation/T2-integrated-20261104/README.md) 中的 Claude P1。
+
+- **更正上一节的说法**：“等待协程属于答题页作用域，通知导航时会被取消，不会迟到导航”不成立。页面改为 REVIEW 后，答题页作用域要到下一帧才取消；flush 在此之前返回时，旧回调会把页面改回 HOME。GPT 的诊断已实证复现。
+- **修复**：`QuestionScreen.kt` 的 `ExamLeave.leave` 在发起时记录来源页面与 `practiceSession`，flush 返回后若任一变化（页面已被通知或其他外部导航接管）就丢弃成功导航和失败弹窗。持久化队列照常进行；通知路径不等待保存，G1 的 REVIEW 优先级不变。没有改 AppNavigation、MainActivity 或后端。
+- **测试**：`ExamSaveUiTest` 新增两项，把 GPT 的诊断改为正式回归，保留“通知先设 REVIEW，保存返回在下一帧之前”的顺序：
+  - 成功返回：未修版本失败（期望 REVIEW，实得 HOME），修复后通过。
+  - 失败返回：确认不弹旧对话框、不导航，失败仍在考试标签页可见并可重试。该项在未修版本上也通过（旧弹窗状态会被下一帧的销毁掩盖），作为失败路径的守护而非复现。
+- **结果**（证据：`validation/T2-frontend-race-20261104/`）：前后对照见上；交付版本 10 个相关类 **95/95 通过**（独立副本自有 build 目录，`--rerun`）。未运行完整套件（由 GPT 集成复测）；无真机验证。
+- 状态：待审查。
+
 ## 2026-11-04 · T2 前端：考试保存提示、显式重试、离页等待（Claude，REPAIR_DISPATCH §14.3）
 
 起始 HEAD `831bcbe`（GPT T2 后端：`5923f4f`、`8b88842`、`831bcbe`）。接口按 API_CONTRACT 顶部 T2 节：`examSaveState`、`retryExamSave()`、`suspend flushExamSave()`。QuizViewModel、ExamStateHolder、ExamPersistence、DAO、迁移、契约、派发文档未改；Architect 未跟踪文件未暂存。
