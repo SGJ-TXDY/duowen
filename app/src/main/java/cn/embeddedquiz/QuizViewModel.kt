@@ -76,6 +76,18 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     val learning = LearningStateHolder(viewModelScope, repo, app)
     val codeDrafts = CodeDraftStateHolder(viewModelScope, repo)
+    fun codeDraftSaveState(id: String): CodeDraftSaveState = codeDrafts.state(id)
+    val codeDraftEditingBlocked: Boolean get() = codeDrafts.editingBlocked
+    fun updateCodeDraft(id: String, code: String, notes: String) {
+        if (codeDraftEditingBlocked) return
+        codeDrafts.seed(id, p(id).code, p(id).notes)
+        if (codeDrafts.update(id, code, notes)) questionDrafts[id]?.let {
+            it.code.value = code
+            it.notes.value = notes
+        }
+    }
+    fun retryCodeDrafts(id: String? = null): Unit = codeDrafts.retry(id)
+    suspend fun flushCodeDrafts(id: String? = null): Boolean = codeDrafts.flush(id)
     val errorLog = LocalErrorLog(app)
     var errorLogText by mutableStateOf("")
         private set
@@ -122,6 +134,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     fun questionDraft(q: Question): QuestionDraft =
         questionDrafts.getOrPut(q.id) {
+            codeDrafts.seed(q.id, p(q.id).code, p(q.id).notes)
             QuestionDraft(
                 if (mode == "模拟考试") examAnswers[q.id].orEmpty().toList() else emptyList(),
                 codeDrafts.drafts[q.id]?.code ?: p(q.id).code,
@@ -295,10 +308,15 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
             catch (failure: Exception) { return@recoveryAction StartupRecoveryResult.Rejected("无法确认考试状态，不能恢复备份。请先导出诊断") }
         if (exam != null || examState.active()) return@recoveryAction StartupRecoveryResult.Rejected("请先结束当前考试，再恢复备份")
         withContext(NonCancellable) {
-            withContext(Dispatchers.IO) { repo.restore(text) }
-            if (!cleared) {
-                examState.reserveForRestore()
-                launchInitialization()
+            codeDrafts.exclusive {
+                withContext(Dispatchers.IO) { repo.restore(text) }
+                withContext(Dispatchers.Main) {
+                    afterDraftReplacement(retainText = false, navigateHome = false)
+                    if (!cleared) {
+                        examState.reserveForRestore()
+                        launchInitialization()
+                    }
+                }
             }
         }
         StartupRecoveryResult.Completed
@@ -540,10 +558,10 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleFlag(id: String) = launchTask { repo.update(id) { it.copy(flagged = !it.flagged) } }
 
     fun saveNotes(id: String, code: String, notes: String) {
-        codeDrafts.update(id, code, notes)
-        launchTask {
-            codeDrafts.writer.flush()
-            notice = "代码与笔记已保存"
+        if (codeDraftEditingBlocked) { notice = "草稿处理中，请稍候"; return }
+        updateCodeDraft(id, code, notes)
+        viewModelScope.launch {
+            notice = if (flushCodeDrafts(id)) "代码与笔记已保存" else "草稿保存失败，请重试"
         }
     }
 
@@ -588,42 +606,49 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         notice = "新增 $added 题，跳过 $skipped 个已有 ID（保留旧答案与进度）"
     }
 
-    fun restoreUri(uri: Uri) = launchTask {
-        flushStickyNotes()
-        codeDrafts.writer.flush()
-        repo.restore(readUri(uri))
+    private fun afterDraftReplacement(retainText: Boolean, navigateHome: Boolean) {
+        codeDrafts.advanceGeneration(retainText)
         fullQuestionCache.evictAll()
-        withContext(Dispatchers.Main) {
-            questionDrafts.clear()
-            practiceSession++
-            practiceRecords = emptyMap()
-            queue = emptyList()
+        questionDrafts.clear()
+        practiceSession++
+        practiceRecords = emptyMap()
+        queue = emptyList()
+        if (!retainText) {
+            progress = emptyMap()
             notesState.closeStickyNote()
-            codeDrafts.clear()
-            page = Page.HOME
-            notice = "备份已恢复"
+        }
+        if (navigateHome) page = Page.HOME
+    }
+
+    fun restoreUri(uri: Uri) = launchTask {
+        codeDrafts.exclusive {
+            flushStickyNotes()
+            repo.restore(readUri(uri))
+            withContext(Dispatchers.Main) {
+                afterDraftReplacement(retainText = false, navigateHome = true)
+                notice = "备份已恢复"
+            }
         }
     }
 
     fun backupUri(uri: Uri) = launchTask {
-        flushStickyNotes()
-        codeDrafts.writer.flush()
-        val text = repo.backup()
-        val out =
-            getApplication<Application>().contentResolver.openOutputStream(uri, "wt")
+        codeDrafts.exclusive {
+            flushStickyNotes()
+            val text = repo.backup()
+            val out = getApplication<Application>().contentResolver.openOutputStream(uri, "wt")
                 ?: error("无法写入文件")
-        out.bufferedWriter().use { it.write(text) }
-        notice = "备份完成（不包含 API Key）"
+            out.bufferedWriter().use { it.write(text) }
+            notice = "备份完成（不包含 API Key）"
+        }
     }
 
     fun resetProgress() = launchTask {
-        repo.reset()
-        withContext(Dispatchers.Main) {
-            questionDrafts.clear()
-            practiceSession++
-            practiceRecords = emptyMap()
-            queue = emptyList()
-            notice = "复习和历史已重置；收藏、笔记和便签保留"
+        codeDrafts.exclusive {
+            repo.reset()
+            withContext(Dispatchers.Main) {
+                afterDraftReplacement(retainText = true, navigateHome = false)
+                notice = "复习和历史已重置；收藏、笔记和便签保留"
+            }
         }
     }
 
@@ -725,21 +750,23 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         cleared = true
+        val draftWriter = codeDrafts.shutdown()
         val writer = examState.onOwnerCleared()
         val operation = examOperationJob
         // Cancel collection first; a Room reader already in IO must finish before closing its pool.
         val owner = viewModelScope.coroutineContext[Job]
         owner?.cancel()
-        codeDrafts.writer.close()
+        // Draft worker has its own lifetime and is already draining the final accepted text.
         notesState.shutdown()
         quickNotes.shutdown()
-        if (writer.isCompleted && (operation == null || operation.isCompleted) &&
+        if (draftWriter.isCompleted && writer.isCompleted && (operation == null || operation.isCompleted) &&
             (owner == null || owner.isCompleted)) {
             db.close(); examResourcesClosed = Job().apply { complete() }
         }
         else {
             val database = db
             examResourcesClosed = CoroutineScope(Dispatchers.IO).launch {
+                draftWriter.join()
                 writer.join()
                 operation?.join()
                 owner?.join()

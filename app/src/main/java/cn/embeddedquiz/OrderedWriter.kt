@@ -72,20 +72,28 @@ class OrderedWriter<T : Any>(
 
 data class CodeDraft(val id: String, val code: String, val notes: String)
 
-class CodeDraftStateHolder(scope: CoroutineScope, repo: QuizRepository) {
-    val drafts = mutableStateMapOf<String, CodeDraft>()
-    val writer =
-        OrderedWriter<CodeDraft>(scope, { it.id }) { draft ->
-            repo.update(draft.id) { it.copy(code = draft.code, notes = draft.notes) }
-        }
-
-    fun update(id: String, code: String, notes: String) {
-        val draft = CodeDraft(id, code, notes)
-        drafts[id] = draft
-        writer.enqueue(draft)
+class CodeDraftStateHolder(@Suppress("UNUSED_PARAMETER") scope: CoroutineScope, repo: QuizRepository) {
+    internal val persistence = CodeDraftPersistence { draft ->
+        repo.update(draft.id) { it.copy(code = draft.code, notes = draft.notes) }
     }
+    val drafts get() = persistence.drafts
+    val editingBlocked get() = persistence.editingBlocked
+    fun state(id: String) = persistence.state(id)
+    fun update(id: String, code: String, notes: String) = persistence.update(CodeDraft(id, code, notes))
+    internal fun seed(id: String, code: String, notes: String) = persistence.seed(CodeDraft(id, code, notes))
+    fun retry(id: String? = null) = persistence.retry(id)
+    suspend fun flush(id: String? = null) = persistence.flush(id)
+    internal suspend fun <T> exclusive(action: suspend () -> T): T = persistence.exclusive(action)
+    internal fun advanceGeneration(retainText: Boolean) = persistence.advanceGeneration(retainText)
+    fun shutdown(): Job = persistence.shutdown()
 
-    fun clear() {
-        drafts.clear()
+    /** Temporary source compatibility; all paths use the same coalescing worker and barriers. */
+    val writer = CompatibilityWriter()
+    inner class CompatibilityWriter internal constructor() {
+        val pending get() = persistence.pendingQuestions
+        val error get() = persistence.error
+        fun retry() = this@CodeDraftStateHolder.retry()
+        suspend fun flush() { check(this@CodeDraftStateHolder.flush()) { error.ifEmpty { "草稿保存失败" } } }
+        fun close() { shutdown() }
     }
 }

@@ -1,5 +1,48 @@
 # Android 业务接口契约
 
+## 2026-11-04 · T4 代码草稿（按 §18 固定接口实现，待审查）
+
+T1/T2/T3 已按共享文档验收；本节说明 T4 实际后端实现，前端按 §18.4 接入，整体验收另行记录。Room 仍 5、备份仍 3，不改通用 OrderedWriter、便签/速记协议、评分、历史迁移、依赖或版本。
+
+Main 调用、Compose 可观察：
+
+```kotlin
+sealed interface CodeDraftSaveState {
+    data object Inactive : CodeDraftSaveState
+    data class Saving(val revision: Long) : CodeDraftSaveState
+    data class Saved(val revision: Long) : CodeDraftSaveState
+    data class Error(val revision: Long, val message: String) : CodeDraftSaveState
+}
+fun codeDraftSaveState(id: String): CodeDraftSaveState
+val codeDraftEditingBlocked: Boolean
+fun updateCodeDraft(id: String, code: String, notes: String): Unit
+fun retryCodeDrafts(id: String? = null): Unit
+suspend fun flushCodeDrafts(id: String? = null): Boolean
+fun saveNotes(id: String, code: String, notes: String): Unit // 保留签名
+```
+
+同题尾沿 300ms、最早未保存改动最长 2000ms，单调时钟，不因每次输入重置上限。窗口和在途都为 Saving；一次实际串行 IO 写入，每题最多一个最新待写版本，替换而非每字符排队。数据库繁忙时不能承诺墙钟硬截止，但不并发写、不无限增长队列。同文本不增 revision、不新增写入；首次已加载文本仅 seed，状态仍 Inactive。选区/输入法 composition 是前端本地态，后端接口只接 text。
+
+Saved(revision) 仅在 Room 的该次 code/notes 事务成功返回后确认最新受理版本。保存采用原 repo.update 事务，在事务内读最新 Progress 再仅 copy code/notes，保留收藏、flagged、评分/计数/SRS 与其他字段。IO/数据库工作均不在 Main；保存不占全局 busy，不因普通 Saving 禁输入。updateCodeDraft 同步维护 codeDrafts.drafts 及已缓存 QuestionDraft 的 code/notes；不重建 CodeEditorState，不因 Progress Flow 重发回滚已受理文字。Error 保留最新内存文本；新文字继续按窗口调度，旧版本失败/成功不降级当前状态。无新文字时失败不自动反复重试；重复同文本不会隐式重试。
+
+retryCodeDrafts(id) 只立即重试该题最新 Error 版本；null 处理所有当前 Error。已经新版本 Saved 时无操作，不回放旧失败，不导航、不触碰考试或便签。
+
+flushCodeDrafts(id) 捕获调用时该题最新版本；null 捕获所有当时受理版本，立即强制取出对应合并窗口。等待所捕获版本或同代际更新版本提交才 true；最新失败返回 false，保留 Error，不偷偷重试。无任务 true。调用者取消向上传播，仅取消等待，不取消已受理写入。数据代际改变后尚未得出结果的旧等待返回 false，不把旧任务当新数据已保存。Saved 只说明文字，不表示考试答案或普通笔记未点击保存的本地编辑已持久化。
+
+saveNotes 更新后显式 flush 当前题；可靠成功才提示“代码与笔记已保存”，失败提示且保持 Error。普通题本地笔记仍须原保存按钮触发此入口；仅修改 QuestionDraft.notes 不自动调用后端。草稿状态不可据此把未点击保存的本地文字标成已保存。
+
+备份/普通恢复/复习重置/T3 restoreStartupBackup 共用草稿 exclusive 边界：先 codeDraftEditingBlocked=true，拒绝新草稿更新，再 flush 所有当前窗口，之后持有与草稿写入相同的互斥锁执行读取/导出或替换。flush 失败中止整个操作、无成功提示、不清缓存；导出结束/异常/取消释放边界。编辑在边界前已经受理的文字必被包括；边界中的新更新被拒绝，UI 必须禁对应输入。
+
+恢复成功提交后推进代际并清理旧 drafts/QuestionDraft、题目缓存和练习会话状态，旧任务/旧等待/旧重试不写回新数据；恢复校验或事务失败保持原缓存与数据。重置先保存最新文字，再按原 repo.reset 清复习/历史，保留收藏、flagged、代码、笔记、便签；成功推进代际但保留已保存文字镜像，新代际状态 Inactive。替换入口必须使用 VM 边界，不直接调用裸 repo.restore/reset 绕过活动草稿；Room 自身事务仍负责与同期非草稿字段写入串行。T2 考试守卫和 T3 确认/数据库可用性限制继续生效。
+
+owner clear 同步停止接受输入、强制提交窗口最新版本。草稿 worker 生命周期独立于 viewModelScope，先启动 drain 再取消 owner；在独立 IO 收尾中等待草稿、考试 writer/operation 和原 owner 读取全部退出后才关 DB。草稿 drain 预算 2500ms，超时发协作式取消，join 仍等实际 IO/事务退出，不提前关闭活动连接；不阻塞 Main、不无限重试。已失败且无新输入的版本不会因 clear 无限重试；取消/失败保持 Error，不谎报 Saved。无法承诺不可取消的系统 IO 卡死时硬限时关库，也不保证立即强杀前未落盘文字保全。
+
+兼容 codeDrafts.writer 的 pending/error/retry/flush/close 仅委托这一套策略，没有第二写入通道；pending 包含窗口、在途及失败未落盘题，flush 包含窗口并在失败时抛异常。Claude 应使用上面的正式 VM 接口。独立使用 CodeDraftStateHolder 的调用方需 shutdown().join() 后再关 repo DB（独立生命周期）；VM 已统一处理。
+
+内部测试接缝为 codeDrafts.persistence：CodeDraftClock 控制时间，beforeWrite/afterWrite/beforeBoundary 控制 IO/边界，closeBudgetMillis 仅供缩短故障测试等待；UI 生产代码不读取这些字段。实际写入计数用测试数据库触发器审计已提交 progress 文字变更，不以队列长度替代。
+
+---
+
 ## 2026-11-04 · T3 启动恢复与历史存储（GPT 实现契约，待审查）
 
 用户授权启动 T3；本节是实际后端接口与保数据选择，供 Architect 审查后 Claude 接入。共享派发尚未补齐 T3 固定接口，本节不冒称已有新的 Architect 裁定。本节覆盖下文 G1 的“每实例仅一次、无重试”和 T2 的旧启动错误限制；G1 通知优先级、T2 会话和台账语义保留。Room 仍 5、备份仍 3，无结构迁移或依赖升级。

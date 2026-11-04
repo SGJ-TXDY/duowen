@@ -200,8 +200,8 @@ class LearningDataTest {
         withRepo { repo ->
             repo.update("a") { it.copy(favorite = true) }
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+            val drafts = CodeDraftStateHolder(scope, repo)
             try {
-                val drafts = CodeDraftStateHolder(scope, repo)
                 repeat(40) { drafts.update("a", "    int version = $it;", "笔记 $it") }
                 drafts.writer.flush()
                 val progress = repo.dao.getProgress("a")!!
@@ -209,6 +209,7 @@ class LearningDataTest {
                 assertEquals("笔记 39", progress.notes)
                 assertTrue(progress.favorite)
             } finally {
+                drafts.shutdown().join()
                 scope.cancel()
             }
         }
