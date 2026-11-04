@@ -1,0 +1,9 @@
+Repository: F:\学习\嵌入式学习\知识总结\复习软件\EmbeddedQuiz
+Remote check: git ls-remote --heads --tags origin
+Remote file: GitHub fetch_file SGJ-TXDY/-app app/build.gradle.kts at 92d1cd70df874680caef78ca95ccc0a97b6e8b6d, lines 1-23; version 1.6.0/7
+Python: C:\Users\woziji\AppData\Local\Programs\Python\Python312\python.exe -m unittest discover -s tools -p 'test_*.py' -v
+APK metadata (actual built APK): build-tools/35.0.0/aapt2.exe dump badging app/build/outputs/apk/debug/app-debug.apk
+APK signature (actual built APK): build-tools/35.0.0/apksigner.bat verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
+Baseline: same two APK inspection commands against F:\学习\嵌入式学习\知识总结\复习软件\EmbeddedQuiz-1.6.0-debug.apk
+Only certificate SHA-256/verification summaries retained, no keystore/private key contents read or printed.
+Adb read-only inventory: sdk/platform-tools/adb.exe devices -l; no device; user elected self-install/report.

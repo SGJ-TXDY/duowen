@@ -1,0 +1,4 @@
+HEAD: 06796d459e330c2ba40790714dd730acb801072b
+109 Android inputs match; compared against 492b361 accepted 248/248 inputs: 108 unchanged, build.gradle.kts changes exactly versionName/versionCode only.
+./tools/build.ps1 -Tasks @('assembleDebug','lintDebug','--continue','--no-daemon')
+Full Android tests intentionally reused per section 19.2; not rerun for metadata/doc changes.

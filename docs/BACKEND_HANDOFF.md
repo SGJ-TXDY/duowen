@@ -1,5 +1,30 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+## 2026-11-04 · G2 / 1.6.1 Debug 验证候选统一交付（待设备验收）
+
+按共享文档 §19.2–19.3 单人直接执行，Claude 无需再接任务。开工 HEAD 31ea8b2，原工作区仅 Architect 五个未跟踪项，未编辑/暂存。远端 origin SGJ-TXDY/-app，准备时 main 92d1cd7、仅 v1.6.0，无 v1.6.1 标签；确切远端 build 文件为 1.6.0/7，本地历史未占用 1.6.1/8。未创建/覆盖标签或发布。
+
+版本/说明提交 **06796d459e330c2ba40790714dd730acb801072b**：仅 app/build.gradle.kts versionName=1.6.1、versionCode=8；README 当前候选/考试/升级回退说明；新增 CHANGELOG-1.6.1.md。业务、测试、依赖、Room、备份、applicationId、签名、题库不改。当前是 Debug 验证候选，不称已有正式 Release 签名产物。
+
+实际候选路径：**F:\学习\嵌入式学习\知识总结\复习软件\EmbeddedQuiz-1.6.1-candidate-debug.apk**。独立创建，禁止覆盖；旧 1.6.0 稳定 APK 前后哈希未变。同目录 .apk.sha256 提供摘要。包 cn.embeddedquiz，实际版本 **1.6.1 / 8**，min SDK **26**、target **35**，大小 **12986835 bytes**。
+
+APK SHA-256：`99DDAA886D09AA0E5428D2B8EA2A88147D93B35BE2CFE99DE44ECBBB5714D49D`。
+证书 SHA-256：`2c73c905e6d127dd92fbfaf5351058572cb8e78e98beb477eb1a0f37ee43b151`。
+
+实际新 APK 的 aapt2 元数据和 apksigner 校验均通过（退出 0），证书与实际旧 1.6.0/7 APK 及既有身份一致；只保留证书摘要/验证结论，未读取或输出私钥。核验脚本首次字段名匹配有误（当前 aapt2 输出 minSdkVersion），已按原始输出修正，同一次构建的 APK 实际元数据正确，没有以改名冒充。
+
+验证：README 指定 Python unittest discover **11/11，OK，退出 0**，既有 Python3.12.10/python-docx1.2.0；Android **复用 492b361 的 248/248**，109 项输入逐项比对，108 完全相同，唯一 build.gradle.kts 还原两版本字段后字节 SHA 一致。依 §19.2 不重复全套。新版本实际 assembleDebug + lintDebug 成功、退出 0，1m 58s，Lint **0 错误/5 既有警告**（ID/说明相同）；109 项输入运行前后及 GPT 隔离副本一致，Debug APK 从该固定提交构建。
+
+统一证据：[G2 候选、包/签名/摘要、验证与设备记录](../validation/G2-candidate-1.6.1-20261104/README.md)。含远端refs/旧版构建文件、Python实际日志、构建命令/日志、Lint 原始 XML/HTML/TXT、源码复用及前后指纹、旧/新 APK 元数据与摘要、candidate-manifest.json，以及 DEVICE_CHECKLIST.md/DEVICE_RESULTS.json。
+
+设备由用户选择自行试装并回报，GPT 统一组织/记录，不再分派 Claude。当前 adb 无设备，没有进行安装/真机操作；**16 个子项全部待用户执行（0 通过/0 失败）**，机型/Android/旧版本/输入法/备份可读等尚待用户回报。已提供统一7步：升级前备份与覆盖数据保留；未答/部分交卷、放弃与考试重启；冷/热通知保留考试；长代码计时/输入法/选区/快速离页；后台恢复；最新备份/恢复确认/重置保留与手动笔记；诊断/错误动作、浅深色/字号/TalkBack。条件不足明确未测，不损坏真实用户库造错；后续按回报更新实际步骤和结果。
+
+升级前先导出并确认学习备份可读、速记另备份，保留原 APK。Room5、学习备份3；备份不含运行考试/本机终止台账/API Key，诊断 ZIP不是学习备份。旧 v4 APK不能直接读 v5，回退源码不降级 DB；优先保留 v5 的前向修复，必要旧版恢复须独立干净环境和确认数据替换，不建议卸载/清数据绕过。立即强杀前未落盘文字仍不保证保全。
+
+状态：**候选产物已核验并交付，待用户设备结果与 Architect 最终发布裁定**。尚未推送、建稳定标签/Release 或覆盖稳定产物，不把候选准备完成称为整版正式发布。
+
+---
+
 ## 2026-11-04 · T4 缺题补修后统一复测：248/248（待审查）
 
 固定受测 HEAD `492b361b8a2729ac2ce25b49dab427f17f798ffa`，包含 GPT 后端、Claude 完整前端及缺题/加载离页补修。开工仅 Architect 原五个未跟踪项，未修改或暂存。本轮 GPT 不改生产代码/UI/正式测试/接口，只复测与更新交接、独立证据；不要求 Claude 再接一轮。

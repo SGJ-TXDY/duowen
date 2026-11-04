@@ -1,0 +1,7 @@
+Observed at G2 opening: HEAD 31ea8b2 (no tracked changes).
+?? docs/REPAIR_DISPATCH.md
+?? docs/T1_BACKEND_PROPOSAL.md
+?? validation/G1-architect-integrated-20261027/
+?? validation/T1-architect-review-20261026/
+?? validation/T1-frontend-architect-review-20261026/
+G2 evidence directory was created afterwards. Original entries not edited/staged.

@@ -1,0 +1,1 @@
+First metadata assertion stopped because the inspection parser expected sdkVersion but this aapt2 prints minSdkVersion. Raw APK output already correctly showed cn.embeddedquiz, 1.6.1/8 and min26/target35. Parser corrected to accept minSdkVersion; no source, APK or build changed/repeated and no candidate had been copied before that assertion.
