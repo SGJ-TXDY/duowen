@@ -179,7 +179,14 @@ private fun QuizLayout(vm: QuizViewModel) {
                     pageState.SaveableStateProvider("quick-notes") { QuickNotesScreen(vm, reader) }
                 }
             else
-                Box(Modifier.weight(1f).padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
+                Box(
+                    Modifier.weight(1f)
+                        .then(
+                            // 更多 is a grouped list whose blocks run edge to edge.
+                            if (vm.page == Page.MORE) Modifier
+                            else Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                        )
+                ) {
                     pageState.SaveableStateProvider(vm.page.name) {
                         when (vm.page) {
                             Page.HOME -> Home(vm, today)
@@ -205,7 +212,7 @@ private fun QuizLayout(vm: QuizViewModel) {
                             Page.STATISTICS -> History(vm)
                             Page.SETTINGS -> Settings(vm)
                             Page.NOTES -> StickyNotesScreen(vm)
-                            Page.MORE -> MoreScreen(vm)
+                            Page.MORE -> MoreScreen(vm, today)
                             Page.WORKBENCH -> AnswerWorkbench(vm)
                             Page.COSTS -> CostsScreen(vm)
                             Page.ERROR_LOG -> ErrorLogScreen(vm)
@@ -213,30 +220,6 @@ private fun QuizLayout(vm: QuizViewModel) {
                     }
                 }
         }
-    }
-}
-
-@Composable
-private fun MoreScreen(vm: QuizViewModel) {
-    LazyColumn(
-        modifier = Modifier.testTag("more-list"),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(bottom = 24.dp),
-    ) {
-        item { Heading("更多") }
-        // Category, programming and exam now live on the home screen and the tab bar.
-        // The review page left the tab bar for 速记; it stays reachable here and from notifications.
-        listOf(Page.REVIEW, Page.NOTES, Page.WORKBENCH, Page.STATISTICS, Page.COSTS, Page.SETTINGS)
-            .forEach { page ->
-                item {
-                    OutlinedButton(
-                        onClick = { vm.navigate(page) },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                    ) {
-                        Text(if (page == Page.NOTES) "全局标签 / 便签" else page.label)
-                    }
-                }
-            }
     }
 }
 

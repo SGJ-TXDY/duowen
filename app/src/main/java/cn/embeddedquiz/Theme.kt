@@ -194,6 +194,66 @@ val LocalStatusColors = staticCompositionLocalOf { statusColors(false) }
 val MaterialTheme.status: StatusColors
     @Composable @ReadOnlyComposable get() = LocalStatusColors.current
 
+/**
+ * The 更多 page's grouped list: [page] sits a step darker than the app background so the 8dp gaps
+ * between white groups read; the row icons keep one hue each in both modes.
+ */
+@Immutable
+data class MoreColors(
+    val page: Color,
+    val dot: Color,
+    val review: Color,
+    val tag: Color,
+    val verify: Color,
+    val stats: Color,
+    val cost: Color,
+    val settings: Color,
+    val mascot: MascotColors,
+)
+
+/** Mascot inks from the concept art; dark mode lifts the outline so the silhouette stays visible. */
+@Immutable
+data class MascotColors(
+    val outline: Color,
+    val body: Color,
+    val highlight: Color,
+    val eye: Color,
+    val mouth: Color,
+) {
+    fun of(ink: MascotInk) =
+        when (ink) {
+            MascotInk.OUTLINE -> outline
+            MascotInk.BODY -> body
+            MascotInk.HIGHLIGHT -> highlight
+            MascotInk.EYE -> eye
+            MascotInk.MOUTH -> mouth
+        }
+}
+
+fun mascotColors(dark: Boolean) =
+    if (dark)
+        MascotColors(Color(0xFF5A5264), Color(0xFF2E2635), Color(0xFF7A7084), Color(0xFFFBE3BF), Color(0xFFEE8C78))
+    else
+        MascotColors(Color(0xFF120D14), Color(0xFF251E2B), Color(0xFF6E6577), Color(0xFFFBE3BF), Color(0xFFEE8C78))
+
+fun moreColors(dark: Boolean) =
+    MoreColors(
+        page = if (dark) Color(0xFF0F1115) else Color(0xFFEEEFF3),
+        dot = Color(0xFFF04848),
+        review = Color(0xFF1E9E5A),
+        tag = Color(0xFFE0850B),
+        verify = Color(0xFF5363D6),
+        stats = Color(0xFF1F86DB),
+        cost = Color(0xFFE04A4A),
+        settings = Color(0xFF6B7280),
+        mascot = mascotColors(dark),
+    )
+
+val LocalMoreColors = staticCompositionLocalOf { moreColors(false) }
+
+val MaterialTheme.more: MoreColors
+    @Composable @ReadOnlyComposable get() = LocalMoreColors.current
+
 private val AppTypography =
     Typography().let {
         it.copy(
@@ -253,6 +313,7 @@ fun AppTheme(
         LocalDensity provides Density(density.density, density.fontScale * scale),
         LocalStatusColors provides statusColors(dark),
         LocalSelectionColors provides selectionColors(dark, accent),
+        LocalMoreColors provides moreColors(dark),
     ) {
         MaterialTheme(
             colorScheme = colors,

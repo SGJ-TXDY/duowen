@@ -156,6 +156,47 @@ class PracticeEntriesUiTest {
     }
 
     @Test
+    fun morePageShowsHintsOnlyWhenThereIsSomethingToDo() {
+        val inMore = hasAnyAncestor(hasTestTag("more-list"))
+        ui.onNodeWithContentDescription("导航到更多").performClick()
+        await { vm.page == Page.MORE }
+        ui.onNode(hasText("智能复习") and inMore).assertExists()
+        ui.onNode(hasText("今日待复习", substring = true) and inMore).assertDoesNotExist()
+        ui.onNode(hasText("本月", substring = true) and inMore).assertDoesNotExist()
+        ui.onNode(hasText("错题 0") and inMore).assertExists()
+        val dot = hasContentDescription("有待处理")
+        ui.onNode(hasText("智能复习") and inMore).assert(!dot)
+        // The bundled bank may also be loaded, so the workbench count is checked against the data.
+        val pending =
+            vm.questions.count {
+                it.objective && (it.reviewRequired || it.correctKeys.isBlank()) && !vm.learning.canGrade(it)
+            }
+        val workbench = ui.onNode(hasText("待核对工作台") and inMore)
+        if (pending > 0) workbench.assert(hasText("$pending 条") and dot)
+        else workbench.assert(!dot)
+
+        val today = java.time.LocalDate.now().toEpochDay()
+        runBlocking {
+            vm.repo.dao.putProgress(Progress("pe-one", seen = 1, due = today, wrong = true))
+        }
+        await {
+            ui.onAllNodes(hasText("今日待复习 1") and inMore).fetchSemanticsNodes().isNotEmpty()
+        }
+        ui.onNode(hasText("错题 1") and inMore).assertExists()
+        ui.onNode(hasText("智能复习") and inMore).assert(dot)
+
+        // Tapping the mascot plays its jump and never leaves the page.
+        ui.onNodeWithContentDescription("吉祥物").assertHasClickAction().performClick()
+        ui.waitForIdle()
+        assertEquals(Page.MORE, vm.page)
+
+        ui.onNode(hasText("历史统计") and inMore).performClick()
+        await { vm.page == Page.STATISTICS }
+        back()
+        assertEquals(Page.MORE, vm.page)
+    }
+
+    @Test
     fun examTabResumesUnfinishedExamInsteadOfRestarting() {
         ui.runOnIdle {
             vm.startExam(vm.questions.filter { it.id.startsWith("pe-") }, 2, 30)

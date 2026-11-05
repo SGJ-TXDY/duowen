@@ -82,5 +82,39 @@ object AppIcons {
         stroke("quick-notes", "M6 3h9l4 4v14H6z", "M14 3v5h5", "M9 12h7", "M9 16h5")
     val Trash = stroke("trash", "M4 7h16", "M10 11v6", "M14 11v6", "M6 7l1 13h10l1-13", "M9 7V4h6v3")
     val Import = stroke("import", "M12 4v11", "M7 10l5 5 5-5", "M5 20h14")
-    val Flame = stroke("flame", "M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-4 2.5-5 .3 1.6 1 2.6 2 3 0-3 .5-5.5.5-8z")
+    // 更多 page rows: drawn thinner, as in the design.
+    val Sync =
+        stroke("sync", "M20 11a8 8 0 0 0-14.9-3.9", "M4 4v4h4", "M4 13a8 8 0 0 0 14.9 3.9", "M20 20v-4h-4", width = 1.8f)
+    val TagThin = stroke("tag-thin", "M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z", circle(7.5f, 7.5f, 1.5f), width = 1.8f)
+    val ClipboardCheck =
+        stroke("clipboard-check", roundRect(5f, 4f, 14f, 17f, 2f), "M9 4V3h6v1", "M9 13l2 2 4-4", width = 1.8f)
+    val BarChart = stroke("bar-chart", "M4 20h16", "M7 16v-5", "M12 16V7", "M17 16v-8", width = 1.8f)
+    val Coin =
+        stroke(
+            "coin",
+            circle(12f, 12f, 9f),
+            "M9 7.5l3 4 3-4",
+            "M8.5 12h7",
+            "M8.5 15h7",
+            "M12 11.5v6",
+            width = 1.8f,
+        )
+    val Settings =
+        stroke(
+            "settings",
+            circle(12f, 12f, 3f),
+            circle(12f, 12f, 7f),
+            "M12 2.5V5",
+            "M12 19v2.5",
+            "M2.5 12H5",
+            "M19 12h2.5",
+            "M5.3 5.3l1.8 1.8",
+            "M16.9 16.9l1.8 1.8",
+            "M5.3 18.7l1.8-1.8",
+            "M16.9 7.1l1.8-1.8",
+            width = 1.8f,
+        )
+    /** Placeholder for the profile card until an avatar (image or vector) is chosen. */
+    val Person = stroke("person", circle(12f, 8.5f, 4f), "M4.5 20a7.5 7.5 0 0 1 15 0", width = 1.8f)
+    val Flame =stroke("flame", "M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-4 2.5-5 .3 1.6 1 2.6 2 3 0-3 .5-5.5.5-8z")
 }
