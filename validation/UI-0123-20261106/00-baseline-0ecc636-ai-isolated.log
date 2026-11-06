@@ -1,0 +1,62 @@
+﻿powershell : Picked up JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=C:\Users\woziji\Documents\Codex\eqtmp
+At line:1 char:577
++ ... ne-ai.log'; powershell -ExecutionPolicy Bypass -File C:\AndroidProjec ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Picked up JAVA_...nts\Codex\eqtmp:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Starting a Gradle Daemon, 5 busy and 1 stopped Daemons could not be reused, use --status for details
+
+> Configure project :app
+WARNING: The option setting 'android.overridePathCheck=true' is experimental.
+The current default is 'false'.
+
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugResValues
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:checkDebugAarMetadata
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+
+> Task :app:processDebugMainManifest
+C:\AndroidProjects\eq-baseline\app\src\main\AndroidManifest.xml:8:5-107 Warning:
+	uses-permission#android.permission.FOREGROUND_SERVICE_DATA_SYNC was tagged at AndroidManifest.xml:8 to remove other declarations but no other declaration present
+
+> Task :app:processDebugManifest
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:javaPreCompileDebug
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeDebugResources
+> Task :app:processDebugResources
+> Task :app:packageDebugUnitTestForUnitTest
+> Task :app:generateDebugUnitTestConfig
+> Task :app:kspDebugKotlin
+
+> Task :app:compileDebugKotlin
+w: file:///C:/AndroidProjects/eq-baseline/app/src/main/java/cn/embeddedquiz/Theme.kt:300:29 'var statusBarColor: Int' is deprecated. Deprecated in Java.
+w: file:///C:/AndroidProjects/eq-baseline/app/src/main/java/cn/embeddedquiz/Theme.kt:301:29 'var navigationBarColor: Int' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:processDebugJavaRes
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:kspDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+
+> Task :app:testDebugUnitTest
+Picked up JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=C:\Users\woziji\Documents\Codex\eqtmp
+
+BUILD SUCCESSFUL in 1m 24s
+28 actionable tasks: 28 executed

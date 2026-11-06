@@ -1,5 +1,60 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-06 · UI-01～03 导航遮挡、应用图标头像、Lucide 图标（Claude，ARCHITECT_UI_AI_PLAN_20261106 §4）
+
+基线 `0ecc6366`（ui-visual-refresh）。两次提交，均未推送：A `59755191`（UI-02），B `d5d95501`（UI-01 + UI-03）。不含 AI 后端改动。没有改 QuizViewModel、Data、Repository、Room、判分、复习排程、考试、启动恢复或 QuestionScreen 的返回语义。证据见 `validation/UI-0123-20261106/`。
+
+### A · UI-02 统一返回、底栏与遮挡
+
+- 新增 `PageChrome.kt`：
+  - `PagePolicy` 集中定义一级页/子页、`showsTabBar`（先看速记 `visible`/`reader`，再看 `vm.page`）、顶栏标题与 `parent` 返回目标。
+  - `PageTrail` 只在 UI 层记住“费用”是从更多还是设置打开的，用 `rememberSaveable` 保存，不进 ViewModel。
+  - `SubPageTopBar` 的返回箭头调用 `OnBackPressedDispatcher`，与系统返回走同一条路径。这样已打开的便签、核对编辑器会先关闭，不会出现顶栏和系统返回各走一套目标的情况。
+- `AppNavigation.kt`：全局 `BackHandler` 改用 `PagePolicy.parent`；底栏按策略显示。隐藏时不输出任何节点，Scaffold 只保留系统栏 inset，不叠加底栏高度；`imePadding` 仍在 `consumeWindowInsets` 之后，不会重复计入。子页在内容上方绘制顶栏。
+- 行为变化：
+  - 智能复习返回到“更多”（原来回首页，通知进入也一样）。
+  - 错误记录返回到“设置”。
+  - 费用返回到打开它的页面。
+  - 便签：先关编辑器 → 回列表 → 回来源（`leaveStickyNotes` 未改，从题目进入仍回原题、保留队列和草稿）。
+  - 待核对编辑器先回列表（新增内层 `BackHandler`）。
+  - 速记列表保留底栏，阅读器隐藏底栏。`QuickNoteReaderHandle.finish`、`notes.leave`、列表的退出出口均未改。
+- 子页去掉与顶栏重复的页内标题；便签页去掉多余的“返回”按钮，“继续答题”保留。复习列表和错误记录补了底部留白。
+- “更多”的滚动位置靠现有的 `SaveableStateProvider` 保留，已用测试证实。
+
+### B · UI-01 应用图标头像
+
+- `MoreScreen.AppIconAvatar`：使用 `drawable-nodpi/ic_launcher_anime` 加 `launcher_background` 底色，按自适应图标的可见区放大 108/72，裁圆角，56dp，不着色，不可点击，语义“应用图标”。没有使用旧的 `drawable/ic_launcher` 矢量图，也没有改启动图标。
+- 吉祥物不再有其他引用，因此删除 `Mascot.kt`、`MascotTest.kt` 以及 `Theme.kt` 中只供吉祥物使用的颜色；更多页不再运行动画。
+
+### B · UI-03 Lucide 图标
+
+- `AppIcons.kt` 由 `tools/lucide_icons.py` 从官方 `lucide-static@1.69.0` SVG 生成：circle、rect、line 都转换为路径，arc flag 补上分隔符；统一 24 视口、2 描边、圆端点/圆连接；填充元素（tag 的圆点）和实心变体保留填充。
+- 保留原有 `AppIcons` 名称，只把 `TagThin` 换成 `NotebookPen`（便签行）。映射与来源见 `docs/third_party/LUCIDE.md`；ISC/MIT 许可在 `docs/third_party/` 和 APK 的 `assets/licenses/` 中各有一份。
+- 排查了所有纯图标按钮：都有语义标签，点击区 ≥48dp，无需修改。
+
+### 测试（真实数量）
+
+- 新增 `PageChromeUiTest`（9 项，360×640dp）。在边界之外，还断言了点击结果：
+  - 策略矩阵；
+  - 更多 → 复习，系统返回和顶栏返回都回到更多，滚动位置不变；
+  - 5 个更多子页都隐藏底栏，并能返回；
+  - 设置 → 费用/错误记录返回设置；
+  - 便签逐层返回，从题目进入时回到原题；
+  - 待核对最后一张卡片完整可见并可点，编辑器先关闭；
+  - 统计和复习的末项在可视区内，复习末项点击后进入答题；
+  - 速记在统计页之上仍显示底栏，阅读器隐藏底栏，目录最后一项可点击，返回后回到列表、再返回到首页；
+  - 空速记列表末项位于底栏之上。
+- 新增 `AppIconsTest`（2 项）。更新了 `PracticeEntriesUiTest`、`NotificationEntryUiTest`、`NotesAndScoringUiTest`、`ExamSaveUiTest`、`StartupRecoveryUiTest`：这些测试原先在子页上点底栏，现在先经顶栏返回，原有断言全部保留。
+- 集成：干净 worktree 只含 d5d95501，执行 `assembleDebug testDebugUnitTest lintDebug`，结果 BUILD SUCCESSFUL；37 个类 275 项，0 失败、0 错误、0 跳过；lint 0 错误、5 警告（都不在本轮改动中）。
+- A 提交前的一次全量运行中，`AiConversationUiTest` 有 4 项失败；单跑时在基线和本分支都通过，集成全量中也通过，判断为依赖执行顺序的不稳定测试。
+- APK：`../EmbeddedQuiz-1.6.1-ui-20261106-debug.apk`，SHA256 `329277787390A115BAB20C18EAD73C2C41553FDBE2AA13A0C6483B907D1F6A95`。
+
+### 限制与开放项
+
+- **未做设备验收**：本机没有设备和模拟器。WebView 文末、手势/三键导航、放大字号、键盘、浅/深色截图与录屏都需要在真机上补做。
+- Robolectric 下系统 inset 为 0，只能证明“底栏/父容器边界内完整可见且可点击”，不能证明真机系统栏的避让。
+- 同一工作区里有其他执行者未提交的 AI 文件（`AiConversation*.kt` 等），本轮没有触碰，也没有提交。集成验证在不含这些文件的独立 worktree 中进行。
+
 ## 2026-11-04 · VC-01 AI 请求按题目版本归属与费用文字对比（Claude，REPAIR_DISPATCH §21）
 
 ```text

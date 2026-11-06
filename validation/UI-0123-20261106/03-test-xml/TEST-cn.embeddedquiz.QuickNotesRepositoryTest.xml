@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.QuickNotesRepositoryTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-06T04:02:22" hostname="LAPTOP-0JLS131B" time="0.981">
+  <properties/>
+  <testcase name="invalidReadingPositionsAreRejectedWithoutChangingLastSavedPosition" classname="cn.embeddedquiz.QuickNotesRepositoryTest" time="0.096"/>
+  <testcase name="independentBackupIncludesImagesAndPositionsWithMergeAndExplicitReplace" classname="cn.embeddedquiz.QuickNotesRepositoryTest" time="0.246"/>
+  <testcase name="damagedBackupAndIndexDoNotSilentlyEraseDataAndExplicitRestoreCanRecover" classname="cn.embeddedquiz.QuickNotesRepositoryTest" time="0.091"/>
+  <testcase name="deletionRemovesOnlySelectedDocumentAndLatePositionCannotResurrectIt" classname="cn.embeddedquiz.QuickNotesRepositoryTest" time="0.088"/>
+  <testcase name="zippedRelativeChineseImagesAreCopiedAndResolveAfterRestart" classname="cn.embeddedquiz.QuickNotesRepositoryTest" time="0.076"/>
+  <testcase name="copiedUtf8DocumentAndPerDocumentPositionSurviveRepositoryRestart" classname="cn.embeddedquiz.QuickNotesRepositoryTest" time="0.173"/>
+  <testcase name="missingImagesAndInvalidInputsAreExplicitWithoutChangingExistingDocuments" classname="cn.embeddedquiz.QuickNotesRepositoryTest" time="0.073"/>
+  <testcase name="duplicateImportRequiresExplicitKeepBothAndNeverReplacesOriginal" classname="cn.embeddedquiz.QuickNotesRepositoryTest" time="0.137"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
