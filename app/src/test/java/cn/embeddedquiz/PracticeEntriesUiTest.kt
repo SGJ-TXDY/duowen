@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
@@ -185,9 +186,12 @@ class PracticeEntriesUiTest {
         ui.onNode(hasText("错题 1") and inMore).assertExists()
         ui.onNode(hasText("智能复习") and inMore).assert(dot)
 
-        // Tapping the mascot plays its jump and never leaves the page.
-        ui.onNodeWithContentDescription("吉祥物").assertHasClickAction().performClick()
-        ui.waitForIdle()
+        // The profile avatar is the launcher icon: a still image in the 56dp slot, not a button.
+        val avatar = ui.onNodeWithTag("app-icon-avatar", useUnmergedTree = true)
+        avatar.assert(hasContentDescription("应用图标")).assertHasNoClickAction()
+        val size = avatar.fetchSemanticsNode().size
+        with(ui.density) { assertEquals(56.dp.roundToPx(), size.width); assertEquals(56.dp.roundToPx(), size.height) }
+        ui.onAllNodesWithContentDescription("吉祥物").assertCountEquals(0)
         assertEquals(Page.MORE, vm.page)
 
         ui.onNode(hasText("历史统计") and inMore).performClick()

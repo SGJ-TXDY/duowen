@@ -208,33 +208,7 @@ data class MoreColors(
     val stats: Color,
     val cost: Color,
     val settings: Color,
-    val mascot: MascotColors,
 )
-
-/** Mascot inks from the concept art; dark mode lifts the outline so the silhouette stays visible. */
-@Immutable
-data class MascotColors(
-    val outline: Color,
-    val body: Color,
-    val highlight: Color,
-    val eye: Color,
-    val mouth: Color,
-) {
-    fun of(ink: MascotInk) =
-        when (ink) {
-            MascotInk.OUTLINE -> outline
-            MascotInk.BODY -> body
-            MascotInk.HIGHLIGHT -> highlight
-            MascotInk.EYE -> eye
-            MascotInk.MOUTH -> mouth
-        }
-}
-
-fun mascotColors(dark: Boolean) =
-    if (dark)
-        MascotColors(Color(0xFF5A5264), Color(0xFF2E2635), Color(0xFF7A7084), Color(0xFFFBE3BF), Color(0xFFEE8C78))
-    else
-        MascotColors(Color(0xFF120D14), Color(0xFF251E2B), Color(0xFF6E6577), Color(0xFFFBE3BF), Color(0xFFEE8C78))
 
 fun moreColors(dark: Boolean) =
     MoreColors(
@@ -246,7 +220,6 @@ fun moreColors(dark: Boolean) =
         stats = Color(0xFF1F86DB),
         cost = Color(0xFFE04A4A),
         settings = Color(0xFF6B7280),
-        mascot = mascotColors(dark),
     )
 
 val LocalMoreColors = staticCompositionLocalOf { moreColors(false) }
