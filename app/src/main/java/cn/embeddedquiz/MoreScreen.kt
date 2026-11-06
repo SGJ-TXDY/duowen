@@ -1,6 +1,5 @@
 package cn.embeddedquiz
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,11 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -162,7 +157,7 @@ fun MoreScreen(vm: QuizViewModel, today: LocalDate) {
                 title = "我的学习",
                 subtitle = "今日 ${state.todayDone} / ${state.dailyGoal} 题",
                 chips = listOf("连续 ${state.streak} 天", "已刷 ${state.studied} 题", "错题 ${state.mistakes}"),
-                avatar = { AppIconAvatar(Modifier.size(56.dp)) },
+                avatar = { Mascot(Modifier.size(56.dp)) },
                 // No profile page yet; the card keeps its slot and gains a chevron once one exists.
                 onClick = null,
             )
@@ -247,32 +242,6 @@ private fun ProfileCard(
         }
     }
 }
-
-/**
- * The launcher icon as the profile avatar: the same anime artwork and mint background the adaptive
- * icon uses (not the old vector drawable/ic_launcher), zoomed to the launcher's visible area. Not
- * tinted, so it looks the same in light and dark mode.
- */
-@Composable
-internal fun AppIconAvatar(modifier: Modifier = Modifier) {
-    Image(
-        painter = painterResource(R.drawable.ic_launcher_anime),
-        contentDescription = "应用图标",
-        contentScale = ContentScale.Crop,
-        modifier =
-            modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(colorResource(R.color.launcher_background))
-                // An adaptive icon shows the middle 72 of its 108 units; match what the launcher shows.
-                .graphicsLayer {
-                    scaleX = LAUNCHER_ZOOM
-                    scaleY = LAUNCHER_ZOOM
-                }
-                .testTag("app-icon-avatar"),
-    )
-}
-
-private const val LAUNCHER_ZOOM = 108f / 72f
 
 @Composable
 private fun MoreRow(entry: MoreEntry, onClick: () -> Unit) {
