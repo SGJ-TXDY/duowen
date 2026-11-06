@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,18 +30,13 @@ private fun QuizLayout(vm: QuizViewModel) {
     val startup = vm.startupState
     // Until Ready only the startup screen exists: no app pages, tab bar or business effects.
     val started = startup is StartupState.Ready
+    val trail = rememberSaveable(saver = PageTrail.saver) { PageTrail(vm.page) }
+    trail.observe(vm.page)
+    // The sub-page top bar dispatches here too, so both backs share one target per page.
     BackHandler(enabled = started && vm.page != Page.HOME) {
         when (vm.page) {
             Page.NOTES -> if (vm.noteDraft != null) vm.closeStickyNote() else vm.leaveStickyNotes()
-            Page.QUESTION,
-            Page.REVIEW,
-            Page.MISTAKES,
-            Page.MORE,
-            Page.EXAM,
-            // Opened from the home screen's practice modes, so back returns there.
-            Page.BROWSE,
-            Page.PROGRAMMING -> vm.page = Page.HOME
-            else -> vm.page = Page.MORE
+            else -> vm.page = PagePolicy.parent(vm.page, trail.costsFrom)
         }
     }
     var today by remember { mutableStateOf(LocalDate.now()) }
@@ -123,7 +119,15 @@ private fun QuizLayout(vm: QuizViewModel) {
         },
         bottomBar = {
             val notes = vm.quickNotes.state.visible
-            if (started && !answering())
+            val tabs =
+                PagePolicy.showsTabBar(
+                    vm.page,
+                    quickNotesVisible = notes,
+                    readerOpen = vm.quickNotes.state.reader != null,
+                    answering = answering(),
+                )
+            // Nothing is emitted when hidden, so the Scaffold pads only the system bars instead.
+            if (started && tabs)
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                     bottom.forEach { tab ->
                         val label = tab.label
@@ -178,13 +182,18 @@ private fun QuizLayout(vm: QuizViewModel) {
                 Box(Modifier.weight(1f)) {
                     pageState.SaveableStateProvider("quick-notes") { QuickNotesScreen(vm, reader) }
                 }
-            else
+            else {
+                val sub = PagePolicy.isSubPage(vm.page)
+                if (sub) SubPageTopBar(PagePolicy.title(vm.page))
                 Box(
                     Modifier.weight(1f)
                         .then(
-                            // 更多 is a grouped list whose blocks run edge to edge.
-                            if (vm.page == Page.MORE) Modifier
-                            else Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                            when {
+                                // 更多 is a grouped list whose blocks run edge to edge.
+                                vm.page == Page.MORE -> Modifier
+                                sub -> Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp)
+                                else -> Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                            }
                         )
                 ) {
                     pageState.SaveableStateProvider(vm.page.name) {
@@ -219,6 +228,7 @@ private fun QuizLayout(vm: QuizViewModel) {
                         }
                     }
                 }
+            }
         }
     }
 }

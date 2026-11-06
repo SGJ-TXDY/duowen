@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.time.Instant
@@ -36,17 +37,22 @@ fun StickyNotesScreen(vm: QuizViewModel) {
         )
     }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Heading("全局标签")
+        // Title and back live in the sub-page top bar; back closes an open note before the list.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "独立于题目，所有题目共用同一份；换题不会改变这里的内容。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
             if (vm.queue.isNotEmpty())
-                OutlinedButton(onClick = { vm.page = Page.QUESTION }) { Text("继续答题") }
-            else TextButton(onClick = vm::leaveStickyNotes) { Text("返回") }
+                OutlinedButton(
+                    onClick = { vm.page = Page.QUESTION },
+                    modifier = Modifier.padding(start = 8.dp).heightIn(min = 48.dp),
+                ) {
+                    Text("继续答题")
+                }
         }
-        Text(
-            "独立于题目，所有题目共用同一份；换题不会改变这里的内容。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         if (vm.mode == "模拟考试" && !vm.examFinished && vm.queue.isNotEmpty())
             Text("考试仍在计时，作答进度已保留。", color = MaterialTheme.colorScheme.error)
         if (vm.noteSaveError.isNotBlank()) {

@@ -322,6 +322,9 @@ class ExamSaveUiTest {
         notifyWhileLeaving(saveFails = true)
         // The failure itself is not lost: the exam tab still shows it with a retry.
         failWrites = false
+        // Review is a 更多 sub-page without tabs: back to 更多 first, then the exam tab.
+        ui.onNode(hasContentDescription("返回") and hasAnyAncestor(hasTestTag("sub-page-bar"))).performClick()
+        await { vm.page == Page.MORE }
         ui.onNodeWithContentDescription("导航到模拟考试").performClick()
         await { vm.page == Page.EXAM }
         ui.onNodeWithText("保存失败，最新修改尚未保存").assertExists()

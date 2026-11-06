@@ -312,10 +312,9 @@ fun ErrorLogScreen(vm: QuizViewModel) {
     val clipboard = LocalClipboardManager.current
     LaunchedEffect(Unit) { vm.loadErrorLog() }
     Column(
-        Modifier.verticalScroll(rememberScrollState()),
+        Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp).testTag("error-log"),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Heading("本地错误记录")
         Text("最多保存 512KB，仅含时间、操作类别和异常类型，不含 Key 或题目全文，不会上传。")
         Row(
             Modifier.horizontalScroll(rememberScrollState()),

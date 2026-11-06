@@ -35,7 +35,6 @@ fun History(vm: QuizViewModel) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
         contentPadding = PaddingValues(bottom = 24.dp),
     ) {
-        item { Heading("学习统计与历史") }
         item {
             Text(
                 "累计 ${totals.attempts} 次 · 学习 ${totals.studied} 题\n自动判分：${rate(totals.autoCorrect,totals.automatic)}\n简答等手动自评：${rate(totals.manualCorrect,totals.manual)}"
@@ -209,10 +208,10 @@ private fun DueChart(values: List<DueCount>, today: Long) {
 @Composable
 fun CostsScreen(vm: QuizViewModel) {
     LazyColumn(
+        modifier = Modifier.testTag("costs-list"),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(bottom = 24.dp),
     ) {
-        item { Heading("AI 费用估算") }
         item {
             Text(
                 "按日、按模型汇总成功请求。缓存读取不新增费用。采用 ${DeepSeekClient.PRICES_VERIFIED} 核对的官方美元高峰费率作保守估算，实际以 DeepSeek 账单为准。"

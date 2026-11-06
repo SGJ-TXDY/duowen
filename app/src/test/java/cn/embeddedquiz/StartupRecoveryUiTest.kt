@@ -204,7 +204,8 @@ class StartupRecoveryUiTest {
         assertEquals(2, bankCalls)
         assertEquals(Page.REVIEW, vm.page)
         ui.onNodeWithText("智能复习").assertExists()
-        ui.onNodeWithContentDescription("导航到首页").assertExists()
+        // The app chrome is back: review is a 更多 sub-page, so it shows its top bar, not the tabs.
+        ui.onNodeWithTag("sub-page-bar").assertExists()
         assertEquals(listOf("su-a"), vm.queue)
         assertEquals(mapOf("su-a" to setOf("A")), vm.examAnswers)
         assertEquals(9999999999999, vm.examDeadline)

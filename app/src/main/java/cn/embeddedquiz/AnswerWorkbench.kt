@@ -1,5 +1,6 @@
 package cn.embeddedquiz
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
@@ -28,6 +29,8 @@ fun AnswerWorkbench(vm: QuizViewModel) {
         }
     var selected by remember(selectedId) { mutableStateOf<Question?>(null) }
     LaunchedEffect(selectedId) { selected = selectedId?.let { vm.loadQuestion(it) } }
+    // An open editor is one level below the list: back (system or top bar) closes it first.
+    BackHandler(enabled = selectedId != null) { selectedId = null }
     val q = selected
     if (selectedId != null && q == null) {
         Text("正在加载题目…")
@@ -44,7 +47,6 @@ fun AnswerWorkbench(vm: QuizViewModel) {
         verticalArrangement = Arrangement.spacedBy(10.dp),
         contentPadding = PaddingValues(bottom = 24.dp),
     ) {
-        item { Heading("待核对工作台") }
         item { Text("列出待核对或缺少标准选项的客观题。个人核对答案存放在独立表中，不修改原始题库。") }
         item { Text("判分顺序：当前题目版本有效的个人核对答案 → 原题库已核对标准答案 → 手动判断。题目内容变化后需重新核对。") }
         item {

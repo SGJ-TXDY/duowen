@@ -231,6 +231,10 @@ class NotesAndScoringUiTest {
         ui.onNodeWithTag("settings-list").performScrollToNode(hasText("保存每日目标"))
         ui.onNodeWithText("保存每日目标").performClick()
         await { vm.learning.settings.dailyGoal == 35 && !vm.busy }
+        // Settings is a 更多 sub-page without tabs: its top-bar back returns to 更多.
+        ui.onNode(hasContentDescription("返回") and hasAnyAncestor(hasTestTag("sub-page-bar"))).performClick()
+        ui.waitForIdle()
+        assertEquals(Page.MORE, vm.page)
         ui.onNodeWithContentDescription("导航到首页").performClick()
         ui.onNodeWithContentDescription("今日目标 0 / 35 题").assertExists()
         assertEquals("DARK", runBlocking { vm.repo.dao.getSettings()!!.theme })

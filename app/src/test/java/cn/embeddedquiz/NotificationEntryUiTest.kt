@@ -139,6 +139,15 @@ class NotificationEntryUiTest {
 
     private fun reviewShown() = ui.onNodeWithText("智能复习").assertExists()
 
+    /** Review is a 更多 sub-page without the tab bar: its top-bar back leads to 更多, then home. */
+    private fun leaveReviewForHome() {
+        ui.onNodeWithContentDescription("导航到首页").assertDoesNotExist()
+        ui.onNode(hasContentDescription("返回") and hasAnyAncestor(hasTestTag("sub-page-bar"))).performClick()
+        ui.waitForIdle()
+        assertEquals(Page.MORE, vm.page)
+        ui.onNodeWithContentDescription("导航到首页").performClick()
+    }
+
     @Test
     fun coldNotificationOpensReviewThenUnfinishedExamResumesFromHome() {
         assertEquals(InitializationOutcome.Ready(examRestored = true), launch(review = true))
@@ -147,7 +156,7 @@ class NotificationEntryUiTest {
         reviewShown()
         assertExamKept()
 
-        ui.onNodeWithContentDescription("导航到首页").performClick()
+        leaveReviewForHome()
         ui.onNodeWithTag("home-list").performScrollToNode(hasText("继续未交卷考试"))
         ui.onNodeWithText("继续未交卷考试").performClick()
         assertEquals(Page.QUESTION, vm.page)
@@ -183,7 +192,7 @@ class NotificationEntryUiTest {
         assertEquals(Page.REVIEW, vm.page)
         assertExamKept()
 
-        ui.onNodeWithContentDescription("导航到首页").performClick()
+        leaveReviewForHome()
         assertEquals(Page.HOME, vm.page)
         // A plain intent and a configuration change must not reopen the review.
         running.newIntent(intent(review = false))
