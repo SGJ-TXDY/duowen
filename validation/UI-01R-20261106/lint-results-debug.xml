@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.7.3">
+
+    <issue
+        id="GradleDependency"
+        severity="Warning"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.9.4"
+        category="Correctness"
+        priority="4"
+        summary="Obsolete Gradle Dependency"
+        explanation="This detector looks for usages of libraries where the version you are using is not the current stable release. Using older versions is fine, and there are cases where you deliberately want to stick with an older version. However, you may simply not be aware that a more recent version is available, and that is what this lint check helps find."
+        errorLine1="    implementation(&quot;androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="C:\AndroidProjects\eq-mascot\app\build.gradle.kts"
+            line="36"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        severity="Warning"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.9.4"
+        category="Correctness"
+        priority="4"
+        summary="Obsolete Gradle Dependency"
+        explanation="This detector looks for usages of libraries where the version you are using is not the current stable release. Using older versions is fine, and there are cases where you deliberately want to stick with an older version. However, you may simply not be aware that a more recent version is available, and that is what this lint check helps find."
+        errorLine1="    implementation(&quot;androidx.lifecycle:lifecycle-runtime-compose:2.8.7&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="C:\AndroidProjects\eq-mascot\app\build.gradle.kts"
+            line="37"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        severity="Warning"
+        message="Modifier parameter should be the first optional parameter"
+        category="Correctness"
+        priority="3"
+        summary="Guidelines for Modifier parameters in a Composable function"
+        explanation="The first (or only) Modifier parameter in a Composable function should follow the following rules:&#xA;- Be named `modifier`&#xA;- Have a type of `Modifier`&#xA;- Either have no default value, or have a default value of `Modifier`&#xA;- If optional, be the first optional parameter in the parameter list"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="C:\AndroidProjects\eq-mascot\app\src\main\java\cn\embeddedquiz\CommonComponents.kt"
+            line="35"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="VectorPath"
+        severity="Warning"
+        message="Very long vector path (1172 characters), which is bad for performance. Considering reducing precision, removing minor details or rasterizing vector."
+        category="Performance"
+        priority="5"
+        summary="Long vector paths"
+        explanation="Using long vector paths is bad for performance. There are several ways to make the `pathData` shorter:&#xA;* Using less precision&#xA;* Removing some minor details&#xA;* Using the Android Studio vector conversion tool&#xA;* Rasterizing the image (converting to PNG)"
+        errorLine1="    &lt;path android:fillColor=&quot;#FF120D14&quot; android:pathData=&quot;M46.65,30.725h14.7v2.45h-14.7zM41.75,33.175h4.9v2.45h-4.9zM61.35,33.175h4.9v2.45h-4.9zM39.3,35.625h2.45v2.45h-2.45zM66.25,35.625h2.45v2.45h-2.45zM36.85,38.075h2.45v2.45h-2.45zM68.7,38.075h2.45v2.45h-2.45zM36.85,40.525h2.45v2.45h-2.45zM68.7,40.525h2.45v2.45h-2.45zM34.4,42.975h2.45v2.45h-2.45zM71.15,42.975h2.45v2.45h-2.45zM34.4,45.425h2.45v2.45h-2.45zM71.15,45.425h2.45v2.45h-2.45zM31.95,47.875h2.45v2.45h-2.45zM73.6,47.875h2.45v2.45h-2.45zM31.95,50.325h2.45v2.45h-2.45zM73.6,50.325h2.45v2.45h-2.45zM29.5,52.775h2.45v2.45h-2.45zM76.05,52.775h2.45v2.45h-2.45zM24.6,55.225h7.35v2.45h-7.35zM76.05,55.225h7.35v2.45h-7.35zM22.15,57.675h2.45v2.45h-2.45zM29.5,57.675h2.45v2.45h-2.45zM76.05,57.675h2.45v2.45h-2.45zM83.4,57.675h2.45v2.45h-2.45zM24.6,60.125h7.35v2.45h-7.35zM76.05,60.125h7.35v2.45h-7.35zM31.95,62.575h2.45v2.45h-2.45zM73.6,62.575h2.45v2.45h-2.45zM31.95,65.025h2.45v2.45h-2.45zM73.6,65.025h2.45v2.45h-2.45zM34.4,67.475h4.9v2.45h-4.9zM68.7,67.475h4.9v2.45h-4.9zM39.3,69.925h29.4v2.45h-29.4zM39.3,72.375h2.45v2.45h-2.45zM44.2,72.375h2.45v2.45h-2.45zM61.35,72.375h2.45v2.45h-2.45zM66.25,72.375h2.45v2.45h-2.45zM39.3,74.825h7.35v2.45h-7.35zM61.35,74.825h7.35v2.45h-7.35z&quot; />"
+        errorLine2="                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="C:\AndroidProjects\eq-mascot\app\src\main\res\drawable\ic_launcher_mascot.xml"
+            line="7"
+            column="59"/>
+    </issue>
+
+    <issue
+        id="VectorPath"
+        severity="Warning"
+        message="Very long vector path (827 characters), which is bad for performance. Considering reducing precision, removing minor details or rasterizing vector."
+        category="Performance"
+        priority="5"
+        summary="Long vector paths"
+        explanation="Using long vector paths is bad for performance. There are several ways to make the `pathData` shorter:&#xA;* Using less precision&#xA;* Removing some minor details&#xA;* Using the Android Studio vector conversion tool&#xA;* Rasterizing the image (converting to PNG)"
+        errorLine1="    &lt;path android:fillColor=&quot;#FF000000&quot; android:pathData=&quot;M46.65,30.725h14.7v2.45h-14.7zM41.75,33.175h24.5v2.45h-24.5zM39.3,35.625h29.4v2.45h-29.4zM36.85,38.075h34.3v2.45h-34.3zM36.85,40.525h34.3v2.45h-34.3zM34.4,42.975h39.2v2.45h-39.2zM34.4,45.425h39.2v2.45h-39.2zM31.95,47.875h44.1v2.45h-44.1zM31.95,50.325h9.8v2.45h-9.8zM46.65,50.325h14.7v2.45h-14.7zM66.25,50.325h9.8v2.45h-9.8zM29.5,52.775h12.25v2.45h-12.25zM46.65,52.775h14.7v2.45h-14.7zM66.25,52.775h12.25v2.45h-12.25zM24.6,55.225h24.5v2.45h-24.5zM51.55,55.225h4.9v2.45h-4.9zM58.9,55.225h24.5v2.45h-24.5zM22.15,57.675h29.4v2.45h-29.4zM56.45,57.675h29.4v2.45h-29.4zM24.6,60.125h58.8v2.45h-58.8zM31.95,62.575h44.1v2.45h-44.1zM31.95,65.025h44.1v2.45h-44.1zM34.4,67.475h39.2v2.45h-39.2zM39.3,69.925h29.4v2.45h-29.4zM39.3,72.375h7.35v2.45h-7.35zM61.35,72.375h7.35v2.45h-7.35zM39.3,74.825h7.35v2.45h-7.35zM61.35,74.825h7.35v2.45h-7.35z&quot; />"
+        errorLine2="                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="C:\AndroidProjects\eq-mascot\app\src\main\res\drawable\ic_launcher_mascot_mono.xml"
+            line="6"
+            column="59"/>
+    </issue>
+
+</issues>

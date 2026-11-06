@@ -1,5 +1,41 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-06 · UI-01 方向更正：吉祥物（用户本意，Claude）
+
+### 用户本意（lead / Architect 请以此为准）
+
+- 用户原话：“我的指令是把软件图标换成吉祥物”；“我这阶段目标就是尽可能多的引入吉祥物到应用中”。
+- `docs/ARCHITECT_UI_AI_PLAN_20261106.md` §4 的 UI-01 写成了“应用图标替代吉祥物：将更多页的像素吉祥物换成当前正式软件图标”，**方向与用户本意正好相反**。`docs/UI_0123_ARCHITECT_REVIEW_20261106.md` 也按这个反方向验收。Claude 当时照任务单执行，在 `d5d95501` 里删掉了吉祥物。现已按用户本意改正（见下）。
+- 今后派发 UI 任务时请遵守：
+  1. **吉祥物是本阶段的主角。** 用户希望吉祥物尽可能多地出现在应用里。能放吉祥物的地方优先放吉祥物，不要用应用图标、动漫头像或通用图标去替换它。
+  2. **不要删除或弱化吉祥物**（`Mascot.kt` / `MascotSprite`、`Theme.kt` 中的 `MascotColors`、动画与点击反应、桌面图标）。要改吉祥物本身，先问用户。
+  3. 还要在哪些地方引入吉祥物、怎么设计，由 lead 规划，经用户确认后派发。本次 Claude 只做了用户明确要求的两处，**没有设计新的吉祥物位置**。
+  4. 派发涉及吉祥物或图标的任务时，在任务单里直接引用上面的用户原话，避免再次理解反。
+- 吉祥物现在出现的地方：更多页头像（会动，可点）、桌面启动图标（静态，含主题图标剪影）。其他地方都还没有；例如复习提醒通知的小图标仍是旧的“E”字矢量图 `drawable/ic_launcher.xml`，本次没动。
+
+### 改动（提交 `b4ecd75e`，未推送）
+
+- **更多页恢复吉祥物**：从 `0ecc6366` 原样恢复 `Mascot.kt`、`MascotTest.kt` 和 `Theme.kt` 的 `MascotColors`。`MoreScreen` 头像槽改回 `Mascot(Modifier.size(56.dp))`，删除 `AppIconAvatar`。`PracticeEntriesUiTest` 恢复原来的吉祥物断言（可点击、点后仍停留在更多页）。
+- **桌面图标改为吉祥物**：
+  - `mipmap-anydpi/ic_launcher.xml` 的前景改为 `drawable/ic_launcher_mascot.xml`，即吉祥物静止正面姿态的像素矢量图，使用浅色配色，背景仍是薄荷绿 `launcher_background`。
+  - 新增 `monochrome` 层 `ic_launcher_mascot_mono.xml`，是吉祥物剪影，眼睛和嘴镂空，供 Android 13+ 主题图标使用。
+  - 两个矢量图由 `tools/mascot_icon.py` 从 `Mascot.kt` 的 `MascotSprite` 生成，请勿手改。生成时自动取最大格子尺寸（2.45），保证整只吉祥物落在自适应图标 66dp 的安全圆内，圆形和圆角蒙版都不会裁到。
+  - 新增 `MascotLauncherIconTest`（4 项）：断言矢量图与 `MascotSprite.cells(MascotPose())` 及浅色配色逐格一致、剪影正确、全部格子在安全圆内、启动图标引用正确。
+- 动漫头像 PNG `drawable-nodpi/ic_launcher_anime.png` 不再被引用，已移出 `res`；原图仍在 `assets/branding/`，README 已注明“未经用户同意不要换回”。
+- UI-02 导航、UI-03 Lucide 图标都没有改动。没有触及 QuizViewModel、数据层或 AI 文件。
+
+### 验证（证据：`validation/UI-01R-20261106/`）
+
+- 在只含 `b4ecd75e` 的干净 worktree（不含 GPT 未提交文件）中执行 `tools\build.ps1 assembleDebug testDebugUnitTest lintDebug`，结果 BUILD SUCCESSFUL。
+  - 测试：39 个类，283 项，0 失败、0 错误、0 跳过。比上一轮多出的 8 项是 `MascotTest`（4 项）和 `MascotLauncherIconTest`（4 项）；`PracticeEntriesUiTest` 5/5 通过。
+  - Lint：0 错误，5 个警告。原有的 `IconLauncherShape` 和 `MonochromeLauncherIcon` 警告因换图标而消失。新增 2 个 `VectorPath` 警告（像素图路径较长），只影响启动图标的绘制速度，影响可以忽略。其余 3 个是原有警告：GradleDependency ×2、`CommonComponents.kt:35`。
+- `launcher-icon-preview.png` 是按矢量数据在圆形、圆角蒙版下的离线渲染，以及主题剪影。它不能代替真机截图。
+- 试装包：`EmbeddedQuiz-1.6.1-ui-mascot-20261106-debug.apk`，放在项目上一级目录，SHA256 `0902931645EAAD68DB3BD982B0BE4FC5D22C1E3167229607A1A4AB1ED4525F92`。由 `b4ecd75e` 构建，沿用 debug.keystore；未改版本号和签名，未覆盖已有 APK，未发布。
+
+### 未做
+
+- 设备观感未验：更多页吉祥物、桌面图标在各蒙版下的效果、主题图标，见 `validation/UI-04B-20261106/DEVICE_CHECKLIST.md` 第 13～15 项。
+
 ## 2026-11-06 · UI-04A/B 补交（Claude，UI_0123_ARCHITECT_REVIEW_20261106）
 
 没有修改生产代码、AI 文件、测试或测试 helper；GPT 未提交的文件未触碰。
@@ -35,7 +71,7 @@
 - 子页去掉与顶栏重复的页内标题；便签页去掉多余的“返回”按钮，“继续答题”保留。复习列表和错误记录补了底部留白。
 - “更多”的滚动位置靠现有的 `SaveableStateProvider` 保留，已用测试证实。
 
-### B · UI-01 应用图标头像
+### B · UI-01 应用图标头像（**已作废**：方向与用户本意相反，已由本文顶部“UI-01 方向更正”取代）
 
 - `MoreScreen.AppIconAvatar`：使用 `drawable-nodpi/ic_launcher_anime` 加 `launcher_background` 底色，按自适应图标的可见区放大 108/72，裁圆角，56dp，不着色，不可点击，语义“应用图标”。没有使用旧的 `drawable/ic_launcher` 矢量图，也没有改启动图标。
 - 吉祥物不再有其他引用，因此删除 `Mascot.kt`、`MascotTest.kt` 以及 `Theme.kt` 中只供吉祥物使用的颜色；更多页不再运行动画。

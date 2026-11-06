@@ -1,5 +1,7 @@
 # 应用图标素材
 
+> **2026-11-06 起桌面图标已改为吉祥物**（用户本意，见 `docs/FRONTEND_HANDOFF.md` 顶部）。现在的自适应图标前景是 `res/drawable/ic_launcher_mascot.xml`，由 `tools/mascot_icon.py` 根据 `Mascot.kt` 的像素吉祥物生成。下面的动漫头像原图只作历史素材保留，`res` 中已不再打包它；`tools/generate-launcher-icons.ps1` 仍可把它重新生成到 `res/drawable-nodpi/`，但未经用户同意不要换回。
+
 作者 / 署名：Codex（OpenAI），2026-10-25。
 
 本图由内置 imagegen 生成，为原创日式动漫女性头像。正式原图为 `launcher-anime-source.png`，已接入 Android Manifest 的 `@mipmap/ic_launcher`，支持自适应启动图标的圆形与圆角蒙版。全尺寸原图不打进 APK，运行时使用 `app/src/main/res/drawable-nodpi/ic_launcher_anime.png`。未改 Compose 页面。

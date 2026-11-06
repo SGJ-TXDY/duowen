@@ -10,8 +10,8 @@ param([Parameter(Position = 0, Mandatory = $true)][string]$Command, [Parameter(P
 $ErrorActionPreference = 'Stop'
 
 $adb = if ($env:EQ_ADB) { $env:EQ_ADB } else { 'C:\Users\woziji\Documents\Codex\2026-10-21\embeddedquiz-app-embeddedquiz-android-app-linux-5\work\toolchain\sdk\platform-tools\adb.exe' }
-$apk = Join-Path $PSScriptRoot '..\..\..\EmbeddedQuiz-1.6.1-ui-20261106-debug.apk'
-$apkHash = '329277787390A115BAB20C18EAD73C2C41553FDBE2AA13A0C6483B907D1F6A95'
+$apk = Join-Path $PSScriptRoot '..\..\..\EmbeddedQuiz-1.6.1-ui-mascot-20261106-debug.apk'
+$apkHash = '0902931645EAAD68DB3BD982B0BE4FC5D22C1E3167229607A1A4AB1ED4525F92'
 $pkg = 'cn.embeddedquiz'
 $out = Join-Path $PSScriptRoot 'device'
 
