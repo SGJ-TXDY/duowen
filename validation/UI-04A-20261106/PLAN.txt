@@ -1,0 +1,9 @@
+﻿R1 input = commit 5975519160020253228de700afef4ed94839a30f (A, UI-02)
+  with app/src/test/java/cn/embeddedquiz/{ExamSaveUiTest,NotesAndScoringUiTest,StartupRecoveryUiTest}.kt reset to 0ecc6366
+  (their tab-path fixes were written after run 01 ended at 12:55:11),
+  plus untracked app/src/main/assets/licenses/LUCIDE_LICENSE.txt that was in the tree during run 01.
+Worktree: C:\AndroidProjects\eq-ui04a (fresh, no prior build dir). Fingerprints: r1-input-fingerprints.csv
+Plan fixed before running:
+  R1: tools\build.ps1 testDebugUnitTest            (full suite, once)
+  R2a/b/c: tools\build.ps1 testDebugUnitTest --tests cn.embeddedquiz.AccentPreferenceTest --tests cn.embeddedquiz.AiConversationUiTest  (three times, same order)
+No timeout, sleep, retry or source change; results reported whatever they are.

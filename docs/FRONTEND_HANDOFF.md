@@ -1,5 +1,19 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-06 · UI-04A/B 补交（Claude，UI_0123_ARCHITECT_REVIEW_20261106）
+
+没有修改生产代码、AI 文件、测试或测试 helper；GPT 未提交的文件未触碰。
+
+**UI-04A**（证据：`validation/UI-04A-20261106/`）
+- 措辞已更正：本节下方“UI-01～03 · 测试”和 `validation/UI-0123-20261106/README.md` 现在写为“早期全量出现 4 项 AI 不空闲失败；最终集成通过，根因未证实”。原日志保留，未覆盖。
+- 原失败 XML 和类顺序已经丢失：之后同一构建目录的定向测试重写了 `test-results`，只剩控制台日志。守护进程日志显示，run 01 期间没有其他构建写入同一项目目录。
+- 固定输入复验：提交 `59755191` 加 3 个测试还原为 run 01 当时的版本，在全新 worktree 中执行，137 个文件有指纹。
+  - R1 全量：277 项中 3 项失败，正是预期的旧导航路径测试，证明输入还原正确；`AiConversationUiTest` 4/4 通过，排第 2 位（Accent 之后）。
+  - 最小前缀 Accent → AI：3 次有效运行（R2a，以及加 `--rerun` 的 R2b2、R2c2）均为 6/6。另有两次 Gradle 判为 UP-TO-DATE、没有执行测试，已标注为无效，不计入结果。
+- 结论：没有复现，没有最小复现，根因未定位；不建议为此修改代码或 helper，交 Architect 裁定。
+
+**UI-04B**：本机仍然没有设备和模拟器，保持**待验**。已准备好可以直接照做并记录的清单：`validation/UI-04B-20261106/DEVICE_CHECKLIST.md`（17 项，含设备信息栏和截图栏），需要在现有手机上安装试装包后填写。
+
 ## 2026-11-06 · UI-01～03 导航遮挡、应用图标头像、Lucide 图标（Claude，ARCHITECT_UI_AI_PLAN_20261106 §4）
 
 基线 `0ecc6366`（ui-visual-refresh）。两次提交，均未推送：A `59755191`（UI-02），B `d5d95501`（UI-01 + UI-03）。不含 AI 后端改动。没有改 QuizViewModel、Data、Repository、Room、判分、复习排程、考试、启动恢复或 QuestionScreen 的返回语义。证据见 `validation/UI-0123-20261106/`。
@@ -46,7 +60,7 @@
   - 空速记列表末项位于底栏之上。
 - 新增 `AppIconsTest`（2 项）。更新了 `PracticeEntriesUiTest`、`NotificationEntryUiTest`、`NotesAndScoringUiTest`、`ExamSaveUiTest`、`StartupRecoveryUiTest`：这些测试原先在子页上点底栏，现在先经顶栏返回，原有断言全部保留。
 - 集成：干净 worktree 只含 d5d95501，执行 `assembleDebug testDebugUnitTest lintDebug`，结果 BUILD SUCCESSFUL；37 个类 275 项，0 失败、0 错误、0 跳过；lint 0 错误、5 警告（都不在本轮改动中）。
-- A 提交前的一次全量运行中，`AiConversationUiTest` 有 4 项失败；单跑时在基线和本分支都通过，集成全量中也通过，判断为依赖执行顺序的不稳定测试。
+- A 提交前的一次全量运行中，`AiConversationUiTest` 有 4 项不空闲失败（`AppNotIdleException`）。最终集成全量通过，**根因未证实**。（更正：原先“判断为依赖执行顺序的不稳定测试”的结论没有证据支持，已撤回；处理见下方 UI-04A。）
 - APK：`../EmbeddedQuiz-1.6.1-ui-20261106-debug.apk`，SHA256 `329277787390A115BAB20C18EAD73C2C41553FDBE2AA13A0C6483B907D1F6A95`。
 
 ### 限制与开放项

@@ -22,7 +22,7 @@
 ## 01 中 7 项失败的处理
 
 - 3 项由新行为引起（测试在更多子页上点底栏，而子页已不显示底栏）：`NotesAndScoringUiTest.bottomNavigationAndDarkModeAndGoalPersist`、`ExamSaveUiTest.notificationDuringLeaveWinsAndNoStaleDialogWhenTheFlushFails`、`StartupRecoveryUiTest.failureShowsTheErrorPageAndAnExplicitRetryKeepsNotificationAndExam`；另 `NotificationEntryUiTest` 的 2 项在此前定向运行中同因失败。已改为“先经顶栏返回到更多，再点底栏”，原有考试/通知/草稿断言全部保留。
-- 4 项为 `AiConversationUiTest`。单跑时在基线（00）和本分支（02）都通过，在 03 的集成全量中也通过，说明与测试执行顺序/时序有关，不是这次改动造成的；与历史记录中“4 个已知全量失败”一致。本轮没有修改 AI 代码。
+- 4 项为 `AiConversationUiTest`（均为 `AppNotIdleException`）。**更正（UI-04A）**：早期全量出现了 4 项 AI 不空闲失败，最终集成通过，根因未证实。原先写的“与执行顺序有关、不是本次造成、与历史 4 个已知失败一致”没有证据支持，已撤回。单跑通过（00、02）和最终全量通过（03）只能说明这几次运行通过。固定输入复验见 `../UI-04A-20261106/README.md`。本轮没有修改 AI 代码。
 
 ## Lint 警告（都不在本轮改动中）
 

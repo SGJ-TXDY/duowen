@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.PracticeEntriesUiTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-06T04:12:35" hostname="LAPTOP-0JLS131B" time="3.101">
+  <properties/>
+  <testcase name="savingVerifiedSolutionKeepsLatestDifficulty" classname="cn.embeddedquiz.PracticeEntriesUiTest" time="0.578"/>
+  <testcase name="examTabResumesUnfinishedExamInsteadOfRestarting" classname="cn.embeddedquiz.PracticeEntriesUiTest" time="0.735"/>
+  <testcase name="notesAndDifficultyShareOneSectionAndStayPerQuestion" classname="cn.embeddedquiz.PracticeEntriesUiTest" time="0.646"/>
+  <testcase name="homeEntriesOpenBanksAndTabBarOffersExam" classname="cn.embeddedquiz.PracticeEntriesUiTest" time="0.589"/>
+  <testcase name="morePageShowsHintsOnlyWhenThereIsSomethingToDo" classname="cn.embeddedquiz.PracticeEntriesUiTest" time="0.553"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

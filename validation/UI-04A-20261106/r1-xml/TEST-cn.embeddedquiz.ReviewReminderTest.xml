@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.ReviewReminderTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-06T04:12:47" hostname="LAPTOP-0JLS131B" time="0.969">
+  <properties/>
+  <testcase name="notificationReviewEntryWinsAfterUnfinishedExamIsRestored" classname="cn.embeddedquiz.ReviewReminderTest" time="0.3"/>
+  <testcase name="deniedNotificationPermissionDoesNotNotifyOrResetAskedFlag" classname="cn.embeddedquiz.ReviewReminderTest" time="0.486"/>
+  <testcase name="onlyDueQuestionsNotifyAndTapOpensReview" classname="cn.embeddedquiz.ReviewReminderTest" time="0.154"/>
+  <testcase name="mergedManifestDoesNotRequestExtraWorkManagerOrAlarmPermissions" classname="cn.embeddedquiz.ReviewReminderTest" time="0.029"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Nov 06, 2026 1:12:48 PM com.almworks.sqlite4java.Internal log
+WARNING: [sqlite] SQLite: cannot set library path, library already loaded
+]]></system-err>
+</testsuite>

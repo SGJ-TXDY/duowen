@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiConversationUiTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-06T04:14:09" hostname="LAPTOP-0JLS131B" time="5.344">
+  <properties/>
+  <testcase name="slowRequestOnAStaysOnAAndItsFailureNeverReachesB" classname="cn.embeddedquiz.AiConversationUiTest" time="4.349"/>
+  <testcase name="changedQuestionVersionHidesTheOldVersionRequestUntilYouReturn" classname="cn.embeddedquiz.AiConversationUiTest" time="0.396"/>
+  <testcase name="costLineUsesReadableTextColorInLightAndDark" classname="cn.embeddedquiz.AiConversationUiTest" time="0.205"/>
+  <testcase name="cacheHitAndSuccessLeaveNoPendingOrDuplicateBubble" classname="cn.embeddedquiz.AiConversationUiTest" time="0.394"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Nov 06, 2026 1:14:13 PM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[51756] connection from /127.0.0.1 didn't make a request
+]]></system-err>
+</testsuite>
