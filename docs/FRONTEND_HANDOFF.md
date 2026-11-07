@@ -1,5 +1,80 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-07 · AI 会话界面（按冻结契约实现，尚未挂载，Claude）
+
+### 来源与边界
+
+- 用户指示：“按现有契约实现会话列表、标题、聊天消息、输入草稿、复制及定位最新回复；后端就绪后接入”。
+- Architect 原先的顺序是 AI-02b 后端回归通过后，Claude 再接会话 UI（`AI_02A2C_DISPATCH_20261106.md` §末）。本次按用户指示提前开工，但做法保持在边界内：
+  - 只新增文件，**没有挂进任何页面或导航**，也没有接 ViewModel。
+  - 不碰 GPT 正在修改的文件（QuizViewModel、Repository、AiStateHolder、QuestionScreen、AI 后端文件及其测试）。
+  - 不自造临时状态代替契约：选择、首屏消息、run 状态、用量、busy、故障都直接读 `facade.state`。控制器只保存契约留给编辑器的值：正在输入的文字、`localEditVersion`、最近一次确认的 `draftRevision`、用户主动加载的更早消息，以及最近一次拒绝的提示。
+- 依赖 GPT 的 `AiConversationContract.kt`。它目前仍是 GPT 工作区里的未提交文件，本次验证使用的版本 SHA256 为 `7C69FA0D088710187FF5C988B456C7FB9AF724E1CAFD9904B4232A81153594BD`。本提交不包含该文件，必须与它一起才能编译。
+
+### 新增文件
+
+| 文件 | 内容 |
+| --- | --- |
+| `AiChat.kt` | `AiChatController`（界面状态与命令）、`AiChatScreen`（会话列表 / 打开的会话）、文案映射函数 |
+| `src/test/.../FakeAiConversationFacade.kt` | 内存版假门面，只按契约实现 UI 依赖的规则（revision、editorEpoch、过期拒绝、游标分页、只读），不发送 |
+| `src/test/.../AiChatScreenTest.kt` | 界面测试，见“验证” |
+
+### 功能与契约对应
+
+- **会话列表**：调用 `sessions(questionId, includeArchived = true, cursor, 20)`，带“加载更多”，遇到 `STALE_CURSOR` 从头重载。每行显示标题，以及“只读”“旧版题目”“草稿：首行”这些标记。“新建讨论”调用 `createSession` 后立刻 `open`；`phase` 不是 READY 时不能新建。
+- **标题**：点“重命名讨论”在标题下方就地编辑（不用弹窗，键盘留在页面里）。标题去掉首尾空白后需为 1～80 个 Unicode 码点，超出时“保存”不可点。调用时带当前 `sessionRevision`；`STALE_SESSION` 等拒绝会显示提示，不改本地标题。
+- **聊天消息**：首屏取 `facade.state.firstMessages`，更早的消息用 `messages(sessionId, cursor)` 分页加载。两者按 `messageId` 合并（实时页优先）、按 `seq` 升序显示，最早的在上面。
+  - 用户消息显示在右侧气泡里；AI 回复用 Markdown 渲染。
+  - run 状态：准备中 / 正在生成 / 已取消 / 失败（errorCode）。`PARTIAL` 时提示“回复不完整”。
+  - 用量如实显示：已知时显示 tokens 和“估算”金额（6 位小数）；不知道就写“用量未知 · 费用未知”，用量不全时注明“用量不完整”，缓存命中写“本次不计费”。不会把估算显示成账单。
+- **输入草稿**：
+  - 每次 open 用回执里的 `editorEpoch`，`localEditVersion` 从 0 开始，每次输入加 1。
+  - 停止输入 300ms 后保存；一直在打字时最多每 2 秒保存一次。保存串行进行，每次用新的 `commandId`，带上 `expectedDraftRevision`。
+  - 状态只在确认的版本等于当前版本时才显示“已保存”。迟到的确认、属于别的 editor 或会话的确认，都不会把较新的文字标成已保存，也不会清掉它。保存被拒绝时显示“草稿未保存：原因”，文字保留。
+  - 离开（顶部返回或系统返回）的顺序是：先保存当前文字，再 `flushDraft`（仅当本次编辑保存过），然后 `deselect`。任何一步失败都留在当前会话，文字不丢。
+  - 只读会话显示原草稿、可以复制，但不能编辑，也不发保存。
+- **复制**：每条消息都有“复制”按钮，无障碍标签为“复制提问”或“复制回复”。复制的是存储的原文（保留 Markdown），之后显示“已复制”2 秒。
+- **定位最新回复**：
+  - 打开会话时自动停在最新一条消息。
+  - 用户在底部时，新消息到达会自动跟随；用户往上翻过以后，不会被强行拉回底部。
+  - 最新一条 AI 回复不在屏幕内时，右下角显示“最新回复”按钮，点击滚到这条回复的开头。按钮按稳定的 `messageId` 定位。
+- 状态提示：`phase` 不是 READY、`storageFault`、`globalBusy`（本会话正在生成，或其他讨论占用中）都有文字说明。`CAPACITY_EXCEEDED` 的文案写明“导出备份不会腾出空间”（契约 §3.3）。
+
+### 请 GPT / Architect 确认的假设
+
+1. **首屏方向**：假设 `firstMessages` 是最新的一页，它的 `next` 指向更早的消息。契约没有写明方向。如果反过来，只需改 `AiChatController.messages/hasOlder/loadOlder` 三处。
+2. **草稿合并**：界面自己按 300ms / 2s 去抖，只对去抖后的版本调用 `saveDraft`，每次一个新的 `commandId`。如果后端协调器还会再合并，需要说明被合并的旧命令收到什么回执。
+3. **列表范围**：`includeArchived = true`，这样旧版题目的只读讨论也会出现在列表里。
+4. **协程作用域**：控制器使用调用方传入的 scope。接入时宿主应提供比页面活得更久的 scope（例如 ViewModel），并在离页时调用 `leaveNow()`。否则页面被销毁时，最后 300ms 内的输入可能来不及保存。
+
+### 未做（后续接入时处理）
+
+- 发送、重试、取消、旧历史 `legacy()`、费用页改读新门面：不在本次要求内，契约上属于 AI-02b/AI-03。
+- 挂载位置（题目页入口或独立页面）、返回策略与 `PagePolicy` 的关系、`imePadding`：等真实门面就绪后，与 Architect 确认后再接。
+- 真机观感未验。
+
+### 验证（证据：`validation/AI-UI-CHAT-20261107/`）
+
+- 输入：干净 worktree，HEAD `10f4e6d7` 加 4 个文件（`AiChat.kt`、两个测试文件、GPT 的 `AiConversationContract.kt`），指纹见 `input-fingerprints.csv`。不含 GPT 其他未提交的文件。
+- 新增 `AiChatScreenTest` 10 项（360×640dp），覆盖：
+  - 列表标记与新建会话；
+  - 1～80 码点标题和过期拒绝；
+  - 消息顺序、状态与用量文案；
+  - 300ms / 2s 保存节奏与离页先保存、再 flush、再 deselect；
+  - 迟到确认不把新文字标成已保存，保存失败时留在当前会话；
+  - 复制内容与“已复制”提示；
+  - “最新回复”按钮，以及上翻后不会被强行拉回；
+  - 游标分页合并；
+  - 只读会话；
+  - 未就绪状态。
+- 第一次定向运行：10 项中 3 项失败，日志保留在 `01-targeted-first-run-3-failed.log`。
+  - 一个真实缺陷：打开长会话时可能停在顶部，因为“跟随”标志可能在初始滚动前，按首次布局被算成 false。已改为打开时必定先落到最新一条，之后只按用户滚动结束时的位置决定是否跟随。
+  - Robolectric 中在弹窗里输入文字时一直不空闲，已把重命名改为就地编辑。
+  - 测试的打字节奏正好踩在 2 秒边界上，已调整时间，留出约 70ms 余量；没有放宽断言。
+- 修复后定向：10/10 通过，确认测试实际执行，没有被 Gradle 判为 UP-TO-DATE。
+- 集成：`assembleDebug testDebugUnitTest lintDebug --rerun` 结果 BUILD SUCCESSFUL。测试 40 类、293 项，0 失败 / 0 错误 / 0 跳过，即上一轮的 283 项加本次 10 项。Lint 0 错误，5 个原有警告，没有新增。
+- 未生成 APK：没有挂载，试装包里看不到这些改动。
+
 ## 2026-11-06 · UI-01 方向更正：吉祥物（用户本意，Claude）
 
 ### 用户本意（lead / Architect 请以此为准）

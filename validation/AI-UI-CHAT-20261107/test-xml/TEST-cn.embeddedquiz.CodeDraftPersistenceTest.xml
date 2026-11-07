@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.CodeDraftPersistenceTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-07T02:34:58" hostname="LAPTOP-0JLS131B" time="1.918">
+  <properties/>
+  <testcase name="retryAllOnlyRetriesTheLatestFailedQuestions" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.201"/>
+  <testcase name="draftTransactionPreservesConcurrentLearningAndPersonalFields" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.173"/>
+  <testcase name="shutdownCancelsAStalledPreWriteWithoutPretendingItWasSaved" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.268"/>
+  <testcase name="failedOldVersionThenNewSuccessCannotBeReplayedByRetry" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.152"/>
+  <testcase name="supersededGenerationDoesNotReportAnOldFlushAsSaved" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.182"/>
+  <testcase name="cancellingAnExclusiveBoundaryReleasesEditingAndPreservesAcceptedText" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.158"/>
+  <testcase name="continuousTypingKeepsTheTwoSecondLimitAndFinalTrailingSave" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.163"/>
+  <testcase name="slowIoHasOneWriterAndOneReplaceablePendingVersionPerQuestion" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.151"/>
+  <testcase name="shutdownFlushesTheWindowAndRejectsLaterUpdates" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.126"/>
+  <testcase name="hundredEditsCoalesceAndIdenticalTextDoesNotWriteAgain" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.224"/>
+  <testcase name="cancellingFlushDoesNotCancelTheAcceptedWrite" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.119"/>
+  <system-out><![CDATA[T4 virtual committed save times ms: [2000, 4000, 6000]; codes=[v19, v39, v59]
+T4 actual committed writes for 100 edits/10ms: 1; reopened bytes match
+]]></system-out>
+  <system-err><![CDATA[System.logW: A resource was acquired at attached stack trace but never released. See java.io.Closeable for information on avoiding resource leaks.
+java.lang.Throwable: Explicit termination method 'close' not called
+	at dalvik.system.CloseGuard.$$robo$$dalvik_system_CloseGuard$open(CloseGuard.java:221)
+	at jdk.internal.reflect.GeneratedMethodAccessor39.invoke(Unknown Source)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.robolectric.shadows.ShadowCloseGuard$CloseGuardReflector$$Reflector66.open(Unknown Source)
+	at org.robolectric.shadows.ShadowCloseGuard.open(ShadowCloseGuard.java:38)
+	at dalvik.system.CloseGuard.open(CloseGuard.java)
+	at android.os.ParcelFileDescriptor.$$robo$$android_os_ParcelFileDescriptor$__constructor__(ParcelFileDescriptor.java:192)
+	at android.os.ParcelFileDescriptor.<init>(ParcelFileDescriptor.java:185)
+	at android.os.ParcelFileDescriptor.<init>(ParcelFileDescriptor.java:181)
+	at org.robolectric.shadows.ShadowParcelFileDescriptor.newParcelFileDescriptor(ShadowParcelFileDescriptor.java:116)
+	at org.robolectric.shadows.ShadowParcelFileDescriptor.open(ShadowParcelFileDescriptor.java:121)
+	at android.os.ParcelFileDescriptor.open(ParcelFileDescriptor.java)
+	at android.content.ContentResolver.$$robo$$android_content_ContentResolver$openAssetFileDescriptor(ContentResolver.java:1290)
+	at android.content.ContentResolver.openAssetFileDescriptor(ContentResolver.java)
+	at android.content.ContentResolver.$$robo$$android_content_ContentResolver$openOutputStream(ContentResolver.java:1055)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.robolectric.shadows.ShadowContentResolver$ContentResolverReflector$$Reflector99.openOutputStream(Unknown Source)
+	at org.robolectric.shadows.ShadowContentResolver.openOutputStream(ShadowContentResolver.java:230)
+	at android.content.ContentResolver.openOutputStream(ContentResolver.java)
+	at cn.embeddedquiz.QuizViewModel$backupUri$1$1.invokeSuspend(QuizViewModel.kt:639)
+	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)
+	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:108)
+	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:115)
+	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:103)
+	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:584)
+	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:793)
+	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:697)
+	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:684)
+
+]]></system-err>
+</testsuite>

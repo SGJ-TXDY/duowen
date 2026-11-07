@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiChatScreenTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-11-07T02:34:39" hostname="LAPTOP-0JLS131B" time="10.417">
+  <properties/>
+  <testcase name="notReadyBlocksNewSessionsAndExplainsWhy" classname="cn.embeddedquiz.AiChatScreenTest" time="6.479"/>
+  <testcase name="aLateAcknowledgementNeverMarksNewerTextSavedAndFailuresKeepTheEditorOpen" classname="cn.embeddedquiz.AiChatScreenTest" time="1.551"/>
+  <testcase name="jumpToLatestReplyAppearsOnlyWhenItIsOffScreenAndScrollingUpIsNeverOverridden" classname="cn.embeddedquiz.AiChatScreenTest" time="0.741"/>
+  <testcase name="readOnlySessionShowsItsDraftButNeverSaves" classname="cn.embeddedquiz.AiChatScreenTest" time="0.156"/>
+  <testcase name="listShowsTitlesAndStateAndNewSessionOpens" classname="cn.embeddedquiz.AiChatScreenTest" time="0.163"/>
+  <testcase name="copyPutsTheStoredTextOnTheClipboardAndSaysSo" classname="cn.embeddedquiz.AiChatScreenTest" time="0.189"/>
+  <testcase name="messagesShowOldestFirstWithRunStatusAndHonestUsage" classname="cn.embeddedquiz.AiChatScreenTest" time="0.163"/>
+  <testcase name="renameUpdatesTitleWithinEightyCodePointsAndShowsStaleRejection" classname="cn.embeddedquiz.AiChatScreenTest" time="0.524"/>
+  <testcase name="draftSavesAfterAQuietPauseAtMostEveryTwoSecondsAndIsFlushedOnLeave" classname="cn.embeddedquiz.AiChatScreenTest" time="0.219"/>
+  <testcase name="olderMessagesLoadByCursorAndMergeInOrder" classname="cn.embeddedquiz.AiChatScreenTest" time="0.232"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
