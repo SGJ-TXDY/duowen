@@ -303,12 +303,22 @@ interface QuizDao {
             LearningSettings::class,
             PersonalAnswer::class,
             QuestionPersonal::class,
+            AiSessionRow::class, AiMessageRow::class, AiRunRow::class, AiCommandRow::class, AiCacheRow::class,
         ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class QuizDatabase : RoomDatabase() {
     internal val examAccess = ExamAccess()
+    internal val aiLifecycle = AiStorageLifecycle()
+    internal val aiServices by lazy { AiServices(this) }
+    internal lateinit var storageContext: Context
+    @Suppress("DEPRECATION")
+    override fun init(configuration: androidx.room.DatabaseConfiguration) {
+        storageContext = configuration.context.applicationContext
+        super.init(configuration)
+    }
+    abstract fun ai(): AiConversationDao
     abstract fun dao(): QuizDao
 
     companion object {
@@ -331,12 +341,13 @@ abstract class QuizDatabase : RoomDatabase() {
 
         val MIGRATION_3_4 = LearningMigration
         val MIGRATION_4_5 = ExamMigration
+        val MIGRATION_5_6 = AiConversationMigration
 
         fun open(context: Context, name: String = "embeddedquiz.db"): QuizDatabase {
             CategoryMap.load(context)
             return Room.databaseBuilder(context, QuizDatabase::class.java, name)
                 .openHelperFactory(PreservingOpenHelperFactory())
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
         }
     }

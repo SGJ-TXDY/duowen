@@ -35,7 +35,7 @@ class AiStateHolder(
     private val repo: QuizRepository,
     private val vault: KeyVault,
     private val prefs: SharedPreferences,
-    private val client: DeepSeekClient = DeepSeekClient(),
+    private val clientFactory: (okhttp3.OkHttpClient) -> DeepSeekClient = { DeepSeekClient(client = it) },
     private val readKey: () -> String = vault::read,
     private val notify: (String) -> Unit,
 ) {
@@ -66,13 +66,31 @@ class AiStateHolder(
         private set
 
     private val current = MutableStateFlow<Pair<String, String>?>(null)
+    private val network = AiLegacyNetwork()
     private var job: Job? = null
     private var serial = 0
     private var lastRequest: AiRequest? = null
+    private val refresh = MutableStateFlow(0L)
+    internal var beforeLegacyWrite: suspend () -> Unit = {}
+    internal var afterLegacyWrite: suspend () -> Unit = {}
 
     init {
+        repo.db.aiLifecycle.listenLegacy { paused, replaced ->
+            withContext(Dispatchers.Main.immediate) {
+                if (paused) {
+                    this@AiStateHolder.cancel()
+                } else if (replaced) {
+                    entries = emptyList()
+                    request = null
+                    lastRequest = null
+                    error = ""
+                    refresh.value++
+                }
+            }
+        }
         scope.launch {
             current
+                .combine(refresh) { value, _ -> value }
                 .filterNotNull()
                 .flatMapLatest { (id, hash) -> repo.dao.questionAi(id, hash) }
                 .collect { entries = it.reversed() }
@@ -127,7 +145,7 @@ class AiStateHolder(
      */
     fun retry(requestId: Int): Boolean {
         val shown = request ?: return false
-        if (shown.requestId != requestId || shown.busy || shown.error.isBlank() || busy) return false
+        if (shown.requestId != requestId || shown.busy || shown.error.isBlank() || busy || repo.db.aiLifecycle.legacyToken() == null) return false
         retry()
         return true
     }
@@ -140,6 +158,10 @@ class AiStateHolder(
         code: String = "",
     ) {
         if (busy) return
+        val writeEpoch = repo.db.aiLifecycle.legacyToken() ?: run {
+            error = if (repo.db.aiLifecycle.legacyRetired()) "旧AI入口已停止发送，请使用新会话入口" else "AI暂不可用，请等待数据操作完成或启动重试"
+            return
+        }
         observe(q)
         busy = true
         error = ""
@@ -156,10 +178,11 @@ class AiStateHolder(
                 error = "",
             )
         job =
-            scope.launch {
+            scope.launch(start = CoroutineStart.LAZY) {
                 var failure: String? = null
                 try {
                     withContext(Dispatchers.IO) {
+                        repo.ensureAiStorage()
                         val history =
                             if (type == AiRequestType.FOLLOW_UP)
                                 repo.dao.aiContext(q.id, q.contentHash).asReversed().joinToString(
@@ -195,12 +218,13 @@ class AiStateHolder(
                             notify("已使用缓存解析，没有产生新费用")
                             return@withContext
                         }
-                        val reply = client.completeCancellable(readKey(), requestedModel, prompt)
+                        val reply = network.complete(clientFactory, readKey(), requestedModel, prompt)
                         ensureActive()
                         val label =
                             "AI 建议，未核实\n" +
                                 (if (type == AiRequestType.CODE_REVIEW) "未经编译验证\n" else "")
-                        repo.dao.putAi(
+                        beforeLegacyWrite()
+                        repo.db.aiLifecycle.write(writeEpoch) { repo.dao.putAi(
                             AiEntry(
                                 key,
                                 q.id,
@@ -215,7 +239,8 @@ class AiStateHolder(
                                 q.contentHash,
                                 type.name,
                             )
-                        )
+                        ) }
+                        afterLegacyWrite()
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -240,5 +265,8 @@ class AiStateHolder(
                     }
                 }
             }
+        val accepted = requireNotNull(job)
+        if (repo.db.aiLifecycle.attach(writeEpoch, accepted)) accepted.start()
+        else { accepted.cancel(); cancel() }
     }
 }

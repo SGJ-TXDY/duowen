@@ -19,6 +19,10 @@ sealed interface InitializationOutcome {
 class QuizViewModel(app: Application) : AndroidViewModel(app) {
     val db = QuizDatabase.open(app)
     val repo = QuizRepository(db)
+    val aiConversations: AiConversationFacade get() = repo.aiConversations
+    val aiCosts: AiCostsRepository get() = repo.aiCosts
+    val aiCostsState: StateFlow<AiCostsUiState> get() = repo.aiCostsState
+    private val storageLifecycle = db.aiLifecycle.also { it.health(false) }
     val vault = KeyVault(app)
     private val prefs = app.getSharedPreferences("settings", 0)
     var questions by mutableStateOf<List<QuestionSummary>>(emptyList())
@@ -77,6 +81,19 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     val learning = LearningStateHolder(viewModelScope, repo, app)
     val codeDrafts = CodeDraftStateHolder(viewModelScope, repo)
+    init {
+        storageLifecycle.draftBoundary = { replace ->
+            codeDrafts.exclusive {
+                flushStickyNotes()
+                replace()
+            }
+        }
+        storageLifecycle.afterReplacement = {
+            withContext(Dispatchers.Main.immediate) {
+                afterDraftReplacement(retainText = false, navigateHome = false)
+            }
+        }
+    }
     fun codeDraftSaveState(id: String): CodeDraftSaveState = codeDrafts.state(id)
     val codeDraftEditingBlocked: Boolean get() = codeDrafts.editingBlocked
     fun updateCodeDraft(id: String, code: String, notes: String) {
@@ -201,7 +218,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     databaseOpened = true
                     phase(StartupStage.VALIDATION, "正在检查本机历史数据")
-                    withContext(Dispatchers.IO) { repo.validateStoredQuestions() }
+                    withContext(Dispatchers.IO) { repo.validateStoredQuestions(); repo.initializeAiStorage() }
                     phase(StartupStage.BANK, "正在准备离线题库")
                     withContext(Dispatchers.IO) {
                         if (count == 0 || prefs.getInt("bankRevision", 0) < 4) {
@@ -237,6 +254,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
                     if (notificationReviewRequested || page == Page.REVIEW) page = Page.REVIEW
                     else if (restored != null) page = Page.QUESTION
                     notificationReviewRequested = false
+                    storageLifecycle.health(true)
                     ready = true
                     startupState = StartupState.Ready(attempt, restored != null)
                     completion.complete(InitializationOutcome.Ready(restored != null))
@@ -244,6 +262,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
                     completion.cancel(failure)
                     throw failure
                 } catch (failure: Exception) {
+                    storageLifecycle.health(false)
                     lastStartupExceptionType = failure.javaClass.simpleName
                     withContext(Dispatchers.IO) { errorLog.record(LogEvent.LOAD, failure) }
                     val generic = "题库加载失败，请查看本地错误记录"
@@ -303,22 +322,16 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun restoreStartupBackup(uri: Uri, confirmReplace: Boolean = false): StartupRecoveryResult = recoveryAction {
         if (!confirmReplace) return@recoveryAction StartupRecoveryResult.Rejected("恢复会替换学习数据，请先确认")
         if (!databaseOpened) return@recoveryAction StartupRecoveryResult.Rejected("数据库尚不可安全使用，不能恢复备份。请先导出诊断保留原库")
-        val text = withContext(Dispatchers.IO) { readUri(uri) }
         val exam = try { examState.restore() }
             catch (failure: CancellationException) { throw failure }
             catch (failure: Exception) { return@recoveryAction StartupRecoveryResult.Rejected("无法确认考试状态，不能恢复备份。请先导出诊断") }
         if (exam != null || examState.active()) return@recoveryAction StartupRecoveryResult.Rejected("请先结束当前考试，再恢复备份")
-        withContext(NonCancellable) {
-            codeDrafts.exclusive {
-                withContext(Dispatchers.IO) { repo.restore(text) }
-                withContext(Dispatchers.Main) {
-                    afterDraftReplacement(retainText = false, navigateHome = false)
-                    if (!cleared) {
-                        examState.reserveForRestore()
-                        launchInitialization()
-                    }
-                }
-            }
+        withContext(Dispatchers.IO) {
+            val input = getApplication<Application>().contentResolver.openInputStream(uri) ?: error("无法读取备份")
+            repo.restoreFrom(input)
+        }
+        withContext(Dispatchers.Main.immediate) {
+            if (!cleared) { examState.reserveForRestore(); launchInitialization() }
         }
         StartupRecoveryResult.Completed
     }
@@ -393,6 +406,8 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) { action() }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 withContext(Dispatchers.IO) { errorLog.record(LogEvent.OPERATION, e) }
                 notice = "操作未完成：${e.message ?: "请重试"}"
@@ -622,23 +637,20 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun restoreUri(uri: Uri) = launchTask {
-        codeDrafts.exclusive {
-            flushStickyNotes()
-            repo.restore(readUri(uri))
-            withContext(Dispatchers.Main) {
-                afterDraftReplacement(retainText = false, navigateHome = true)
-                notice = "备份已恢复"
-            }
+        val input = getApplication<Application>().contentResolver.openInputStream(uri) ?: error("无法读取备份")
+        repo.restoreFrom(input)
+        withContext(Dispatchers.Main.immediate) {
+            page = Page.HOME
+            notice = "备份已恢复"
         }
     }
 
     fun backupUri(uri: Uri) = launchTask {
         codeDrafts.exclusive {
             flushStickyNotes()
-            val text = repo.backup()
-            val out = getApplication<Application>().contentResolver.openOutputStream(uri, "wt")
-                ?: error("无法写入文件")
-            out.bufferedWriter().use { it.write(text) }
+            repo.backupTo {
+                getApplication<Application>().contentResolver.openOutputStream(uri, "wt") ?: error("无法写入文件")
+            }
             notice = "备份完成（不包含 API Key）"
         }
     }
@@ -751,6 +763,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         cleared = true
+        val storageTasks = storageLifecycle.closing()
         val draftWriter = codeDrafts.shutdown()
         val writer = examState.onOwnerCleared()
         val operation = examOperationJob
@@ -760,13 +773,14 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
         // Draft worker has its own lifetime and is already draining the final accepted text.
         notesState.shutdown()
         quickNotes.shutdown()
-        if (draftWriter.isCompleted && writer.isCompleted && (operation == null || operation.isCompleted) &&
+        if (storageTasks.all { it.isCompleted } && draftWriter.isCompleted && writer.isCompleted && (operation == null || operation.isCompleted) &&
             (owner == null || owner.isCompleted)) {
             db.close(); examResourcesClosed = Job().apply { complete() }
         }
         else {
             val database = db
             examResourcesClosed = CoroutineScope(Dispatchers.IO).launch {
+                storageTasks.joinAll()
                 draftWriter.join()
                 writer.join()
                 operation?.join()

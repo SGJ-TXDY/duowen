@@ -151,7 +151,7 @@ class EnhancedAiTest {
                     repo,
                     KeyVault(context),
                     context.getSharedPreferences("ai-test", 0),
-                    client = DeepSeekClient(endpoint = server.url("/chat/completions").toString()),
+                    clientFactory = { http -> DeepSeekClient(client = http, endpoint = server.url("/chat/completions").toString()) },
                     readKey = { "test-key" },
                     notify = {},
                 )
@@ -214,7 +214,7 @@ class EnhancedAiTest {
                     repo,
                     KeyVault(context),
                     context.getSharedPreferences("ai-owner", 0),
-                    client = DeepSeekClient(endpoint = server.url("/chat/completions").toString()),
+                    clientFactory = { http -> DeepSeekClient(client = http, endpoint = server.url("/chat/completions").toString()) },
                     readKey = { "test-key" },
                     notify = { notices += it },
                 )
@@ -304,7 +304,7 @@ class EnhancedAiTest {
                     repo,
                     KeyVault(context),
                     context.getSharedPreferences("ai-cancel", 0),
-                    client = DeepSeekClient(endpoint = server.url("/chat/completions").toString()),
+                    clientFactory = { http -> DeepSeekClient(client = http, endpoint = server.url("/chat/completions").toString()) },
                     readKey = { "test-key" },
                     notify = {},
                 )

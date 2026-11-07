@@ -1,15 +1,26 @@
 package cn.embeddedquiz
 
 import androidx.room.withTransaction
+import kotlinx.coroutines.ensureActive
 import java.time.LocalDate
 import org.json.JSONArray
 import org.json.JSONObject
 
 class QuizRepository(val db: QuizDatabase) {
     val dao = db.dao()
+    val aiConversations: AiConversationFacade get() = db.aiServices.conversations()
+    val aiCosts: AiCostsRepository get() = db.aiServices.costs()
+    val aiCostsState: kotlinx.coroutines.flow.StateFlow<AiCostsUiState> get() = db.aiServices.costs().state
 
     internal suspend fun validateStoredQuestions() {
-        dao.allQuestions().forEach { HistoricalQuestionV3.read(it.id, it.json) }
+        db.withTransaction {
+            db.openHelper.readableDatabase.query("SELECT id,json FROM questions ORDER BY id").use { rows ->
+                while(rows.moveToNext()) {
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    HistoricalQuestionV3.read(rows.getString(0),rows.getString(1))
+                }
+            }
+        }
     }
 
     suspend fun reindexCategories() =
@@ -174,269 +185,49 @@ class QuizRepository(val db: QuizDatabase) {
         }
     }
 
-    suspend fun backup(): String =
-        db.withTransaction {
-            LearningCodec.append(
-                    JSONObject()
-                        .put("schemaVersion", 1)
-                        .put("backupVersion", 3)
-                        .put(
-                            "stickyNotes",
-                            JSONArray(
-                                dao.allStickyNotes().map { n ->
-                                    JSONObject()
-                                        .put("id", n.id)
-                                        .put("title", n.title)
-                                        .put("content", n.content)
-                                        .put("created", n.created)
-                                        .put("updated", n.updated)
-                                }
-                            ),
-                        )
-                        .put("questions", JSONArray(dao.allQuestions().map { JSONObject(it.json) }))
-                        .put(
-                            "progress",
-                            JSONArray(
-                                dao.allProgress().map { p ->
-                                    JSONObject()
-                                        .put("questionId", p.questionId)
-                                        .put("seen", p.seen)
-                                        .put("correctCount", p.correctCount)
-                                        .put("repetitions", p.repetitions)
-                                        .put("interval", p.interval)
-                                        .put("ease", p.ease)
-                                        .put("due", p.due)
-                                        .put("lapses", p.lapses)
-                                        .put("wrong", p.wrong)
-                                        .put("favorite", p.favorite)
-                                        .put("flagged", p.flagged)
-                                        .put("code", p.code)
-                                        .put("notes", p.notes)
-                                }
-                            ),
-                        )
-                        .put(
-                            "attempts",
-                            JSONArray(
-                                dao.allAttempts().map { a ->
-                                    JSONObject()
-                                        .put("questionId", a.questionId)
-                                        .put("timestamp", a.timestamp)
-                                        .put("day", a.day)
-                                        .put("response", a.response)
-                                        .put("correct", a.correct ?: JSONObject.NULL)
-                                        .put("feedback", a.feedback)
-                                        .put("mode", a.mode)
-                                        .put("wasNew", a.wasNew)
-                                        .put("assessment", a.assessment)
-                                        .put("answerSource", a.answerSource)
-                                        .put("normalizedCategory", a.normalizedCategory)
-                                        .put("questionHash", a.questionHash)
-                                }
-                            ),
-                        )
-                        .put(
-                            "ai",
-                            JSONArray(
-                                dao.allAi().map { a ->
-                                    JSONObject()
-                                        .put("cacheKey", a.cacheKey)
-                                        .put("questionId", a.questionId)
-                                        .put("model", a.model)
-                                        .put("prompt", a.prompt)
-                                        .put("response", a.response)
-                                        .put("inputTokens", a.inputTokens)
-                                        .put("outputTokens", a.outputTokens)
-                                        .put("hitTokens", a.hitTokens)
-                                        .put("estimatedUsd", a.estimatedUsd)
-                                        .put("created", a.created)
-                                        .put("contentHash", a.contentHash)
-                                        .put("requestType", a.requestType)
-                                        .put("day", a.day)
-                                }
-                            ),
-                        ),
-                    dao,
-                )
-                .toString()
-        }
+    private val backupFiles get() = AiFullBackupCodec(db.storageContext,
+        java.io.File(db.storageContext.cacheDir, "complete-backup"))
+    internal var beforeRestoreCommit: () -> Unit = {}
+    internal var storageResource: (Long) -> Unit = AiStorageResources.guard(db.storageContext)
 
-    suspend fun restore(text: String) = db.examAccess.replaceLearning {
-        val root = JSONObject(text)
-        val version = root.getInt("backupVersion")
-        require(version in 1..3) { "不是有效备份" }
-        val rows = BankCodec.parseBank(text)
-        val ids = rows.map { it.id }.toSet()
-        val categories = rows.associate { it.id to it.normalizedCategory }
-        val kinds = rows.associate { it.id to it.kind }
-        val learning = if (version >= 3) LearningCodec.parse(root) else null
-        fun objects(name: String): List<JSONObject> {
-            val arr = root.getJSONArray(name)
-            return (0 until arr.length()).map { arr.getJSONObject(it) }
-        }
-        val stickyNotes =
-            if (version >= 2)
-                objects("stickyNotes").map { n ->
-                    StickyNote(
-                        n.getString("id"),
-                        n.getString("title"),
-                        n.getString("content"),
-                        n.getLong("created"),
-                        n.getLong("updated"),
-                    )
+    /** Compatibility only: file/URI callers must use streams, not this whole-string adapter. */
+    suspend fun backup(): String {
+        val output = java.io.ByteArrayOutputStream()
+        backupTo { output }
+        return output.toString("UTF-8")
+    }
+    suspend fun backupTo(openNewDestination: () -> java.io.OutputStream) = db.aiLifecycle.operation {
+        ensureAiStorage()
+        backupFiles.export(db, openNewDestination, storageResource)
+        Unit
+    }
+    suspend fun restore(text: String) = restoreFrom(java.io.ByteArrayInputStream(text.toByteArray(Charsets.UTF_8)))
+    suspend fun restoreFrom(input: java.io.InputStream) {
+        // Input ownership begins at the public call, even if owner admission has already closed.
+        var transferred = false
+        try {
+            db.aiLifecycle.operation {
+                // Retain the existing editor contract: even a rejected backup first flushes
+                // accepted text under the owner's exclusion, without advancing its generation.
+                db.aiLifecycle.draftBoundary {
+                    storageResource(0)
+                    transferred = true
+                    backupFiles.prepare(input, storageResource).use { stage ->
+                        db.aiLifecycle.replace {
+                            db.examAccess.replaceLearning {
+                                AiBackupRestorer(db,resource={ storageResource(0) },beforeCommit=beforeRestoreCommit).replace(stage)
+                            }
+                        }
+                    }
                 }
-            else emptyList()
-        require(
-            stickyNotes.map { it.id }.distinct().size == stickyNotes.size &&
-                stickyNotes.all {
-                    it.id.isNotBlank() &&
-                        it.id.length <= 200 &&
-                        it.created >= 0 &&
-                        it.updated >= it.created
-                }
-        ) {
-            "便签数据无效"
-        }
-        val progress =
-            objects("progress").map { p ->
-                Progress(
-                    p.getString("questionId"),
-                    p.getInt("seen"),
-                    p.getInt("correctCount"),
-                    p.getInt("repetitions"),
-                    p.getInt("interval"),
-                    p.getDouble("ease"),
-                    p.getLong("due"),
-                    p.getInt("lapses"),
-                    p.getBoolean("wrong"),
-                    p.getBoolean("favorite"),
-                    p.getBoolean("flagged"),
-                    p.getString("code"),
-                    p.getString("notes"),
-                )
             }
-        require(progress.map { it.questionId }.distinct().size == progress.size)
-        require(
-            progress.all {
-                it.questionId in ids &&
-                    it.seen >= 0 &&
-                    it.correctCount in 0..it.seen &&
-                    it.interval in 0..3650 &&
-                    it.ease in 1.3..3.5 &&
-                    it.repetitions >= 0 &&
-                    it.lapses >= 0 &&
-                    it.due in 0..3650000
-            }
-        ) {
-            "复习状态无效"
-        }
-        val attempts =
-            objects("attempts").map { a ->
-                Attempt(
-                    questionId = a.getString("questionId"),
-                    timestamp = a.getLong("timestamp"),
-                    day = a.getLong("day"),
-                    response = a.getString("response"),
-                    correct = if (a.isNull("correct")) null else a.getBoolean("correct"),
-                    feedback = a.getString("feedback"),
-                    mode = a.getString("mode"),
-                    wasNew = a.getBoolean("wasNew"),
-                    assessment = a.optString("assessment", ""),
-                    answerSource =
-                        a.optString(
-                            "answerSource",
-                            if (
-                                a.optString("assessment").isNotEmpty() ||
-                                    (!a.isNull("correct") &&
-                                        kinds[a.getString("questionId")] !in
-                                            setOf("SINGLE", "MULTIPLE", "TRUE_FALSE"))
-                            )
-                                "MANUAL"
-                            else if (a.isNull("correct")) "UNSCORED" else "ORIGINAL",
-                        ),
-                    normalizedCategory =
-                        a.optString(
-                            "normalizedCategory",
-                            categories[a.getString("questionId")].orEmpty(),
-                        ),
-                    questionHash = a.optString("questionHash"),
-                )
-            }
-        require(
-            attempts.all {
-                it.assessment.isEmpty() ||
-                    runCatching { Assessment.valueOf(it.assessment) }.isSuccess
-            }
-        )
-        require(
-            attempts.all {
-                it.questionId in ids && runCatching { Feedback.valueOf(it.feedback) }.isSuccess
-            }
-        )
-        val ai =
-            objects("ai").map { a ->
-                AiEntry(
-                    a.getString("cacheKey"),
-                    a.getString("questionId"),
-                    a.getString("model"),
-                    a.getString("prompt"),
-                    a.getString("response"),
-                    a.getInt("inputTokens"),
-                    a.getInt("outputTokens"),
-                    a.getInt("hitTokens"),
-                    a.getDouble("estimatedUsd"),
-                    a.getLong("created"),
-                    contentHash = a.optString("contentHash"),
-                    requestType = a.optString("requestType", "FOLLOW_UP"),
-                    day =
-                        a.optLong(
-                            "day",
-                            java.time.Instant.ofEpochMilli(a.getLong("created"))
-                                .atZone(java.time.ZoneId.systemDefault())
-                                .toLocalDate()
-                                .toEpochDay(),
-                        ),
-                )
-            }
-        require(
-            ai.all {
-                it.questionId in ids &&
-                    it.inputTokens >= 0 &&
-                    it.outputTokens >= 0 &&
-                    it.hitTokens in 0..it.inputTokens &&
-                    it.estimatedUsd.isFinite() &&
-                    it.estimatedUsd >= 0
-            }
-        )
-        // Validate everything before touching the database; the replacement is atomic.
-        db.withTransaction {
-            if (learning != null) {
-                val asked = dao.getSettings()?.notificationPermissionAsked == true
-                dao.putSettings(
-                    learning.settings.copy(
-                        notificationPermissionAsked =
-                            asked || learning.settings.notificationPermissionAsked
-                    )
-                )
-                dao.clearPersonalAnswers()
-                learning.answers.forEach { dao.putPersonalAnswer(it) }
-                dao.clearPersonalMetadata()
-                learning.metadata.forEach { dao.putPersonalMetadata(it) }
-            }
-            dao.clearAttempts()
-            dao.clearProgress()
-            dao.clearAi()
-            dao.clearQuestions()
-            // Old backups predate standalone notes; keep those notes when importing one.
-            if (version >= 2) {
-                dao.clearStickyNotes()
-                stickyNotes.forEach { dao.putStickyNote(it) }
-            }
-            dao.addQuestions(rows)
-            progress.forEach { dao.putProgress(it) }
-            attempts.forEach { dao.addAttempt(it) }
-            ai.forEach { dao.putAi(it) }
-        }
+        } finally { if (!transferred) input.close() }
+    }
+    internal suspend fun ensureAiStorage() = initializeAiStorage(force=false)
+    internal suspend fun initializeAiStorage(force:Boolean=true) = db.aiLifecycle.operation {
+        db.aiLifecycle.validate(force) { db.withTransaction {
+            AiStorageValidation.verifyAndRecover(db.openHelper.writableDatabase,resource={ storageResource(0) })
+        } }
     }
 
     suspend fun question(id: String): Question? =

@@ -34,6 +34,7 @@ class LearningStateHolder(
     var learnedDays by mutableStateOf<List<Long>>(emptyList())
         private set
 
+    val aiCostsState: StateFlow<AiCostsUiState> get() = repo.aiCostsState
     var costs by mutableStateOf<List<CostCount>>(emptyList())
         private set
 

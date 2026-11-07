@@ -38,7 +38,7 @@ class StickyNoteStorageTest {
             malformed.getJSONArray("stickyNotes").getJSONObject(0).put("updated", -1)
             assertTrue(runCatching { repo.restore(malformed.toString()) }.isFailure)
             assertEquals(listOf(note), repo.dao.allStickyNotes())
-            val old = JSONObject(backup).put("backupVersion", 1)
+            val old = JSONObject(backup).asLegacyBackup(1)
             old.remove("stickyNotes")
             repo.restore(old.toString())
             assertEquals(listOf(note), repo.dao.allStickyNotes())

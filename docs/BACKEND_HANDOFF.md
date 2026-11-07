@@ -1,5 +1,7 @@
 # 后端交接文档（BACKEND_HANDOFF）
 
+当前分支整合了 AI-02b 后端和题目页接入。会话、发送、早期记录及费用均已接通。末尾 AI-02b 段记录后端交付时的状态，页面接入见 [前端交接](FRONTEND_HANDOFF.md)。
+
 ## 2026-11-05 · VC-02 测试隔离根因与最小修复（待审查）
 
 开工 HEAD 3f69f95，分支 ui-visual-refresh，按 §22 单人完成。复用 VC-01 证据，固定 JUnit 原方法顺序，未反复运行未修改全套。Architect 的共享派发、视觉审查文档和证据目录保持原有未提交状态，未编辑/暂存。
@@ -691,3 +693,87 @@ gpt.docx 规定“Claude 负责前端 UI、视觉设计和展示交互。除非�
 原始基线、最终构建日志、JUnit XML、开发前文件指纹和汇总保存在 `validation/backend-2026-10-24/`，汇总入口为 `summary.json`。本轮基线和最终各执行一次，没有重复完整套件；未运行 UI 测试、Lint、真机安装或排版验收，也未生成新版发布包。
 
 以开发开始时的 SHA-256 为准核对：Claude 的前端文件、已有 UI 测试、`FRONTEND_HANDOFF.md`、构建配置、两个稳定 APK 和发布源码 ZIP 都保持不变。原有未提交的前端改动完整保留；本轮后端及文档也留在工作区供审阅，没有混合提交或推送。
+
+## AI-02a-1 / 2026-11-06：未接生产的 AI 数据基础
+
+输入：`AI_02_CONTRACT_FREEZE_20261106.md`；代码基线0ecc6366db52d9119282953cd7c3ee353505fb8d。与Claude的UI/资源/测试并行，未重置、暂存或提交他人文件。
+
+新增：AiConversationContract/AiCostsContract、AiConversationData/AiConversationMigration、AiSnapshotCodec/AiRowCodec/AiConversationCodec、AiStore；测试专用AiFoundationTestDb和AiFoundationTest。准确调用边界见API_CONTRACT新增AI段。生产Data/QuizDatabase注册、Repository、QuizViewModel、LearningStateHolder、StartupStorageCheck/StartupRecovery、旧Ai/AiStateHolder、Compose/资源、依赖和应用版本均未改。
+
+关键实现：
+
+- 五表引用、唯一seq/assistant/command约束；会话即存题目快照，零run也可独立校验恢复；迁移对象未注册正式库。
+- 接受事务冻结实际payload、system/template、排序选择及同会话完整历史；先持久化收据/消息/run后才返回；没有HTTP路径。
+- 持久命令幂等、重试冻结输入、旧版本只读、旧草稿token拒绝、匹配token才清稿；失败事务完整回滚。
+- usage缺失保留null，估算与费率快照十进制字符串，未知枚举/溢出拒绝；仅完整成功NETWORK回复建立完整缓存。
+- 规范UTF-8容量与剩余预约守恒；300ms/2s纯调度器在可控时钟下测试，无sleep凑绿。
+
+验证与限制：本轮先受影响编译，再在`validation/AI-02a-1-20261106/input`独立源码快照执行定向测试，ASCII入口`C:/AndroidProjects/EmbeddedQuizAi02a1`，避免复用共享UI构建输出。命令/最终数量/输入指纹与XML见该validation目录的RESULTS.md；修复前运行也原样保留。没有运行真实HTTP/模型、完整网络取消/费用结算/恢复竞争/设备UI或发布验收，不产APK。本批不运行未固定的共享UI全套。
+
+后续：AI-02a-2才允许另派完整备份4流式/staging与正式迁移/启动最小接入；AI-02b才接单一发送协调器/费用/新旧sender屏障。不要让前端现在接新门面，也不要把测试库的v6当成正式应用已升级。未生成正式6.json，正式schema仍5；不能发布半套迁移。
+
+AI-02a-1最终结果：新增25项 + 既有AI 5项 + 学习数据7项，37/37通过，失败/错误/跳过均0；最后一次受影响编译及定向运行BUILD SUCCESSFUL。证据：validation/AI-02a-1-20261106/RESULTS.md、06-final.log、06-xml、06-input-sha256.csv、delivery-sha256.csv。10个新增源码/测试文件与隔离验证输入逐字节一致。既有AI回归使用本地MockWebServer，没有外部模型请求。归档期间HEAD由Claude并行提交先后推进到5cf6580a84c708156e26626d70fb5d92e8c14faf及08f7fd8ada486390f867b4183cf55291dfbbf287，本批无Git提交；实际测试输入以归档指纹为准。
+
+## 2026-11-06 · AI-02a-1-F1 补修（待Architect复审）
+
+依据AI_02A1_REVIEW_AND_FIX_20261106.md，最小修订AiStore、AiConversationCodec，新增AiEstimateCodec及AiFoundationTest的F1回归。原25项断言保留，未修改其他测试/页面/旧AI/正式DB/Repository/VM/依赖/版本。
+
+F1-1：accept/retry一次性捕获本尝试时间与业务时区；重试新账期不继承旧attempt；codec校验账期与创建时刻相符。F1-2：规范codec计算非终态收尾下限，checkpoint保留必要终态/取消收据空间；伪造或不足预约在目标写入前拒绝，合法已消费预约不重置为整份。F1-3：后端从用量/费率生成12位HALF_UP估价，恢复重算比对；未知保持null，decimal尾零等值接受。
+
+修复前在隔离输入上实际复现“零预约被接受”和“非零用量/费率的估价0被接受”：2项失败，原日志/XML/对应源码见validation/AI-02a-1-F1/01-before*。修复后F1定向及最终三类回归、真实数量、源码指纹见该目录RESULTS.md，不覆盖原37项证据。无外部模型请求；既有EnhancedAiTest只使用本地MockWebServer。正式Room仍5/备份仍3，未生成APK/发布/提交。
+
+F1最终固定输入48/48通过（基础36=原25+F1新增11、既有AI5、学习数据7），源码/原始XML/日志已归档。按本次用户“通过后再开AI-02a-2”的顺序，已开始独立近32MiB容量探针，另存validation/AI-02a-2-20261106；仍不提前注册正式schema或切生产恢复。F1交付可供Architect复审；完整备份接入及独立流式内存/事务验收不能由定向绿灯替代。
+
+## AI-02a-2 已启动：近容量基线（2026-11-06）
+
+按用户要求在F1定向48/48通过后开始。新增独立测试AiFoundationCapacityProbeTest，用31个各1MiB草稿构造规范字节32534328/33554432（约97%）的有效数据，实际执行3次saveDraft事务并核对全量文本/收据/revision；无正式Room/备份/VM挂载。
+
+主机JDK17/Robolectric下3次保存wall约172.6/157.3/142.4ms，对应时窗进程CPU约328.1/218.8/171.9ms、全线程Java分配约239～240MiB。CPU/分配是整个测量时窗的宿主计数，非AiStore独占、非Android设备结果，不含native峰值，不能据此宣布生产性能验收。全量load/validate的高分配已成为后续AI内部增量/分页处理的依据；完整文件streaming不能经全量dataset假装流式。
+
+探针1/1通过单独归档在validation/AI-02a-2-20261106，不与F1的48项混计。首次探针因Android测试编译路径无JDK管理API而未编译通过，原日志保留；修正为仅测试使用的宿主JDK反射计数，无新增应用依赖。正式schema注册、完整备份4/staging、启动/关闭/新旧sender恢复屏障均尚未接入，不声称AI-02a-2完成。
+
+## 2026-11-06 · AI-02a-2 A→B 连续实现（待集中代码审查）
+
+本批按AI_02A2_DISPATCH_20261106完成A/B编码与独立验证，中途未再交纯方案等许可。正式Room仍5、备份3/旧sender/Repository/VM/启动恢复/Compose/依赖/版本均未改；2C正式接入不在本批。
+
+A：五表内部计量列/覆盖索引、AiMeter/AiWorkingSet、局部DAO与事务差额校验；正常草稿/标题不读取无关正文，checkpoint仅根及必要引用。固定快照v1参数，冷恢复处理时钟回拨。B：AiFullBackupCodec/AiBackupStage/AiSqlAccess/AiLegacyBackupCodec，临时磁盘索引逐根验证、单文件流式读写和仅测试宿主的原子恢复器；无新增正式第六表，legacy临时索引只存在可删除staging。
+
+原F1 48项断言/旧37项证据保留。A初始原基础36项通过，新增局部结构5项通过；容量分布探针自身SQL记录列表的并发读取异常保留失败XML，改为同步快照读取后受影响用例通过，没有删断言或加超时。B原8项中3项在Windows测试数据库打开/WAL阶段失败，保留日志/XML；实际候选路径最高260字符（另加WAL后缀），测试库名缩短后通过，未改变生产路径或测试超时。
+
+B覆盖：1～3缺段保留、4往返（零run/草稿/部分回复/未知usage/旧hash/收据）、新AI总容量/坏数据预检拒绝、差异化目标中途故障回滚、长retry和缓存来源扇出、输入/输出/关闭/部分写入/取消/磁盘资源模拟、35MB以上旧数据文件及原JSON保留。最终统一输入与真实数量、完整XML/日志/源码指纹见validation/AI-02a-2-20261106/RESULTS.md。设置id=1额外兼容回归在首次统一72项通过后补入，保留首次证据，最终固定输入另行记录，不把不同输入拼成一次验证。
+
+性能：原31×1MiB探针原样保留，与旧基线同操作；另有不同正文/不同实际payload、1/8/31会话分布下固定1KiB写入（一轮预热+固定三次测量），全部样本保留。结果是主机JDK/Robolectric时窗，非方法独占、非手机指标、非native峰值；大备份记录全线程累计分配和导出/预检/替换时长，不声称I/O缓冲等于低内存。后续2C须真实生产租约/启动/关库/降级与设备验证，本批未发布、未出APK、未Git提交。
+
+AI-02a-2 A/B最终固定源码：业务/数据/AI界面定向回归72/72，性能/容量探针2/2，失败/错误/跳过均0，受影响编译BUILD SUCCESSFUL。原25项基础与F1断言均保留。最终delivered-regression.log、delivered-xml、delivered-input-sha256.csv及delivery-sha256.csv见本批RESULTS。收尾补上旧Int溢出、输入初始化/close资源故障、跨Store最新编辑权仲裁后按变更必要复测；中间不同输入的72/73项绿灯/编译错误/测试路径与探针并发失败均保留，不拼成一次结果。没有全套UI/Lint/设备验收或生产接入声明，没有发布/版本改变/正式6.json/APK。
+
+编辑权竞争回归：新增session内部activeEditorEpoch（不进入wire、DTO或备份），第二Store打开新编辑器会撤销旧owner；旧writer即使重读最新draftRevision也不能覆盖新草稿。固定输入最终74项=72项业务/数据/既有AI界面+2项独立探针；此前73项证据另行保留，不合并计数。
+
+归档时共享HEAD已推进至`10f4e6d786e2fdb6b2c9666cf52b54531e3d1f0e`；本批未暂存/提交。回归身份仍以delivered-input-sha256.csv的独立源码快照为准，26项交付指纹已核对，不能仅凭共享HEAD代替实际测试输入。
+
+## 2026-11-06 · AI-02a-2C 正式数据接入完成
+
+依据AI_02A2C_DISPATCH_20261106完成生产接入；Room6/完整备份4/aiConversation1。原1→5迁移及九表数据保留，新增五表DDL/实体/schema6一致，仍不挂新会话门面/新发送/费用消费者或修改Compose。当前应用版本/签名不变，未提交/推送/Release，稳定APK和吉祥物试装ZIP未覆盖。
+
+生产新增AiBackupRestorer、AiStorageLifecycle、AiStorageValidation、AiStorageResources及AiLegacyNetwork；Data注册6，Repository文件流式备份/恢复及同库共享替换，VM普通与启动入口传InputStream/OutputStream，StartupStorageCheck检查14表列，StartupRecovery只做编译目标6/4/1文件诊断。AiStateHolder保留原completeCancellable，仅配置受控HTTP client与连接退出租约；旧Ai.kt未改，原提示词/模型/用量/历史格式不变。
+
+恢复先保持原草稿排他并flush当前文字/便签，坏备份拒绝也可靠保存而不换代。预检成功才撤销发送admission/epoch，Main取消状态并等待旧job/finally、callEnd/Failed释放实际IO，再检查ExamAccess并在真实生产事务替换。目标资源异常或注入故障整笔回滚，成功先冷核对/中断收尾及草稿代际/观察刷新再开放发送；直接Repository包装器共享同一屏障。关闭等待所有登记的存储操作/网络、原草稿与考试writer/operation及owner后才关库。
+
+本批固定输入最终 **362/362**（359业务/UI/迁移/数据+3容量探针），失败/错误/跳过均0；assembleDebug、完整testDebugUnitTest、lintDebug BUILD SUCCESSFUL。188项输入运行后核指纹，原72业务+2探针仍保留在全套。Lint严重度：{"Warning": 7}。7条警告中，5条位于本批冻结的依赖/Compose/图标文件，另2条建议资源检查使用可回收缓存的StorageManager预算。当前按实际usableSpace保守检查，不自动调用allocateBytes回收缓存；可能比可回收空间预算更早拒绝操作，此时保留原库。最终证据validation/AI-02a-2C-20261106/RESULTS.md、11-full.log、11-xml、11-lint、11-input-sha256.csv、delivery-sha256.csv及source-diff.patch。不同轮次不拼计为一次通过。
+
+完整记录保留了编译编辑错误、Main cancel作用域问题、Windows临时路径、每8KiB磁盘stat开销、阻塞旧网络取消以及无效备份前flush遗漏的失败和补修；不删原断言/加超时。原UI/Enhanced测试只调整受控HTTP client factory注入，旧后端版本断言按6/4更新，旧1～3 fixture移除真实不存在的AI4信封；原升级/失败回滚fixture用独立冻结v5宿主保持真实旧数据。
+
+全套首跑发生JDK17 C2编译Robolectric SQLiteCursor getCount的原生崩溃；仅本机验证JVM加CompileCommand排除该方法，应用/依赖/Gradle配置不变，hs_err/replay/原日志保留08-jvm-crash。09全套362项中1项草稿回归失败，补修后10定向、11全套最终通过。主机近容量生产备份及实际恢复使用超过32MiB文件，记录源SQL读取数、时间与全线程Java累计分配；非峰值内存/非设备指标，详见最终原始输出。
+
+README顶部解释开发源码Room6与既有Room5试装/发布包的区别：旧Room5 APK不能直接打开Room6，旧版不能恢复格式4；同版本号或回退源码不降级数据库，迁移前保留旧版格式3备份，不建议卸载清数据。不要求设备矩阵或截图；本批交Architect集中审查后再派AI-02b，未自行扩大到新UI或网络功能切换。
+
+## 2026-11-07 · AI-02b 会话和费用后端交付
+
+`vm.aiConversations` / `repo.aiConversations` 提供同库唯一会话门面；`vm.aiCostsState`、`vm.learning.aiCostsState` 与 `vm.aiCosts.observe()` 共用同一费用观察。调用示例见 [AI_02B_CALLABLE_20261107.md](AI_02B_CALLABLE_20261107.md)。冻结门面签名、Room6 schema/备份4/会话版本1及 Compose/导航未改。Claude 同期提交的未挂载会话UI和测试纳入固定输入，本批没有写入这些文件；原页面不访问新入口时继续旧行为。
+
+首次获取会话门面时停止并等待旧 sender 与其写入；旧历史保留，切换后旧 ask/retry 封口。不双写。新请求先提交冻结payload/收据，再标记派发与费率快照；非流式 HTTP 逐字节发送持久化正文，禁止连接重试、重定向及503隐式重发。正常停止且完整非空回复才缓存；截断/停止保留事实。取消按owner/epoch/序号仲裁，终态与CLEANING分离，实际连接/回调退出前不得重试。恢复/关闭共享2C数据库屏障，关闭标志不被并发初始化/替换的状态刷新覆盖。
+
+分页为首屏最新、向前读旧消息、页内seq升序，匹配现有会话控制器。草稿真实提交才写收据，短时间请求合并，flush/退出/关库结清已接管文字。旧历史分开读取，题目版本不匹配只读。费用合并旧估算及新派发账本，已知金额用保存费率精确计算，未知单独计数，缓存仅增加命中，各币种不换算。旧 `learning.costs` 仍是旧页面兼容列表；新费用页面用共享状态。
+
+固定输入 196 项逐项复核。最终 `06-full.log` 的 assembleDebug / testDebugUnitTest / lintDebug 全部通过：**388/388**（385业务/数据/UI、3容量探针；48类）；16项新增运行时回归，0失败/错误/跳过。Lint：{"Warning": 7}。原始XML、日志、源码差异及交付SHA256见 [验证记录](../validation/AI-02b-20261107/RESULTS.md)。验证继续沿用2C的主机JVM单方法编译规避；应用和Gradle配置不变。
+
+真实发送仅由显式命令触发；验证只使用本机MockWebServer，没有读取用户Key或调用线上模型。SSE与页面挂载另行处理。未提交、推送、发布或覆盖现有APK/ZIP。

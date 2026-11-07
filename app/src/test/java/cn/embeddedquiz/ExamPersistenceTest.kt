@@ -250,7 +250,7 @@ class ExamPersistenceTest {
 
     @Test fun backupRemainsV3GuardsRestoreAndResetAndKeepsTerminalLedger() = runBlocking {
         val backup = repo.backup(); start(); assertTrue(holder.flushSave()); val snap = stored()
-        assertEquals(3, JSONObject(backup).getInt("backupVersion"))
+        assertEquals(4, JSONObject(backup).getInt("backupVersion"))
         for (action in listOf<suspend () -> Unit>({ repo.reset() }, { repo.restore(backup) })) {
             try { action(); fail("active exam must reject replacement") }
             catch (e: IllegalStateException) { assertTrue(e.message!!.contains("请先结束")) }

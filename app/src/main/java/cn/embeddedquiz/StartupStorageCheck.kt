@@ -1,8 +1,8 @@
 package cn.embeddedquiz
 
-/** Prepare the exact v5 reader columns before publishing Ready. No rows or source data are changed.
+/** Prepare the exact v6 reader columns before publishing Ready. No rows or source data are changed.
  * Room checks its stored identity hash on an already-current DB; that is not a live check that a
- * damaged/deleted dependent table is still present. Keep this list aligned with schema 5.
+ * damaged/deleted dependent table is still present. Keep this list aligned with schema 6.
  */
 internal object StartupStorageCheck {
     private val queries = listOf(
@@ -19,5 +19,10 @@ internal object StartupStorageCheck {
     fun verify(db: QuizDatabase) {
         val storage = db.openHelper.readableDatabase
         queries.forEach { sql -> storage.query(sql).use { } }
+        for(sql in AiConversationMigration.statements.filter { it.startsWith("CREATE TABLE") }) {
+            val table=sql.substringAfter("EXISTS `").substringBefore('`')
+            val columns=sql.substringAfter('(').split(", ").filter { it.startsWith("`") }.map { it.substringBefore(' ') }
+            storage.query("SELECT "+columns.joinToString(",")+" FROM `$table` LIMIT 0").use { }
+        }
     }
 }

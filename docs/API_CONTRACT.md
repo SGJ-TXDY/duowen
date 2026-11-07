@@ -1,5 +1,7 @@
 # Android 业务接口契约
 
+题目页已接入 AI 会话门面，费用页和更多页共用费用状态。Room 6 和备份格式 4 的接入契约见文末。
+
 ## 2026-11-04 · VC-01 AI 请求归属展示（Claude，按 REPAIR_DISPATCH §21 授权的小范围后端例外，待审查）
 
 只追加 `AiStateHolder` 的只读请求快照与带请求号的重试/取消；不改 DAO/schema、缓存键、上下文 4 轮、费用计算、网络协议、凭据、评分/考试/保存协议。仍只允许一个在途请求，无排队、无持久化会话。Main 调用、Compose 可观察：
@@ -565,3 +567,87 @@ Repository 内部新增 `observeTodaySummary(today: Long): Flow<TodaySummary>`�
 - 原有 `vm.repo/db/vault` 等成员保留以免破坏已有代码，**不作为新增前端功能的推荐接口**；本轮不收窄访问权限，也不改 Claude 现有直接 Repository 调用。
 - 前端下一轮只需替换搜索调用、订阅汇总和显示当前题分类；具体位置见 `BACKEND_HANDOFF.md`。所有页面布局、样式、导航高亮方案与 UI 测试由前端负责人处理。
 - 既有命令的局限已如实写明，没有借本轮契约整理改变签名或偷偷改变行为。将来需要破坏性接口变更，先提出方案并经确认。
+
+## AI-02a-1：独立 AI 数据基础（2026-11-06）
+
+冻结依据 `AI_02_CONTRACT_FREEZE_20261106.md`。本批新增代码但**未接生产**：正式 QuizDatabase 仍 v5、学习备份仍 v3，旧 AiStateHolder/DeepSeek 发送不变。下列契约不能作为已挂载的 VM/Compose 功能调用。
+
+- `AiConversationContract.kt`：冻结门面/owner/revision/状态/结果类型。分页用 `AiPage<T>`，避开现有导航 `Page`；请求类型复用 `AiRequestType`，枚举持久化为 name 稳定字符串，未使用 ordinal。`AiConversationFacade` 仅接口，本批没有运行时实现。
+- `AiCostsContract.kt`：可空用量/已知估算/未知调用数、来源和币种契约；本批没有替换学习费用订阅或实现聚合服务。
+- `AiConversationData.kt`、`AiConversationMigration.kt`：五表独立实体/DAO及未注册的5→6增量迁移。无 questions FK，无旧 ai 双写。仅测试宿主注册；测试宿主 `AiFoundationTestDb` 在 src/test 且 exportSchema=false，不覆盖正式schema。
+- `AiSnapshotCodec.kt`：完整 Question 构造字段无损快照，保留 raw 与 options 顺序，复用现有 contentHash；固化 system/template/parameters/history/payload/hash，不接受凭据字段。实际入模字节上限64 KiB是本地限制，不宣称线上模型token兼容。
+- `AiConversationCodec.kt` / `AiRowCodec.kt`：新增AI五段的确定编码、严格字段/枚举/Long/十进制金额、引用/角色/顺序/收据校验及容量计量。它们**不是完整备份4实现**；旧学习数据、完整文件streaming/staging在下一批。
+- 内部 `AiStore`：由调用方传同一个测试Room宿主和当前题目读取函数，在Room事务内冻结/接受；create/rename/saveDraft/accept/retry/cancel成功收据同事务保存，相同commandId返回原收据，不同参数抛`AiStoreFailure(IDEMPOTENCY_CONFLICT)`。不创建HTTP、无凭据访问、未实现发送协调器或Compose门面。存储/校验异常继续向调用方传播，不显示假成功；正式门面错误映射在后续接入批。
+
+容量默认32 MiB新增AI段、1 MiB单文本字段、100000消息。`reservedBytes`是剩余预约；`consume`以实际规范字节增量扣减，含预约字段自身数字长度，用二分求满足守恒约束的最大剩余额，终态释放余量。重复eventSeq不再次写库/扣减；事务失败回滚正文、预约、草稿与命令。eventSeq为离线注入的持久化事件序号，不构成网络事件/cleanup仲裁完成的声明。
+
+`AiDraftCoalescer`是可控时钟纯调度器：尾沿300ms、连续输入最长2秒，force用于离页flush。它仅合并待保存文本，不在每字符创建收据；实际受理保存才通过AiStore写一条命令。纯调度器不拥有后台线程/自动定时器，不是现有代码草稿writer的替代；后续运行时协调器负责定时唤醒、串行提交及失败保留/重试。`AiStore.flushDraft`只确认已落盘revision，不能保存尚未提交的编辑文本。
+
+本批 checkpoint/终态/中断恢复仅为独立数据安全路径，`recoverInterrupted`不重发请求。完整HTTP取消、CLEANING槽、旧新sender恢复租约、费用消费者、关库/启动屏障、归档分页与完整备份4均待对应接入批，不可由本批测试外推为已完成。
+
+## AI-02a-1-F1 数据契约补修（2026-11-06）
+
+仍不接生产Room/旧发送/Compose；F1任务依据`AI_02A1_REVIEW_AND_FIX_20261106.md`。
+
+- 账期：AiStore注入`now:()->Long`与`businessZone:()->ZoneId`。每个接受命令只读一次时钟；accept/retry各只读一次业务时区，统一确定本attempt的createdAt/billingDay/billingZone。retry复用原payload/模型/参数，重新归本次账期。codec拒绝createdAt与billingZone换算不等于billingDay的数据，无新run的隐式修正例外；旧AiEntry不进入此新协议校验。
+- 收尾空间：`requiredClosingReserve(run)`以同一规范codec计量最长中断/取消终态差额，加一条必要取消收据的最坏编码上界。收据原始UTF-8上限16KiB，按每字节最多6字节JSON转义计量，并包含command字段及数组分隔符；终态时间/cutoff按Long最大宽度计量。这个仅计量、不落盘的上界标本不充作有效收据。非终态必须满足剩余预约≥此下限，终态预约为0；decode/import/普通persist统一预检，recoverInterrupted也在写前复核。
+- checkpoint的`consume`二分区间从收尾下限起算，不能将下限花在新正文；超出可消费预算整笔回滚，不删部分文本、不从全局空闲额度借钱。保留actualEncodedBytes+outstandingReservedBytes≤原上界/容量，含预约字段自身数字变化。没有把已消费预约恢复成完整6.25MiB。
+- 估价：新增AiEstimateCodec以保存的三项费率按“本币种/百万tokens”计算：`((input-hit)*missRate + hit*hitRate + output*outputRate)/1000000`。使用BigDecimal精确中间运算，仅最终金额以12位小数、HALF_UP舍入；落盘去多余尾零，用数值compareTo校验恢复值，因此等值尾零合法。当前DeepSeek币种仍USD，本轮无线上价格查询或调整。
+- AiUsageEvidence.estimated保留为内部调用兼容输入，**不作为账本值**；Store由tokens/费率重新计算。usage不完整或priceVersion/费率未知时估价null，已知完整费率和usage时必须有相等的估价；缓存仅NOT_APPLICABLE/本次0，不复制源用量。字段长度/整数范围/decimal语法独立于显示格式校验。
+
+维护门槛：未来变更快照参数默认值必须保留旧snapshotVersion解码规则；不能把存量payload按新默认判无效。全量dataset校验在接近32MiB容量时的CPU/分配/事务延迟仍须在AI-02a-2/运行时接入前实测；F1不扩大为内部存储重构，完整备份流式路径不能调用全量dataset后声称低内存。
+
+## AI-02a-2 A/B：局部存储与完整备份基础（2026-11-06，未挂生产）
+
+依据AI_02A2_DISPATCH_20261106连续实现A→B；正式Data/Room版本、Repository、VM、启动/关闭、旧sender与Compose均保持原状。以下是独立基础协议，不是现有UI可调用的新发送入口。
+
+### A：受影响行与精确计量
+
+五张未注册AI表各增加内部`encodedBytes:Long`及覆盖索引，无第六张正式表。值表示`AiRowCodec`规范外部行JSON的精确UTF-8字节数，**不包括SQL内部计量列本身**；该列不进入备份/冻结业务接口。SQL写入与正文在同一事务更新；导入重算（显式非零内部计量必须相等），备份wire若伪造该字段直接拒绝。外部AiDataset视图不带内部计量值；`audit()`以全量oracle核对存量计量和完整引用。
+
+全局字节 = 空AI信封规范字节 + 各表SUM(encodedBytes) + 各数组max(COUNT-1,0)分隔符；更新事务核算行差额和全局分隔符差额，叠加剩余预约及消息数限制。`AiMeter`不是进程内唯一计数缓存：第二Store、重建后同样读数据库聚合。预约消费另纳入局部/全局数组差异，不从其他未用额度借收尾预算。
+
+草稿/标题仅读目标session与本commandId；发送/重试/checkpoint读取根run、当前完整历史及直接必要引用。`AiWorkingSet`不会递归加载无关会话或所有旧payload。局部校验仍检查变化行/引用/快照/payload/费用/账期/收据，已提交且未改变的引用不反复解析；不可信导入、staging和冷边界仍逐项完整验证。正常持久化依赖受控DAO同事务维护计量，正式接入前必须调用边界audit，不能把任意SQL篡改后的计量当可靠事实。
+
+快照v1的4096输出参数、支持模型及解析规则固定在AiSnapshotCodec v1，不跟随未来DeepSeekClient默认值变化。冷中断恢复遇系统时钟回拨时，逻辑finishedAt不早于原createdAt，以免合法账本因墙钟变化无法收尾。
+
+### B：单文件导出与磁盘预检
+
+`AiFullBackupCodec(context,workDir).export(testHost,openNewDestination,resource)`：在一个Room事务快照内以游标逐行写临时UTF-8文件，随后用同一恢复预检器检查，通过后才打开**新目的文件**并复制；复制/flush/close均完成才返回bytes+SHA256收据。factory是受信应用适配器，未来UI必须使用新建文档；不能承诺任意提供者覆盖写失败可回滚旧文件，旧有效备份从不用作临时文件。
+
+`prepare(input,resource)`：8192字节缓冲复制输入到独立spool，再JsonReader逐行解析至临时SQLite索引；重复字段/ID、未知版本/枚举、坏引用/循环/重复成功轮次、伪造收据/用量/估价/账期/预约均在目标写入前拒绝。新AI段在读取时提前计量，最终以磁盘聚合及逐根验证复核；不会加载整个文件JSONObject或全库AiDataset。`AiBackupStage`只暴露只读遍历，预检完成连接置query_only，close删除本次私有临时文件。
+
+备份4含旧业务段和五AI段/aiConversationVersion1；问题对象附`_storedJson`保留原问题JSON的空白/顺序（既有同名扩展仍由原JSON保留），仅版本4解释此元数据。旧1～3沿用原默认字段/缺段保留语义；新聊天/账本保留，v1便签缺失保留，v1～2学习设置/个人答案/资料保留。设置只导出原getSettings语义的id=1，并保留目标其他本地设置行；通知已询问标记保持OR。旧ai空hash/旧hash及原Double估算照旧，不伪造聊天或用量。
+
+整个文件可超过32MiB，旧单行数据不套新AI的1MiB上限；新AI规范段仍受32MiB/100000消息/单字段1MiB限制。旧超大单行或实际磁盘/内存不足可失败，目标不部分替换；8192只是I/O缓冲，不是RAM峰值声明。`resource`可由适配器施加本机资源预检，实际I/O失败同样保原库并清理本次临时文件。
+
+`AiBackupTestRestorer`只在src/test：目标单事务替换，先按RESTRICT依赖逆序有界删除，再按消息seq依赖插入；中途异常全部回滚。传入非终态run先在staging转中断，保留部分文本/已知或未知用量并释放预约，不恢复网络。重复恢复不重复账本。生产旧/新sender停止租约、考试占用、草稿互斥及关库屏障仍属2C，不能从测试适配器外推为已挂生产。
+
+A/B收尾补充：旧业务Int字段在JSONObject窄化前检查Long→Int范围，拒绝2^32等回绕；合法旧应用生成的整数编码不变。输入流所有权从prepare调用开始接管，工作目录不可用/初始化失败也关闭输入；输入close失败会清理已准备的staging并抛错，不返回可恢复/导出成功。目标仍只在完整预检后由测试恢复器单事务操作。
+
+草稿编辑权补充：session私有SQL列`activeEditorEpoch`与`openEditor`在同一事务更新，保存同时核对本Store token、数据库当前epoch和草稿revision。第二Store打开新编辑器后，旧owner即使重新读取最新revision仍被拒绝；数据库重开后必须重新取得编辑权。该列不计入规范wire、不进入外部DTO或备份；恢复不会授予先前进程的编辑权。
+
+## AI-02a-2C：正式数据接入（2026-11-06，未发布）
+
+本节接替前述A/B“未挂生产”的实现状态：QuizDatabase正式version6，注册原1→5链及AiConversationMigration(5,6)，五表与schema6一致；应用版本/签名/依赖不改。现有Compose/旧AiEntry发送及费用显示保持；未实现AI-02b门面、流式发送或费用消费者切换。
+
+- `QuizRepository.backupTo(openNewDestination)`直接输出完整格式4；`restoreFrom(InputStream)`从调用开始接管输入，先spool/staging校验，再使用AiBackupRestorer生产事务替换。普通与启动URI恢复均调用它，不再readText整份文件或套32MiB整文件限制。`backup():String`/`restore(String)`为兼容入口，委托同一codec/恢复器；字符串入口仍有整文件内存分配，不作为生产文件路径。
+- `AiStorageLifecycle`附着同一QuizDatabase，所有Repository共享替换门闩、AI写入epoch/任务、冷验证状态和owner关闭登记。恢复在原草稿排他内先flush当前接受文本及便签；即使无效备份被拒绝，也保留可靠保存的当前文字，不推进generation。预检不暂停sender；替换前禁止ask/retry，Main撤销请求状态，取消并join所有旧job（包括早先取消仍在退出的job），在同一草稿排他内再获得写锁及ExamAccess，单事务替换。暂停失败/事务失败也释放admission；成功清除旧请求归属并刷新旧AI观察，不重发。生产AiStore的独立操作也登记owner与写入门槛。
+- 旧sender保持原prompt/模型/解析/入库格式和completeCancellable，AiLegacyNetwork对每次请求配置同样超时/重定向策略的受控OkHttp client；取消仍call.cancel，外层job在NonCancellable finally等待callEnd/callFailed确认连接和响应资源释放，再允许恢复。客户端回调后续只可能解析已读入的不可变文本/尝试恢复失效continuation，不拥有Room/UI写权限；外层job/finally和实际IO都已退出。Room写入前另核对epoch和协程取消。测试注入改为接收受控HTTP client的factory，原UI断言及超时不改。
+- owner安装现有codeDrafts.exclusive作为共享替换边界，直接repo.restore也需要flush草稿与便签，提交后推进草稿generation。预检期间响应取消；进入目标写入阶段后以NonCancellable完成原子事务及owner刷新，再检查调用方取消，不在提交后留下旧writer代际。活动考试在目标写入前由ExamAccess再次拒绝。关闭先封admission并取消所有存储任务，等待旧AI/备份/草稿/考试/owner退出后db.close。
+- Ready前检查原九表及五新表的依赖列，再以AiStorageValidation逐行/逐根验证规范字节、引用、快照、账期、估价和预约，非终态保文本收尾，不加载整个AiDataset。元数据不符明确失败，不静默修复/删库。冷规则与staging复用；源备份也逐行核对物理encodedBytes，不能伪造大小绕限。
+- 生产资源适配器检查工作目录可写、cache与数据分区至少16MiB可用余量；spool/导出/索引读取及目标逐行写入持续发出进度；首次、1MiB增长、进度回绕、128行或500ms时查询实际余量，避免每8KiB反复stat。此为本机余量保护，不保证另一进程或文档提供者未来容量；实际IO/WAL/close异常同样失败。当前以usableSpace实际余量作保守预算，不调用allocateBytes自动回收缓存；可回收缓存空间不计入，可能提前拒绝。只清理本次独立临时文件。诊断编译目标6/4/1，不推断坏库现场版本，不打开坏库升级。
+
+正式升级后的库不能由Room5 APK直接读取；格式4不伪装格式3，旧版不支持恢复它。迁移前保留旧版格式3备份，回退源码不会降级数据库。本轮不发布、不覆盖稳定APK/试装ZIP。
+
+## AI-02b：会话与费用门面（2026-11-07）
+
+正式入口：`QuizViewModel.aiConversations` / `QuizRepository.aiConversations`，共享同库唯一服务；`vm.aiCostsState`、`vm.learning.aiCostsState`、`vm.aiCosts.observe()` 共用一次费用上游。完整调用示例与前端语义见 [AI_02B_CALLABLE_20261107.md](AI_02B_CALLABLE_20261107.md)。冻结的 `AiConversationContract.kt` / `AiCostsContract.kt` 签名不变。
+
+- 第一次读取会话门面执行 opt-in 切换，等已有旧请求退出后 READY；旧 ask/retry 封口，旧历史仍可读，旧 UI 未挂载新入口时继续原行为。费用只读入口不会触发切换。
+- 独立 actor 串行接收命令、结果截止及短 Room 写入，不持锁等待网络退出。非流式 HTTP 逐字节使用已提交 payload；标记派发/费率快照先落盘，再启动 one-shot 请求。取消/完成有独立 CLEANING，连接/回调/持久化收尾结束前不得创建新网络请求；恢复/关闭通过同库生命周期 hook 停止、等待、换代。已接受的草稿/请求不依赖 ViewModel scope 完成收尾。
+- 首屏最新、向前分页、页内 seq 升序。会话和旧历史按时间+稳定 ID keyset。HMAC 游标绑定过滤/排序/代际；成功恢复失效。创建/标题/草稿/send/retry/cancel 返回持久事实；读取已有收据不再发送。缓存成功事务直接产生完整 CACHE run，不再预约网络正文余量；旧接受信封仍使用 PREPARING 标记保存历史收据，不改变格式4字段。
+- 首次或空闲后的草稿可以立即持久化，频繁调用300ms尾沿/最长2秒合并；显式flush、发送和边界优先清理当前待写项。不把 pending 标成 Saved。编辑权随切换撤销；完整 owner/epoch/序号拦迟到结果。
+- 新费用窄投影在单事务读取旧估算与已派发新账本；按币种分组，保留已知与未知次数，不用源用量填缓存。旧 `learning.costs` 留给尚未迁移的页面；新消费者统一共享新状态。
+
+2C 文档及原交付证据保留为历史。未改 Room/备份版本、旧AI客户端、Compose、导航、依赖或发布产物。SSE 与实际页面接入另行处理。

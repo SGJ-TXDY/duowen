@@ -76,7 +76,7 @@ class AiConversationUiTest {
                     repo,
                     KeyVault(context),
                     context.getSharedPreferences("ai-ui-test", 0),
-                    client = DeepSeekClient(endpoint = server.url("/chat/completions").toString()),
+                    clientFactory = { http -> DeepSeekClient(client = http, endpoint = server.url("/chat/completions").toString()) },
                     readKey = { "test-key" },
                     notify = { notices += it },
                 )

@@ -185,7 +185,7 @@ class StartupRecoveryTest {
         } finally { raw.close() }
         val vm = create(); waitFor { vm.ready }
         assertEquals(StartupState.Ready(1, false), vm.startupState)
-        assertEquals(5, vm.db.openHelper.readableDatabase.version)
+        assertEquals(6, vm.db.openHelper.readableDatabase.version)
         assertEquals(oldAttempts, runBlocking { vm.repo.dao.allAttempts() })
         assertEquals(oldProgress, runBlocking { vm.repo.dao.allProgress() })
         assertEquals("original note", runBlocking { vm.repo.dao.allStickyNotes().single().content })

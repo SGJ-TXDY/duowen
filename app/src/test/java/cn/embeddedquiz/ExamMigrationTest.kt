@@ -55,7 +55,7 @@ class ExamMigrationTest {
         val db = QuizDatabase.open(app, name)
         try {
             val sql = db.openHelper.writableDatabase
-            assertEquals(5, sql.version)
+            assertEquals(6, sql.version)
             for (table in tables) assertEquals("all fields in $table", expected[table], rows(sql, table))
             val terminal = ExamTermination("test-session", "ABANDONED", null, null, null, null, null, 123, 7, null)
             db.dao().addExamTermination(terminal)
