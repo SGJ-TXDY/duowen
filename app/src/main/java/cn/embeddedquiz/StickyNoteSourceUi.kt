@@ -42,6 +42,28 @@ internal interface StickyNoteSources {
     suspend fun open(note: StickyNote): NoteSourceOpen
 }
 
+/** GPT's note origins (PLAN-1.7.1) in this screen's terms; only the question bank is read. */
+internal fun stickyNoteSources(vm: QuizViewModel) =
+    object : StickyNoteSources {
+        override fun source(note: StickyNote) =
+            vm.stickyNoteSource(note)?.let {
+                NoteSourceView(
+                    it.label,
+                    when (it.status) {
+                        StickyNoteOriginStatus.CURRENT -> NoteSourceStatus.CURRENT
+                        StickyNoteOriginStatus.CHANGED -> NoteSourceStatus.CHANGED
+                        StickyNoteOriginStatus.MISSING -> NoteSourceStatus.MISSING
+                    },
+                )
+            }
+
+        override suspend fun open(note: StickyNote) =
+            when (val r = vm.openStickyNoteSource(note)) {
+                is StickyNoteOriginOpen.Ready -> NoteSourceOpen.Ready(r.question, r.changed)
+                StickyNoteOriginOpen.Missing -> NoteSourceOpen.Missing
+            }
+    }
+
 /** The source line of a note, with the way back to its question; the note itself stays readable. */
 @Composable
 internal fun NoteSourceRow(source: NoteSourceView, opening: Boolean, onOpen: () -> Unit) {

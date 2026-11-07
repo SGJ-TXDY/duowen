@@ -1,5 +1,27 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-08 · 1.7.1 接线（Claude，按 PLAN-1.7.1 “GPT 后端接口”）
+
+按 GPT 写在任务单里的四个接口完成接线，入口在应用中正式启用。只改界面文件，没有改 GPT 的 VM、数据层和运行时。**依赖 GPT 尚未提交的 1.7.1 后端**（Room 7、`documentSessions` 等），本提交单独无法编译，需要与 GPT 那批一起提交或合并。
+
+### 改动清单
+
+| 文件 | 改动 |
+| --- | --- |
+| `QuickNoteAi.kt` | 新增 `DocumentAiSource`：用 `documentSessions` / `createDocumentSession` 列出和新建讨论，按 `QuestionOwner(id, contentHash, QUICK_NOTE)` 判断是否当前版本；发送只用 FOLLOW_UP，带 `documentSectionId`，不带选项和代码。不提供题目类快捷问法，不提供保存到便签（后端只支持题目回复）。回复下方的“引用：…”读 `run.documentReferences`，同一节相邻段落会合并显示。新增 `quickNoteAiEntry(vm)`：引用预览改用 `vm.quickNoteAiContext`，显示“预计引用：「节名」第 a～b 段”；`STALE_OWNER` 显示“文档内容已更新，请返回列表重新打开后再提问”，`NOT_FOUND` 显示“文档已不可用”。 |
+| `QuickNoteReader.kt` | 打开讨论页后先异步取预览，取回后补进上下文卡片；讨论页本身照常可用。 |
+| `AppNavigation.kt` | 速记页接上 `quickNoteAiEntry(vm)`，便签页接上 `stickyNoteSources(vm)`。 |
+| `QuestionScreen.kt` | 题目讨论的 `noteSaver` 接到 `vm.saveAiReplyAsStickyNote`。 |
+| `StickyNoteSourceUi.kt` | `stickyNoteSources(vm)`：把 `StickyNoteOriginView` / `StickyNoteOriginOpen` 映射为界面类型，只读取题库。 |
+| 测试 | `FakeAiConversationFacade` 加上文档会话。`AiChatScreenTest` 增至 22 项（真实 `DocumentAiSource` 的发送参数与引用合并显示）。`QuickNoteReaderAiTest` 增至 5 项（预计引用文案，以及文档已更新时的提示）。新增 `QuickNoteAiWiringUiTest`，2 项，使用真实 ViewModel 和后端：经速记页打开文档 → AI 学习助手 → 后端给出的预计引用 → 新建文档讨论（owner 为 QUICK_NOTE）→ 无 Key 时发送失败且可重试 → 不提供保存到便签 → 两次返回后仍在同一文档；另验证便签来源三种状态的映射和只读打开原题，不产生作答记录。 |
+
+### 测试结果（证据：`validation/UI-171-WIRING-20261108/`；输入为 `62ed880b` 加上当时工作区的 47 个文件，含 GPT 的后端，指纹见 `input-fingerprints.csv`）
+
+- 定向：8 个类、57 项，一次全部通过（`01-targeted-57.log`）。包括 `PageChromeUiTest`、`QuickNotesUiTest`、`NotesAndScoringUiTest`、`QuestionAiEntryUiTest` 等受影响的已有测试。
+- `assembleDebug lintDebug`：BUILD SUCCESSFUL。Lint 0 错误，7 条警告与 v1.7.0 相同。
+- **全量（未闭环）**：418 项中 9 项失败（`02-full-418-9-failed.log`），全部是 AppNotIdle（60 秒超时）。失败的只有本次新增的 `QuickNoteReaderAiTest` 5 项和 `StickyNoteSourceUiTest` 4 项；夹在它们中间的 `QuickNotesUiTest`、`StartupRecoveryUiTest` 都通过。按同样顺序只跑尾部 11 个类时全部通过（`03-tail-rerun-pass.log`）。这说明问题取决于全量里更早运行的某个类，根因尚未定位。这两个类与其他界面测试的一个差别是：它们不经过 `QuizApp`，直接渲染页面组件。我没有为让测试通过而改测试或放宽超时。在定位之前，请 Leader 联合验收时注意这一点。全量那轮的原始 XML 已被尾部复跑覆盖，只保留了日志。
+- 真机阅读位置、试装包：未做，留待联合验收。
+
 ## 2026-11-07 · 1.7.1 阅读器、AI 会话和便签界面（Claude，PLAN-1.7.1）
 
 基线为 v1.7.0（`aca99d8e`）。只改界面文件，没有改共享 `QuizViewModel`、数据层、备份或 AI 运行时。GPT 尚未在任务单里补接口，因此界面先按 1.7.0 契约和四个可选挂点实现。挂点说明写在 `docs/PLAN-1.7.1.md` 的“Claude 侧接线点”一节。挂点没接上时，对应入口不显示，现有行为不变。

@@ -180,7 +180,8 @@ private fun QuizLayout(vm: QuizViewModel) {
             // Only the content swaps; the date, notification and exam timer effects above stay mounted.
             else if (vm.quickNotes.state.visible)
                 Box(Modifier.weight(1f)) {
-                    pageState.SaveableStateProvider("quick-notes") { QuickNotesScreen(vm, reader) }
+                    val quickNoteAi = remember(vm) { quickNoteAiEntry(vm) }
+                    pageState.SaveableStateProvider("quick-notes") { QuickNotesScreen(vm, reader, quickNoteAi) }
                 }
             else {
                 val sub = PagePolicy.isSubPage(vm.page)
@@ -220,7 +221,7 @@ private fun QuizLayout(vm: QuizViewModel) {
                             Page.EXAM -> ExamScreen(vm)
                             Page.STATISTICS -> History(vm)
                             Page.SETTINGS -> Settings(vm)
-                            Page.NOTES -> StickyNotesScreen(vm)
+                            Page.NOTES -> StickyNotesScreen(vm, remember(vm) { stickyNoteSources(vm) })
                             Page.MORE -> MoreScreen(vm, today)
                             Page.WORKBENCH -> AnswerWorkbench(vm)
                             Page.COSTS -> CostsScreen(vm)

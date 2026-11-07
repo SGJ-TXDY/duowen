@@ -527,6 +527,8 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                 vm.viewModelScope,
                 programming = !q.daily,
                 sendContext = { AiSendContext(draft.selected.value.toSet(), draft.code.value, vm.model) },
+                // Finished replies of this question can be kept as a sticky note that links back here.
+                noteSaver = { commandId, reply -> vm.saveAiReplyAsStickyNote(commandId, reply) },
             )
         }
     // Leaving the question saves and releases its draft in the ViewModel's scope, after this page is gone.

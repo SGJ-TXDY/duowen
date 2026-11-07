@@ -629,4 +629,52 @@ class AiChatScreenTest {
         ui.onAllNodesWithTag("ai-save-note-error").assertCountEquals(0)
         ui.onNodeWithTag("ai-messages").performScrollToNode(hasTestTag("ai-saved-note"))
     }
+
+    // ---- 1.7.1 wiring: the real document source on GPT's interface ----
+
+    private val linuxV2 = QuickNoteSummary("doc-linux", "Linux 速记", "linux.md", "hash-v2", 0)
+    private val processHeading = QuickNoteHeading("h-process", 2, "进程")
+
+    @Test
+    fun theDocumentSourceSendsFollowUpsAboutTheSectionAndShowsWhatTheReplyCited() {
+        facade.seed(QuestionOwner("doc-linux", "hash-v1", AiOwnerKind.QUICK_NOTE), "旧版讨论", readOnly = true)
+        showSource(DocumentAiSource(linuxV2, processHeading) { "doc-model" })
+
+        ui.onNodeWithText("只读 · 旧版文档").assertIsDisplayed()
+        ui.onNodeWithTag("ai-new-session").performClick()
+        ui.waitForIdle()
+        assertEquals(facade.documentOwner(linuxV2), facade.state.value.selected!!.question)
+        // Documents offer no question one-tap requests.
+        ui.onAllNodesWithText("生成详细解析").assertCountEquals(0)
+
+        type("进程和线程的区别？")
+        ui.onNodeWithContentDescription("发送追问").performClick()
+        ui.waitForIdle()
+        val sent = facade.sends.single()
+        assertEquals(AiRequestType.FOLLOW_UP, sent.requestType)
+        assertEquals("h-process", sent.documentSectionId)
+        assertEquals(emptySet<String>(), sent.choices)
+        assertEquals("", sent.code)
+        assertEquals("doc-model", sent.model)
+
+        facade.finish("线程共享地址空间。")
+        val reply = facade.state.value.firstMessages.items.last()
+        val refs =
+            listOf(
+                QuickNoteAiReference("h-process", "进程", 2, 2),
+                QuickNoteAiReference("h-process", "进程", 3, 4),
+                QuickNoteAiReference("h-thread", "线程", 1, 1),
+            )
+        facade.replace(reply.copy(run = reply.run!!.copy(documentReferences = refs)))
+        ui.waitForIdle()
+        ui.onNodeWithTag("ai-messages").performScrollToNode(hasText("引用：「进程」第 2～4 段；「线程」第 1 段"))
+    }
+
+    @Test
+    fun citedRangesMergeOnlyWhenTheyTouch() {
+        assertEquals(
+            "「进程」第 1 段、第 3～5 段",
+            quickNoteReferenceText(listOf(QuickNoteAiReference("p", "进程", 4, 5), QuickNoteAiReference("p", "进程", 1, 1), QuickNoteAiReference("p", "进程", 3, 3))),
+        )
+    }
 }

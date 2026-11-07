@@ -528,15 +528,15 @@ Array.prototype.forEach.call(document.images,function(img){if(img.complete&&img.
 @Composable
 private fun QuickNoteAiPage(ai: QuickNoteAiEntry, document: QuickNoteDocument, anchor: String, onClose: () -> Unit) {
     val section = quickNoteSection(document, anchor)
-    val controller =
+    val source =
         remember(document.summary.id, document.summary.contentHash, section?.id) {
-            AiChatController(
-                ai.facade,
-                ContextualAiSource(ai.source(document, section), quickNoteAiContext(document, section)),
-                ai.scope,
-                ai.noteSaver,
-            )
+            ContextualAiSource(ai.source(document, section), quickNoteAiContext(document, section))
         }
+    val controller = remember(source) { AiChatController(ai.facade, source, ai.scope, ai.noteSaver) }
+    // Shows which paragraphs the backend would cite here, before anything is typed or sent.
+    LaunchedEffect(source) {
+        ai.preview?.let { preview -> source.context = quickNoteAiContext(document, section, preview(document, section)) }
+    }
     // Leaving saves and releases the draft in the entry's scope, after this page is gone.
     DisposableEffect(controller) { onDispose { controller.back() } }
     Surface(Modifier.fillMaxSize().testTag("quick-note-ai-page"), color = MaterialTheme.colorScheme.background) {

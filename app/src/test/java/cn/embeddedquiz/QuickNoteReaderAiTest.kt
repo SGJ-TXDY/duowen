@@ -68,7 +68,7 @@ class QuickNoteReaderAiTest {
             )
     }
 
-    private val entry =
+    private fun entry(preview: ResultOf<QuickNoteAiContext>? = null) =
         QuickNoteAiEntry(
             facade = { facade },
             source = { doc, section ->
@@ -76,6 +76,7 @@ class QuickNoteReaderAiTest {
                 DocSource(doc)
             },
             scope = scope,
+            preview = preview?.let { result -> { _, _ -> result } },
         )
 
     @Before
@@ -125,12 +126,13 @@ class QuickNoteReaderAiTest {
         ui.waitForIdle()
     }
 
-    private fun openLinux(withAi: Boolean): QuickNoteDocument {
+    private fun openLinux(withAi: Boolean, preview: ResultOf<QuickNoteAiContext>? = null): QuickNoteDocument {
+        val ai = if (withAi) entry(preview) else null
         ui.runOnIdle { vm.quickNotes.importPackage(linux) }
         await { !vm.quickNotes.state.working && vm.quickNotes.state.documents.isNotEmpty() }
         ui.setContent {
             MaterialTheme {
-                vm.quickNotes.state.reader?.let { QuickNoteReader(vm, it, handle, if (withAi) entry else null) }
+                vm.quickNotes.state.reader?.let { QuickNoteReader(vm, it, handle, ai) }
             }
         }
         ui.runOnIdle { vm.quickNotes.openDocument(vm.quickNotes.state.documents.single().id) }
@@ -185,5 +187,21 @@ class QuickNoteReaderAiTest {
         val context = quickNoteAiContext(doc, heading)
         assertEquals("文档：" + doc.summary.title, context.title)
         assertTrue(context.scope, context.scope.startsWith("以当前章节「${heading.title}」为主"))
+    }
+
+    @Test
+    fun thePreviewNamesTheParagraphsBeforeAnythingIsSentAndExplainsAStaleDocument() {
+        val reference = QuickNoteAiReference("h-intro", "简介", 1, 2)
+        openLinux(withAi = true, preview = ResultOf.Ok(QuickNoteAiContext(listOf(QuickNoteAiExcerpt(reference, "正文")))))
+        ui.onNodeWithContentDescription("AI 学习助手").performClick()
+        await { exists(hasText("预计引用：「简介」第 1～2 段（发送时按问题再选取）", substring = true)) }
+        assertTrue(facade.sends.isEmpty())
+    }
+
+    @Test
+    fun aDocumentChangedSinceOpeningSaysSoInsteadOfCitingIt() {
+        openLinux(withAi = true, preview = ResultOf.Rejected(Rejection(RejectCode.STALE_OWNER, false, RecoveryAction.REOPEN)))
+        ui.onNodeWithContentDescription("AI 学习助手").performClick()
+        await { exists(hasText("文档内容已更新，请返回列表重新打开后再提问。", substring = true)) }
     }
 }

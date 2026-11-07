@@ -129,6 +129,15 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
         return ResultOf.Ok(AiPage(items, next))
     }
 
+    /** 1.7.1 document discussions: keyed by document id and content hash, like the backend. */
+    fun documentOwner(document: QuickNoteSummary) = QuestionOwner(document.id, document.contentHash, AiOwnerKind.QUICK_NOTE)
+
+    override suspend fun documentSessions(document: QuickNoteSummary, includeArchived: Boolean, cursor: PageCursor?, limit: Int) =
+        sessions(document.id, includeArchived, cursor, limit)
+
+    override suspend fun createDocumentSession(commandId: String, document: QuickNoteSummary): ResultOf<CreateReceipt> =
+        ResultOf.Ok(CreateReceipt(seed(documentOwner(document), "新讨论 ${sessionsById.size + 1}")))
+
     override suspend fun messages(sessionId: String, cursor: PageCursor?, limit: Int): ResultOf<AiPage<MessageView>> {
         val list = messagesBySession[sessionId] ?: return reject(RejectCode.NOT_FOUND)
         val before = cursor?.opaque?.removePrefix("before:")?.toLong() ?: Long.MAX_VALUE
