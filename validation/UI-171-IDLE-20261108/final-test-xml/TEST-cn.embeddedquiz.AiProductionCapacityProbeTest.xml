@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiProductionCapacityProbeTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-07T16:53:36" hostname="LAPTOP-0JLS131B" time="7.535">
+  <properties/>
+  <testcase name="nearCapacityColdAndFileBackup" classname="cn.embeddedquiz.AiProductionCapacityProbeTest" time="7.535"/>
+  <system-out><![CDATA[AI_PRODUCTION_PATH workPathLength=174 oldStagePathLength=225
+AI_PRODUCTION_CAPACITY bytes=32533667 sessions=31 outputBytes=33582972 coldReads=23 exportReads=15 coldNs=428402200 coldAllocatedBytes=687800400 exportNs=2261194000 exportAllocatedBytes=3017600768 restoreNs=3576765900 restoreAllocatedBytes=4196280104 hostProcessWindow=true peakNotMeasured=true
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

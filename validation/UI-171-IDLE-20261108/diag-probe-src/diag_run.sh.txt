@@ -1,0 +1,10 @@
+#!/bin/bash
+# usage: diag_run.sh <label> <class> [class...]  -> runs those classes plus ZzzDiagProbeTest, prints the probe line
+label=$1; shift
+L="C:/Users/woziji/AppData/Local/Temp/claude/cbd9623f45285f76/3041e3b1-afc8-4fb1-b8a2-1043d4aad32c/scratchpad/diag-$label.log"
+T=""; for c in "$@" ZzzDiagProbeTest; do T="$T --tests cn.embeddedquiz.$c"; done
+cd /c/AndroidProjects/eq-171d
+EQ_ASCII_LINK='C:\AndroidProjects\eq-171d-link' powershell.exe -ExecutionPolicy Bypass -File 'C:\AndroidProjects\eq-171d\tools\build.ps1' testDebugUnitTest --rerun $T > "$L" 2>&1 &
+for i in $(seq 1 1180); do grep -aq "BUILD SUCCESSFUL\|BUILD FAILED" "$L" 2>/dev/null && break; sleep 1; done
+echo "[$label] $(grep -a 'BUILD\|tests completed' "$L" | tr '\n' ' ')"
+grep -aho "DIAG ZzzDiagProbeTest[^]]*" app/build/test-results/testDebugUnitTest/TEST-cn.embeddedquiz.ZzzDiagProbeTest.xml | head -1

@@ -1,0 +1,30 @@
+package cn.embeddedquiz
+
+import android.os.Handler
+import android.os.Looper
+import androidx.compose.ui.platform.AndroidUiDispatcher
+import kotlin.coroutines.ContinuationInterceptor
+import org.robolectric.Shadows.shadowOf
+
+/** DIAGNOSTIC ONLY (not committed): reports the Compose main dispatcher state without changing it. */
+internal object DiagComposeQueueProbe {
+    private fun field(dispatcher: Any, name: String): Any? =
+        dispatcher.javaClass.getDeclaredField(name).apply { isAccessible = true }.get(dispatcher)
+
+    fun report(where: String) {
+        val dispatcher = AndroidUiDispatcher.Main[ContinuationInterceptor]!!
+        val handler = field(dispatcher, "handler") as Handler
+        val callback = field(dispatcher, "dispatchCallback") as Runnable
+        val line =
+            synchronized(field(dispatcher, "lock")!!) {
+                "DIAG $where: scheduledTrampoline=${field(dispatcher, "scheduledTrampolineDispatch")}" +
+                    " toRunTrampolined=${(field(dispatcher, "toRunTrampolined") as Collection<*>).size}" +
+                    " scheduledFrame=${field(dispatcher, "scheduledFrameDispatch")}" +
+                    " toRunOnFrame=${(field(dispatcher, "toRunOnFrame") as Collection<*>).size}" +
+                    " handlerHasCallback=${handler.hasCallbacks(callback)}" +
+                    " handlerLooperIsMain=${handler.looper === Looper.getMainLooper()}" +
+                    " mainLooperIdle=${shadowOf(Looper.getMainLooper()).isIdle}"
+            }
+        println(line)
+    }
+}

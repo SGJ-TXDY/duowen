@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiFullBackupTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-11-07T16:53:24" hostname="LAPTOP-0JLS131B" time="10.727">
+  <properties/>
+  <testcase name="totalNewAiSegmentOver32MiBIsRejectedEvenWhenEveryFieldIsLegal" classname="cn.embeddedquiz.AiFullBackupTest" time="1.287"/>
+  <testcase name="reversedLongRetryChainRestoresByDependencyAndRejectsCycle" classname="cn.embeddedquiz.AiFullBackupTest" time="1.134"/>
+  <testcase name="versionFourRoundTripPreservesRawHistoryDraftsReceiptsAndInterruptsPendingRuns" classname="cn.embeddedquiz.AiFullBackupTest" time="0.432"/>
+  <testcase name="settingsUseSingletonOneAndPreserveOtherLocalRowsLikeLegacyRestore" classname="cn.embeddedquiz.AiFullBackupTest" time="0.229"/>
+  <testcase name="failedInputOutputCloseCancellationAndDiskResourcesCleanTemporaryFilesAndPreserveTarget" classname="cn.embeddedquiz.AiFullBackupTest" time="0.3"/>
+  <testcase name="invalidSourcePreflightNeverOpensDestinationOrTouchesExistingValidBackup" classname="cn.embeddedquiz.AiFullBackupTest" time="0.314"/>
+  <testcase name="inconsistentEstimateAndForgedSizeAndOverLimitAiAreRejectedInStaging" classname="cn.embeddedquiz.AiFullBackupTest" time="0.412"/>
+  <testcase name="cachedSourceFanoutKeepsOnlyOriginalNetworkUsageAndRestoresRestrictOrder" classname="cn.embeddedquiz.AiFullBackupTest" time="0.545"/>
+  <testcase name="malformedVersionMissingSegmentDuplicateIdAndUnknownEnumNeverReplaceTarget" classname="cn.embeddedquiz.AiFullBackupTest" time="0.573"/>
+  <testcase name="targetReplacementFailureRollsBackLegacyAndAiAndCanRetryWithoutDuplicatingCosts" classname="cn.embeddedquiz.AiFullBackupTest" time="0.352"/>
+  <testcase name="legacyOneTwoThreePreserveNewConversationsAndMissingLegacySectionsExactly" classname="cn.embeddedquiz.AiFullBackupTest" time="0.289"/>
+  <testcase name="copyFailureAndCancellationAfterPartialWritesDoNotReturnSuccess" classname="cn.embeddedquiz.AiFullBackupTest" time="0.231"/>
+  <testcase name="fullBackupExceeding32MiBFromLegacyRowsStreamsAndRestoresWithoutAiCapConfusion" classname="cn.embeddedquiz.AiFullBackupTest" time="4.629"/>
+  <system-out><![CDATA[AI_BACKUP_PATH originalCandidateLength=236 shortLength=197
+AI_BACKUP_PATH originalCandidateLength=232 shortLength=193
+AI_BACKUP_PATH originalCandidateLength=252 shortLength=213
+AI_BACKUP_PATH originalCandidateLength=240 shortLength=201
+AI_BACKUP_PATH originalCandidateLength=260 shortLength=221
+AI_BACKUP_PATH originalCandidateLength=245 shortLength=206
+AI_BACKUP_PATH originalCandidateLength=241 shortLength=202
+AI_BACKUP_PATH originalCandidateLength=246 shortLength=207
+AI_BACKUP_PATH originalCandidateLength=248 shortLength=209
+AI_BACKUP_PATH originalCandidateLength=253 shortLength=214
+AI_BACKUP_PATH originalCandidateLength=246 shortLength=207
+AI_BACKUP_PATH originalCandidateLength=237 shortLength=198
+AI_BACKUP_PATH originalCandidateLength=252 shortLength=213
+AI_BACKUP_LARGE bytes=35562472 exportNs=1834920400 preflightNs=1367420100 replaceNs=579121300 allocatedBytes=3507169384 heapUsedBefore=373987840 heapUsedAfter=359140176 legacyQuestions=601 streaming=true hostProcessWindow=true nativePeakNotMeasured=true
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

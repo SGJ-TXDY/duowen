@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AppIconsTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-07T16:53:53" hostname="LAPTOP-0JLS131B" time="0.024">
+  <properties/>
+  <testcase name="circlesRectsAndLinesAreConvertedNotDropped" classname="cn.embeddedquiz.AppIconsTest" time="0.023"/>
+  <testcase name="everyIconSharesTheLucideGridAndStroke" classname="cn.embeddedquiz.AppIconsTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

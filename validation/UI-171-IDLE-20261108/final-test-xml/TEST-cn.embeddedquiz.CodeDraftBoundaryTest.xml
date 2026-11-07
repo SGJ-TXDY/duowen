@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.CodeDraftBoundaryTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-11-07T16:53:53" hostname="LAPTOP-0JLS131B" time="2.792">
+  <properties/>
+  <testcase name="failedStartupDraftFlushDoesNotReplaceDataOrStartANewAttempt" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.276"/>
+  <testcase name="startupRestoreUsesTheSameDraftBoundaryAndGenerationRules" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.25"/>
+  <testcase name="clearingOwnerAfterFailureDoesNotRetryForeverOrClaimSaved" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.185"/>
+  <testcase name="restoreDrainsOldIoThenInvalidatesOldStateAndCannotReplayOldText" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.237"/>
+  <testcase name="clearingOwnerWaitsForInFlightDraftIoWithoutBlockingMain" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.189"/>
+  <testcase name="clearingOwnerFlushesTheLastWindowBeforeClosingTheDatabase" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.181"/>
+  <testcase name="invalidRestoreKeepsCacheAndTheReliablySavedOriginalText" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.211"/>
+  <testcase name="ordinaryNotesRemainExplicitAndSuccessNoticeRequiresACommittedVersion" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.333"/>
+  <testcase name="resetFlushesLatestTextAndPreservesPersonalAndStickyContent" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.197"/>
+  <testcase name="failedExportDestinationReleasesEditingWithoutReportingBackupSuccess" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.229"/>
+  <testcase name="backupFlushesTheWindowAndBlocksNewDraftAcceptanceUntilExportEnds" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.248"/>
+  <testcase name="saveFailureAbortsBackupRestoreAndResetWithoutClearingTheLatestDraft" classname="cn.embeddedquiz.CodeDraftBoundaryTest" time="0.256"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

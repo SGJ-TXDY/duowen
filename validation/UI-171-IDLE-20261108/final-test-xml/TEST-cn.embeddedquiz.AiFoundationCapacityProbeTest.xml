@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiFoundationCapacityProbeTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-07T16:52:57" hostname="LAPTOP-0JLS131B" time="2.611">
+  <properties/>
+  <testcase name="fixedOneKiBDraftWithDifferentUnrelatedBodiesHasBoundedReadsAndAllocation" classname="cn.embeddedquiz.AiFoundationCapacityProbeTest" time="1.564"/>
+  <testcase name="nearCapacityRecordsCpuAllocationAndTransactionLatency" classname="cn.embeddedquiz.AiFoundationCapacityProbeTest" time="1.047"/>
+  <system-out><![CDATA[AI_SCALE_PROBE sessions=1 sample=0 wallNs=3756600 allocatedBytes=431984 selectedBytes=1024 warmup=1 measured=3
+AI_SCALE_PROBE sessions=1 sample=1 wallNs=3587900 allocatedBytes=419288 selectedBytes=1024 warmup=1 measured=3
+AI_SCALE_PROBE sessions=1 sample=2 wallNs=3570800 allocatedBytes=429000 selectedBytes=1024 warmup=1 measured=3
+AI_SCALE_PROBE sessions=8 sample=0 wallNs=2719300 allocatedBytes=447600 selectedBytes=1024 warmup=1 measured=3
+AI_SCALE_PROBE sessions=8 sample=1 wallNs=2865000 allocatedBytes=420144 selectedBytes=1024 warmup=1 measured=3
+AI_SCALE_PROBE sessions=8 sample=2 wallNs=2276600 allocatedBytes=420280 selectedBytes=1024 warmup=1 measured=3
+AI_SCALE_PROBE sessions=31 sample=0 wallNs=1862200 allocatedBytes=431216 selectedBytes=1024 warmup=1 measured=3
+AI_SCALE_PROBE sessions=31 sample=1 wallNs=1933800 allocatedBytes=443768 selectedBytes=1024 warmup=1 measured=3
+AI_SCALE_PROBE sessions=31 sample=2 wallNs=1809900 allocatedBytes=418888 selectedBytes=1024 warmup=1 measured=3
+AI_CAPACITY_PROBE fixtureBytes=32534328 capacity=33554432 sessions=31 fieldBytes=1048576
+AI_CAPACITY_PROBE sample=0 wallNs=25979100 processCpuNs=15625000 allocatedBytes=35222512
+AI_CAPACITY_PROBE sample=1 wallNs=22613600 processCpuNs=31250000 allocatedBytes=35221984
+AI_CAPACITY_PROBE sample=2 wallNs=27837200 processCpuNs=31250000 allocatedBytes=35229656
+AI_CAPACITY_PROBE finalBytes=32536161 note=host_JVM_Robolectric_not_device_no_streaming_claim
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

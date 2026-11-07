@@ -17,6 +17,8 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.TestRule
+import org.junit.runners.model.Statement
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -32,7 +34,23 @@ import org.robolectric.annotation.Config
 // Tall enough that all four note cards are composed at once.
 @Config(sdk = [28], qualifiers = "w360dp-h1000dp")
 class StickyNoteSourceUiTest {
-    @get:Rule val ui = createAndroidComposeRule<ComponentActivity>()
+    /**
+     * An earlier test can leave the Compose main dispatcher's callback removed by Robolectric's queue
+     * reset (probed in validation/UI-171-IDLE-20261108: AiChatScreenTest then EnhancedAiTest, or
+     * StartupTest). The compose rule waits for idle as it starts, so the original callback is
+     * delivered in an outer rule, before it.
+     */
+    @get:Rule(order = 0)
+    val strandedMainQueue = TestRule { base, _ ->
+        object : Statement() {
+            override fun evaluate() {
+                ComposeMainQueue.deliverStrandedCallbacks()
+                base.evaluate()
+            }
+        }
+    }
+
+    @get:Rule(order = 1) val ui = createAndroidComposeRule<ComponentActivity>()
     private val store = ViewModelStore()
     private lateinit var vm: QuizViewModel
     private val app = ApplicationProvider.getApplicationContext<Application>()
@@ -103,6 +121,14 @@ class StickyNoteSourceUiTest {
     @After
     fun cleanup() {
         ui.runOnUiThread { store.clear() }
+        // The ViewModel closes the AI runtime and database asynchronously; delete test data only after.
+        val deadline = System.currentTimeMillis() + 20_000
+        while (vm.examResourcesClosed?.isCompleted != true) {
+            check(System.currentTimeMillis() < deadline) { "ViewModel resources did not close within 20s" }
+            shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(25)
+        }
+        assertFalse(vm.db.isOpen)
         app.deleteDatabase("embeddedquiz.db")
     }
 

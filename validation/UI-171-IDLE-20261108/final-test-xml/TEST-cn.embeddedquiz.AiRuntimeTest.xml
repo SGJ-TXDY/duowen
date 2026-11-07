@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiRuntimeTest" tests="18" skipped="0" failures="0" errors="0" timestamp="2026-11-07T16:53:48" hostname="LAPTOP-0JLS131B" time="4.588">
+  <properties/>
+  <testcase name="completedQuestionReplySavesOneMarkdownNoteAndRestoresReadOnlyOrigin" classname="cn.embeddedquiz.AiRuntimeTest" time="0.481"/>
+  <testcase name="costCurrenciesRemainSeparate" classname="cn.embeddedquiz.AiRuntimeTest" time="0.141"/>
+  <testcase name="quickNoteDiscussionSendsBoundedReferencesAndRetriesFrozenPayload" classname="cn.embeddedquiz.AiRuntimeTest" time="1.552"/>
+  <testcase name="closingWaitsForTransportAndPersistsTerminal" classname="cn.embeddedquiz.AiRuntimeTest" time="0.121"/>
+  <testcase name="providerTextLimitAndCredentialRedaction" classname="cn.embeddedquiz.AiRuntimeTest" time="0.056"/>
+  <testcase name="badCredentialsNeverDispatch" classname="cn.embeddedquiz.AiRuntimeTest" time="0.109"/>
+  <testcase name="completionStillOwnsCleaningSlot" classname="cn.embeddedquiz.AiRuntimeTest" time="0.174"/>
+  <testcase name="stopWaitsForExitAndRetryUsesOneUser" classname="cn.embeddedquiz.AiRuntimeTest" time="0.176"/>
+  <testcase name="serverRetryAfterCannotReplayOneShot" classname="cn.embeddedquiz.AiRuntimeTest" time="0.117"/>
+  <testcase name="replacementWaitsAndInvalidatesCursorAndWriter" classname="cn.embeddedquiz.AiRuntimeTest" time="0.298"/>
+  <testcase name="pagingArchiveAndImmutableReceipts" classname="cn.embeddedquiz.AiRuntimeTest" time="0.127"/>
+  <testcase name="partialAndInvalidUsageAreNotFreeOrCompleteCache" classname="cn.embeddedquiz.AiRuntimeTest" time="0.165"/>
+  <testcase name="newestWindowPagesBackwardsWithoutGaps" classname="cn.embeddedquiz.AiRuntimeTest" time="0.379"/>
+  <testcase name="redirectDoesNotSendAgain" classname="cn.embeddedquiz.AiRuntimeTest" time="0.12"/>
+  <testcase name="failedCancelStillStopsAndBlocksNewWork" classname="cn.embeddedquiz.AiRuntimeTest" time="0.121"/>
+  <testcase name="cutoverDrainsLegacyWriterBeforeNewSend" classname="cn.embeddedquiz.AiRuntimeTest" time="0.11"/>
+  <testcase name="frozenBodyReplayCacheAndFees" classname="cn.embeddedquiz.AiRuntimeTest" time="0.227"/>
+  <testcase name="draftCoalescesAndFlushesDuringClose" classname="cn.embeddedquiz.AiRuntimeTest" time="0.114"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Nov 08, 2026 1:53:51 AM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[61385] connection from /127.0.0.1 didn't make a request
+Nov 08, 2026 1:53:51 AM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[61390] connection from /127.0.0.1 didn't make a request
+Nov 08, 2026 1:53:52 AM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[61396] connection from /127.0.0.1 didn't make a request
+Nov 08, 2026 1:53:52 AM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[50385] connection from /127.0.0.1 didn't make a request
+]]></system-err>
+</testsuite>

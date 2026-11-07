@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiProductionMigrationTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-07T16:53:47" hostname="LAPTOP-0JLS131B" time="0.799">
+  <properties/>
+  <testcase name="realProductionFiveToSevenKeepsOldLearningHistoryAndRawJson" classname="cn.embeddedquiz.AiProductionMigrationTest" time="0.116"/>
+  <testcase name="roomSixToSevenPreservesExistingConversationAndAddsNullableNoteSource" classname="cn.embeddedquiz.AiProductionMigrationTest" time="0.106"/>
+  <testcase name="productionMigrationSchemaFailureRollsBackWithoutDeletingOriginal" classname="cn.embeddedquiz.AiProductionMigrationTest" time="0.577"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

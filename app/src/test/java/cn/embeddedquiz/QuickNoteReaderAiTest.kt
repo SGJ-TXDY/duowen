@@ -4,6 +4,9 @@ import android.app.Application
 import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
@@ -20,6 +23,8 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.TestRule
+import org.junit.runners.model.Statement
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -33,7 +38,23 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], qualifiers = "w360dp-h640dp")
 class QuickNoteReaderAiTest {
-    @get:Rule val ui = createAndroidComposeRule<ComponentActivity>()
+    /**
+     * An earlier test can leave the Compose main dispatcher's callback removed by Robolectric's queue
+     * reset (probed in validation/UI-171-IDLE-20261108: AiChatScreenTest then EnhancedAiTest, or
+     * StartupTest). The compose rule waits for idle as it starts, so the original callback is
+     * delivered in an outer rule, before it.
+     */
+    @get:Rule(order = 0)
+    val strandedMainQueue = TestRule { base, _ ->
+        object : Statement() {
+            override fun evaluate() {
+                ComposeMainQueue.deliverStrandedCallbacks()
+                base.evaluate()
+            }
+        }
+    }
+
+    @get:Rule(order = 1) val ui = createAndroidComposeRule<ComponentActivity>()
     private val store = ViewModelStore()
     private lateinit var vm: QuizViewModel
     private val app = ApplicationProvider.getApplicationContext<Application>()
@@ -41,6 +62,8 @@ class QuickNoteReaderAiTest {
     private val facade = FakeAiConversationFacade()
     private val asked = mutableListOf<Pair<String, QuickNoteHeading?>>()
     private val handle = QuickNoteReaderHandle()
+    /** Cleared in cleanup so the reader and its WebView leave before the data is deleted. */
+    private var shown by mutableStateOf(true)
     private val linux =
         QuickNotePackage(
             "linux.md",
@@ -100,8 +123,20 @@ class QuickNoteReaderAiTest {
 
     @After
     fun cleanup() {
+        // The discussions' scope first, then the reader: its WebView is released when it leaves.
         scope.cancel()
+        ui.runOnUiThread { shown = false }
+        ui.waitForIdle()
+        ui.onAllNodesWithTag("quick-note-reader").assertCountEquals(0)
         ui.runOnUiThread { store.clear() }
+        // The ViewModel closes the AI runtime and database asynchronously; delete test data only after.
+        val deadline = System.currentTimeMillis() + 20_000
+        while (vm.examResourcesClosed?.isCompleted != true) {
+            check(System.currentTimeMillis() < deadline) { "ViewModel resources did not close within 20s" }
+            shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(25)
+        }
+        assertFalse(vm.db.isOpen)
         app.deleteDatabase("embeddedquiz.db")
         File(app.filesDir, "quicknotes-v1").deleteRecursively()
     }
@@ -132,7 +167,7 @@ class QuickNoteReaderAiTest {
         await { !vm.quickNotes.state.working && vm.quickNotes.state.documents.isNotEmpty() }
         ui.setContent {
             MaterialTheme {
-                vm.quickNotes.state.reader?.let { QuickNoteReader(vm, it, handle, ai) }
+                if (shown) vm.quickNotes.state.reader?.let { QuickNoteReader(vm, it, handle, ai) }
             }
         }
         ui.runOnIdle { vm.quickNotes.openDocument(vm.quickNotes.state.documents.single().id) }

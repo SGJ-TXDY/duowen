@@ -1,5 +1,20 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-08 · 1.7.1 新界面测试 AppNotIdle 补修（Claude，PLAN-1.7.1 联合收尾）
+
+只改了 `QuickNoteReaderAiTest.kt` 和 `StickyNoteSourceUiTest.kt`，生产代码、断言、超时和共享 helper 都没有改。详见 `validation/UI-171-IDLE-20261108/README.md`。
+
+- **复现**：在原输入（`20c463c4` 加当时 GPT 的 47 个文件，指纹核对一致）上，全量再次得到同样的 9 项失败。只读探针显示，Compose 主 dispatcher 在测试开始时已经处于“原回调丢失”状态：自认为已安排回调，待执行队列里也有任务，但主线程 Handler 中没有这个回调，主线程队列是空的。
+- **最小触发顺序**（二分探针确认）：
+  - 任一 Compose 界面测试 → 会写快照状态的非界面测试 `EnhancedAiTest`；
+  - `StartupTest` → 便签类，卡在 Compose 规则启动时、`@Before` 之前的空闲等待。
+- **补修**：
+  - 两个类加了外层规则 `@get:Rule(order = 0)`，在 Compose 规则启动前用 `ComposeMainQueue.deliverStrandedCallbacks()` 补送原回调。
+  - 清理顺序改为：停 scope → 撤下阅读页并确认 WebView 已离开 → `store.clear()` → 等 `examResourcesClosed`（上限 20 秒）→ 确认数据库已关闭 → 删除测试数据。
+  - 起初把补送放在 `setup()` 里，只修好第一种顺序，所以改成外层规则。
+- **验证**：两种最小顺序在补修后都通过。以 GPT 的 `0160b153` 加这两个文件做全量构建、测试和 Lint：BUILD SUCCESSFUL，52 类 418 项全部通过，Lint 0 错误、7 条警告。
+- **未闭环**：原回调丢失是测试环境问题（Robolectric 在测试间重置队列，而 Compose 沿用同一个 dispatcher），生产代码不受影响。这次只在这两个新类里处理。以后在便签类之后新增界面测试时，需要加同样的外层规则。UI-04A 和 1.7.0 中那些间歇失败的特征与此一致，但没有单独复现，不作为结论。
+
 ## 2026-11-08 · 1.7.1 接线（Claude，按 PLAN-1.7.1 “GPT 后端接口”）
 
 按 GPT 写在任务单里的四个接口完成接线，入口在应用中正式启用。只改界面文件，没有改 GPT 的 VM、数据层和运行时。**依赖 GPT 尚未提交的 1.7.1 后端**（Room 7、`documentSessions` 等），本提交单独无法编译，需要与 GPT 那批一起提交或合并。

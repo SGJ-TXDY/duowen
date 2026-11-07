@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.CodeDraftSaveUiTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-11-07T16:53:57" hostname="LAPTOP-0JLS131B" time="7.127">
+  <properties/>
+  <testcase name="notificationDuringLeaveWinsAndTheFailureIsShownBackOnTheQuestion" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.618"/>
+  <testcase name="manualNotesAreNeverShownAsSavedBeforeTheButtonIsPressed" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.407"/>
+  <testcase name="notificationDuringLeaveWinsWhenTheDraftSaves" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.431"/>
+  <testcase name="typingShowsSavingThenSavedAndCaretMovesDoNotWrite" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.657"/>
+  <testcase name="missingQuestionLeaveYieldsToANotificationThatArrivesWhileWaiting" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.689"/>
+  <testcase name="indentInsertsAtTheCaretAsOneChange" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.035"/>
+  <testcase name="missingQuestionTopBackStaysOnFailureAndLeavesAfterAnExplicitRetry" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.782"/>
+  <testcase name="failedSaveKeepsTheUserOnTheQuestionUntilAnExplicitRetrySucceeds" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.698"/>
+  <testcase name="aDraftFailureIsReachableOnASmallScreenWithLargeText" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.654"/>
+  <testcase name="errorStaysVisibleKeepsTextAndCaretAndRetrySaves" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.66"/>
+  <testcase name="theExclusiveBoundaryFreezesCodeAndNotesUntilItEnds" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.427"/>
+  <testcase name="disabledEditorKeepsTheTextReadableButAcceptsNoEdit" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.029"/>
+  <testcase name="missingQuestionSystemBackWaitsForTheAcceptedDraft" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.616"/>
+  <testcase name="onlyTextChangesAreReportedAndTheCaretSurvivesTheRoundTrip" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.033"/>
+  <testcase name="movingOnWaitsForTheDraftAndFreezesItsInputUntilItLands" classname="cn.embeddedquiz.CodeDraftSaveUiTest" time="0.391"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

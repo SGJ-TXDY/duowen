@@ -1,0 +1,13 @@
+package cn.embeddedquiz
+
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+/** DIAGNOSTIC ONLY (not committed): runs last and reports whether the Compose main callback is stranded. */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [28])
+class ZzzDiagProbeTest {
+    @Test fun probe() = DiagComposeQueueProbe.report("ZzzDiagProbeTest")
+}
