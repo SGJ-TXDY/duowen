@@ -53,7 +53,7 @@ class AiChatScreenTest {
     private fun showWith(programming: Boolean = false) {
         ui.setContent {
             MaterialTheme {
-                val c = rememberAiChatController(facade, q, programming) { AiSendContext(setOf("A"), code, "deepseek-test") }
+                val c = rememberAiChatController(facade, q, programming, sendContext = { AiSendContext(setOf("A"), code, "deepseek-test") })
                 controller = c
                 AiChatScreen(c, Modifier.padding(16.dp))
             }
@@ -491,5 +491,142 @@ class AiChatScreenTest {
         ui.onNodeWithContentDescription("复制早期回复").performClick()
         val clipboard = ApplicationProvider.getApplicationContext<Context>().getSystemService(ClipboardManager::class.java)
         assertEquals("旧回答 **粗体**", clipboard.primaryClip!!.getItemAt(0).text.toString())
+    }
+
+    // ---- 1.7.1: document sources and saving replies to sticky notes ----
+
+    /** A Markdown document as a discussion source; the fake facade keys its discussions by owner. */
+    private class DocSource(id: String, version: String) : AiChatSource {
+        val owner = QuestionOwner("doc:$id", version)
+        override val context = AiSourceContext("文档：Linux 速记", "以当前章节「进程」为主，按需引用相关段落；只在你发送时提交。")
+        override val quickTypes = listOf(AiRequestType.EXPLANATION)
+        override val staleLabel = "旧版文档"
+
+        override suspend fun sessions(facade: AiConversationFacade, cursor: PageCursor?, limit: Int) =
+            facade.sessions(owner.questionId, true, cursor, limit)
+
+        override suspend fun create(facade: AiConversationFacade, commandId: String) = facade.createSession(commandId, owner)
+
+        override fun current(session: SessionView) = session.question == owner
+
+        override suspend fun send(facade: AiConversationFacade, request: AiSendRequest): ResultOf<AcceptedReceipt> {
+            val s = request.session
+            return facade.send(
+                SendCommand(request.commandId, s.sessionId, s.question, s.contextRevision, request.draftToken,
+                    request.savedDraftRevision, request.input, emptySet(), "", request.type, "doc-model")
+            )
+        }
+
+        override fun citation(message: MessageView) =
+            if (message.role == MessageRole.ASSISTANT && message.text.isNotEmpty()) "「进程」第 2～3 段" else null
+    }
+
+    private class FakeSaver : AiNoteSaver {
+        val calls = mutableListOf<Pair<String, String>>()
+        var gate: CompletableDeferred<Unit>? = null
+        var reject: Rejection? = null
+
+        override suspend fun save(commandId: String, reply: MessageView): ResultOf<StickyNote> {
+            calls += commandId to reply.messageId
+            gate?.let {
+                gate = null
+                it.await()
+            }
+            reject?.let {
+                reject = null
+                return ResultOf.Rejected(it)
+            }
+            return ResultOf.Ok(StickyNote("n-1", "volatile 解析", reply.text, 1, 1))
+        }
+    }
+
+    private var openedNote: StickyNote? = null
+
+    private fun showSource(source: AiChatSource, saver: AiNoteSaver? = null) {
+        ui.setContent {
+            MaterialTheme {
+                val c = rememberAiChatController(facade, source, saver)
+                controller = c
+                AiChatScreen(c, Modifier.padding(16.dp), onOpenNote = { openedNote = it })
+            }
+        }
+        ui.waitForIdle()
+    }
+
+    @Test
+    fun aDocumentDiscussionShowsWhatItCitesAndKeepsOldVersionsReadOnly() {
+        val doc = DocSource("linux", "v2")
+        facade.seed(QuestionOwner("doc:linux", "v1"), "旧版讨论", readOnly = true)
+        showSource(doc)
+
+        ui.onNodeWithTag("ai-source-context").assertIsDisplayed()
+        ui.onNodeWithText("文档：Linux 速记").assertIsDisplayed()
+        ui.onNodeWithText("只读 · 旧版文档").assertIsDisplayed()
+
+        // A one-tap request never reuses the old version's discussion.
+        ui.runOnIdle { controller.quick(AiRequestType.EXPLANATION) }
+        ui.waitForIdle()
+        val sent = facade.sends.single()
+        assertEquals("doc-model", sent.model)
+        assertEquals(doc.owner, facade.session(sent.sessionId).question)
+        ui.onNodeWithTag("ai-source-context").assertIsDisplayed()
+        facade.finish("进程由 PCB 描述。")
+        ui.waitForIdle()
+        ui.onNodeWithTag("ai-messages").performScrollToNode(hasText("引用：「进程」第 2～3 段"))
+        // No saver here: document replies offer no save button.
+        ui.onAllNodesWithTag("ai-save-note").assertCountEquals(0)
+    }
+
+    @Test
+    fun aFinishedReplyIsSavedToANoteOnceAndTheNoteCanBeOpened() {
+        val s = facade.seed(q, "保存")
+        facade.add(s.sessionId, MessageRole.USER, "volatile 有什么用？")
+        val reply = facade.add(s.sessionId, MessageRole.ASSISTANT, "**防止优化**：每次都从内存读。", facade.run(s.sessionId, q, FakeAiConversationFacade.usage(1, 1, "0")))
+        facade.add(s.sessionId, MessageRole.USER, "再说说")
+        facade.add(s.sessionId, MessageRole.ASSISTANT, "", facade.run(s.sessionId, q, FakeAiConversationFacade.usage(null, null, null, UsageState.UNKNOWN), RunStatus.FAILED))
+        val saver = FakeSaver()
+        val gate = CompletableDeferred<Unit>()
+        saver.gate = gate
+        showSource(QuestionAiSource(q), saver)
+        openRow("保存")
+
+        // Only the finished, complete reply offers saving; the failed one does not.
+        ui.onAllNodesWithTag("ai-save-note").assertCountEquals(1)
+        ui.onNodeWithTag("ai-messages").performScrollToNode(hasTestTag("ai-save-note"))
+        ui.onNodeWithTag("ai-save-note").performClick()
+        ui.waitForIdle()
+        ui.onNodeWithText("正在保存…").assertIsNotEnabled()
+        ui.onNodeWithTag("ai-save-note").performClick()
+        gate.complete(Unit)
+        ui.waitForIdle()
+
+        assertEquals(listOf(saver.calls.single().first to reply.messageId), saver.calls)
+        ui.onNodeWithTag("ai-messages").performScrollToNode(hasTestTag("ai-saved-note"))
+        ui.onNodeWithText("已保存到便签「volatile 解析」").assertIsDisplayed()
+        ui.onAllNodesWithTag("ai-save-note").assertCountEquals(0)
+        ui.onNodeWithText("打开便签").performClick()
+        assertEquals("n-1", openedNote?.id)
+    }
+
+    @Test
+    fun aFailedSaveIsExplainedAndRetriedUnderTheSameCommand() {
+        val s = facade.seed(q, "重存")
+        facade.add(s.sessionId, MessageRole.USER, "问")
+        facade.add(s.sessionId, MessageRole.ASSISTANT, "答", facade.run(s.sessionId, q, FakeAiConversationFacade.usage(1, 1, "0")))
+        val saver = FakeSaver()
+        saver.reject = Rejection(RejectCode.STORAGE_FAILED, true, RecoveryAction.NONE)
+        showSource(QuestionAiSource(q), saver)
+        openRow("重存")
+
+        ui.onNodeWithTag("ai-messages").performScrollToNode(hasTestTag("ai-save-note"))
+        ui.onNodeWithTag("ai-save-note").performClick()
+        ui.waitForIdle()
+        ui.onNodeWithText("未保存到便签：AI 存储写入失败，内容未保存。").assertExists()
+        ui.onNodeWithTag("ai-save-note").performClick()
+        ui.waitForIdle()
+        assertEquals(2, saver.calls.size)
+        assertEquals(saver.calls[0].first, saver.calls[1].first)
+        ui.onAllNodesWithTag("ai-save-note-error").assertCountEquals(0)
+        ui.onNodeWithTag("ai-messages").performScrollToNode(hasTestTag("ai-saved-note"))
     }
 }

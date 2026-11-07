@@ -37,10 +37,10 @@ private val IMPORT_TYPES =
 private val BACKUP_TYPES = arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")
 
 @Composable
-fun QuickNotesScreen(vm: QuizViewModel, reader: QuickNoteReaderHandle) {
+internal fun QuickNotesScreen(vm: QuizViewModel, reader: QuickNoteReaderHandle, ai: QuickNoteAiEntry? = null) {
     val notes = vm.quickNotes
     val document = notes.state.reader
-    if (document != null) QuickNoteReader(vm, document, reader)
+    if (document != null) QuickNoteReader(vm, document, reader, ai)
     else {
         BackHandler { notes.leave { vm.navigate(Page.HOME) } }
         QuickNotesLibrary(vm)

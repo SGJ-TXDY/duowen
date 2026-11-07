@@ -1,5 +1,47 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-07 · 1.7.1 阅读器、AI 会话和便签界面（Claude，PLAN-1.7.1）
+
+基线为 v1.7.0（`aca99d8e`）。只改界面文件，没有改共享 `QuizViewModel`、数据层、备份或 AI 运行时。GPT 尚未在任务单里补接口，因此界面先按 1.7.0 契约和四个可选挂点实现。挂点说明写在 `docs/PLAN-1.7.1.md` 的“Claude 侧接线点”一节。挂点没接上时，对应入口不显示，现有行为不变。
+
+### 改动清单
+
+| 文件 | 改动 |
+| --- | --- |
+| `AiChat.kt` | 新增会话来源接口 `AiChatSource`：题目由 `QuestionAiSource` 包装 1.7.0 门面，行为不变；文档来源由 GPT 提供。新增上下文卡片（当前文档和将引用的范围）、回复下方的“引用：…”、旧版本标签（“旧版题目”/“旧版文档”）、快捷问法由来源决定。新增“保存到便签”（仅对完成且完整的回复提供；连点和重试复用同一 commandId；保存成功后显示“已保存到便签「标题」”和“打开便签”；失败时说明原因并可重试）。 |
+| `QuickNoteAi.kt`（新） | `QuickNoteAiEntry` 速记入口、上下文文案、`ContextualAiSource`，以及“阅读位置 → 当前章节”的换算。 |
+| `QuickNoteReader.kt` / `QuickNotesScreen.kt` | 顶栏新增“AI 学习助手”（接上入口后才显示）。点按时先读取并保存阅读位置，再在阅读页上层打开讨论；WebView 保持加载，返回后仍在原文档和原位置。两个函数改为 `internal`，因为参数用到 internal 类型。 |
+| `StickyNoteSourceUi.kt`（新） | 便签来源的显示与状态（当前 / 题目已更新 / 来源不可用），以及只读原题页：显示题干、选项与参考答案、解析、思路和参考代码；不作答、不判分、不写复习记录。 |
+| `StickyNotesScreen.kt` | 有来源的便签在列表和编辑页都显示来源行和“回到原题”。题目已更新时给出提示；题目不存在时说明来源不可用，按钮不可点，正文照常可读。返回顺序：原题 → 便签（编辑中的便签保持打开）。 |
+| `QuestionScreen.kt` | AI 讨论页接上“打开便签”：经题目页原有离页流程进入该便签，从便签返回后回到这道题。`noteSaver` 等 GPT 接口就绪后再接。 |
+| 测试 | `AiChatScreenTest`（17 → 20 项）、新增 `QuickNoteReaderAiTest`（3 项）、新增 `StickyNoteSourceUiTest`（4 项）。 |
+
+### 定向测试结果（证据：`validation/UI-171-20261107/`）
+
+在干净 worktree（`aca99d8e` 加上表 10 个文件，指纹见 `input-fingerprints.csv`）中运行：
+
+- 最终定向运行 6 个类共 42 项，0 失败（`05-targeted-final-42.log`，XML 在 `test-xml/`）：
+  - 新增或修改：`AiChatScreenTest` 20、`QuickNoteReaderAiTest` 3、`StickyNoteSourceUiTest` 4。
+  - 受影响的已有测试（未改动）：`QuestionAiEntryUiTest` 2、`QuickNotesUiTest` 5、`NotesAndScoringUiTest` 8。
+- 过程记录，全部保留：
+  1. 测试编译失败：已有 `showWith` 的尾随 lambda 改绑到了新增的 `noteSaver` 参数，已改为命名参数。
+  2. 42 项中 3 项失败：便签卡片可点击，会合并子节点的语义，测试按 tag 找来源行找不到；改为在未合并树中查找，产品代码未改。
+  3. 修复后上述类 4/4 通过。
+- `assembleDebug lintDebug`：BUILD SUCCESSFUL。Lint 0 错误，7 条警告与 v1.7.0 基线相同，没有新增。
+- 共享文件之外的全量回归按任务单在合并后统一运行，本次没有跑全量。
+
+### 覆盖与未覆盖
+
+- 已覆盖：
+  - 文档会话的上下文卡片、旧版本只读、一键请求不复用旧版本、引用范围显示；
+  - 阅读器打开 AI 页、WebView 仍在、返回到同一文档；
+  - 保存便签：仅完成回复可存、连点只发一次、失败后同一命令重试、打开便签；
+  - 便签来源三种状态和只读原题，以及从编辑页进入并返回。
+- 未覆盖：
+  - 换文档和内容版本变化的真实后端行为、长文截取、发送失败的文档路径：要等 GPT 的文档入口接上。
+  - 便签备份与恢复、作答和复习记录口径：后端负责，合并后联合验收。
+  - Robolectric 的 WebView 不执行脚本，因此“按阅读位置得出当前章节”只做了换算函数的单元断言；在真机上的表现未验证。
+
 ## 2026-11-07 · 题目页挂载新会话，迁移旧 AI 入口与费用（Claude）
 
 ### 来源与边界

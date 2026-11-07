@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiChatScreenTest" tests="20" skipped="0" failures="0" errors="0" timestamp="2026-11-07T14:42:13" hostname="LAPTOP-0JLS131B" time="7.105">
+  <properties/>
+  <testcase name="notReadyBlocksNewSessionsAndExplainsWhy" classname="cn.embeddedquiz.AiChatScreenTest" time="3.682"/>
+  <testcase name="oneTapRequestsUseTheLatestEditableDiscussionAndCodeReviewSendsTheCode" classname="cn.embeddedquiz.AiChatScreenTest" time="0.932"/>
+  <testcase name="aLateAcknowledgementNeverMarksNewerTextSavedAndFailuresKeepTheEditorOpen" classname="cn.embeddedquiz.AiChatScreenTest" time="0.197"/>
+  <testcase name="jumpToLatestReplyAppearsOnlyWhenItIsOffScreenAndScrollingUpIsNeverOverridden" classname="cn.embeddedquiz.AiChatScreenTest" time="0.387"/>
+  <testcase name="aDocumentDiscussionShowsWhatItCitesAndKeepsOldVersionsReadOnly" classname="cn.embeddedquiz.AiChatScreenTest" time="0.112"/>
+  <testcase name="aOneTapRequestCreatesADiscussionWhenNoneIsEditable" classname="cn.embeddedquiz.AiChatScreenTest" time="0.072"/>
+  <testcase name="aFailedSaveIsExplainedAndRetriedUnderTheSameCommand" classname="cn.embeddedquiz.AiChatScreenTest" time="0.107"/>
+  <testcase name="readOnlySessionShowsItsDraftButNeverSaves" classname="cn.embeddedquiz.AiChatScreenTest" time="0.086"/>
+  <testcase name="listShowsTitlesAndStateAndNewSessionOpens" classname="cn.embeddedquiz.AiChatScreenTest" time="0.076"/>
+  <testcase name="preUpgradeRecordsOfThisQuestionAreListedReadOnlyAndCopyable" classname="cn.embeddedquiz.AiChatScreenTest" time="0.084"/>
+  <testcase name="copyPutsTheStoredTextOnTheClipboardAndSaysSo" classname="cn.embeddedquiz.AiChatScreenTest" time="0.087"/>
+  <testcase name="sendSavesAndConsumesTheDraftThenStopAndRetryUseTheBackendOwner" classname="cn.embeddedquiz.AiChatScreenTest" time="0.211"/>
+  <testcase name="aRequestRunningElsewhereBlocksSendingHereButCanBeStopped" classname="cn.embeddedquiz.AiChatScreenTest" time="0.118"/>
+  <testcase name="messagesShowOldestFirstWithRunStatusAndHonestUsage" classname="cn.embeddedquiz.AiChatScreenTest" time="0.131"/>
+  <testcase name="aFinishedReplyIsSavedToANoteOnceAndTheNoteCanBeOpened" classname="cn.embeddedquiz.AiChatScreenTest" time="0.108"/>
+  <testcase name="textTypedWhileASendIsInFlightIsKeptAndSaved" classname="cn.embeddedquiz.AiChatScreenTest" time="0.183"/>
+  <testcase name="renameUpdatesTitleWithinEightyCodePointsAndShowsStaleRejection" classname="cn.embeddedquiz.AiChatScreenTest" time="0.273"/>
+  <testcase name="aFirstTapWhileTheBackendStartsWaitsInsteadOfBeingRefused" classname="cn.embeddedquiz.AiChatScreenTest" time="0.051"/>
+  <testcase name="draftSavesAfterAQuietPauseAtMostEveryTwoSecondsAndIsFlushedOnLeave" classname="cn.embeddedquiz.AiChatScreenTest" time="0.109"/>
+  <testcase name="olderMessagesLoadByCursorAndMergeInOrder" classname="cn.embeddedquiz.AiChatScreenTest" time="0.096"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

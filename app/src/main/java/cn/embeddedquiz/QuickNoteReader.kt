@@ -55,7 +55,13 @@ class QuickNoteReaderHandle {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QuickNoteReader(vm: QuizViewModel, document: QuickNoteDocument, handle: QuickNoteReaderHandle) {
+internal fun QuickNoteReader(
+    vm: QuizViewModel,
+    document: QuickNoteDocument,
+    handle: QuickNoteReaderHandle,
+    /** Document discussions (PLAN-1.7.1); null hides the AI entry. */
+    ai: QuickNoteAiEntry? = null,
+) {
     val notes = vm.quickNotes
     val id = document.summary.id
     val rendered = document.rendered
@@ -67,6 +73,9 @@ fun QuickNoteReader(vm: QuizViewModel, document: QuickNoteDocument, handle: Quic
     SideEffect { web.onScrolled = { saves.trySend(Unit) } }
     var tocOpen by rememberSaveable { mutableStateOf(false) }
     var warningsOpen by rememberSaveable { mutableStateOf(false) }
+    // The discussion opens over the page, which stays alive underneath: back lands on the same spot.
+    var aiOpen by rememberSaveable(id) { mutableStateOf(false) }
+    var aiAnchor by rememberSaveable(id) { mutableStateOf("") }
 
     fun capture(then: () -> Unit = {}) =
         web.capture { position ->
@@ -92,6 +101,15 @@ fun QuickNoteReader(vm: QuizViewModel, document: QuickNoteDocument, handle: Quic
     }
     BackHandler { capture { notes.closeDocument() } }
 
+    /** Records where the reader is (also as the saved position), then opens the discussions about it. */
+    fun openAi() =
+        web.capture { position ->
+            if (position != null) notes.savePosition(id, position)
+            aiAnchor = position?.anchor.orEmpty()
+            aiOpen = true
+        }
+
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
@@ -111,6 +129,14 @@ fun QuickNoteReader(vm: QuizViewModel, document: QuickNoteDocument, handle: Quic
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(start = 4.dp),
             )
+            if (ai != null)
+                IconButton(
+                    onClick = { openAi() },
+                    enabled = !notes.state.working,
+                    modifier = Modifier.size(48.dp).testTag("quick-note-ai"),
+                ) {
+                    Icon(AppIcons.Chat, contentDescription = "AI 学习助手")
+                }
             IconButton(
                 onClick = { tocOpen = true },
                 enabled = rendered.headings.isNotEmpty(),
@@ -154,6 +180,8 @@ fun QuickNoteReader(vm: QuizViewModel, document: QuickNoteDocument, handle: Quic
             },
             modifier = Modifier.weight(1f).fillMaxWidth().testTag("quick-note-reader"),
         )
+    }
+    if (ai != null && aiOpen) QuickNoteAiPage(ai, document, aiAnchor) { aiOpen = false }
     }
 
     if (tocOpen)
@@ -495,3 +523,23 @@ function broken(img){var s=document.createElement('span');s.className='qn-missin
 s.textContent='图片无法显示：'+(img.getAttribute('alt')||'未命名图片')+'。文件可能已损坏或格式不受支持。';img.replaceWith(s);}
 Array.prototype.forEach.call(document.images,function(img){if(img.complete&&img.naturalWidth===0){broken(img);}else{img.addEventListener('error',function(){broken(img);});}});
 })();"""
+
+/** Discussions about the open document, over the reader. Back from the list returns to the page. */
+@Composable
+private fun QuickNoteAiPage(ai: QuickNoteAiEntry, document: QuickNoteDocument, anchor: String, onClose: () -> Unit) {
+    val section = quickNoteSection(document, anchor)
+    val controller =
+        remember(document.summary.id, document.summary.contentHash, section?.id) {
+            AiChatController(
+                ai.facade,
+                ContextualAiSource(ai.source(document, section), quickNoteAiContext(document, section)),
+                ai.scope,
+                ai.noteSaver,
+            )
+        }
+    // Leaving saves and releases the draft in the entry's scope, after this page is gone.
+    DisposableEffect(controller) { onDispose { controller.back() } }
+    Surface(Modifier.fillMaxSize().testTag("quick-note-ai-page"), color = MaterialTheme.colorScheme.background) {
+        AiChatScreen(controller, Modifier.padding(horizontal = 16.dp).padding(top = 8.dp), onClose = onClose)
+    }
+}

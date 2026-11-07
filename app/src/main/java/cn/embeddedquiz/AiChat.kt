@@ -60,18 +60,124 @@ internal data class AiSendContext(val choices: Set<String>, val code: String, va
 internal val AI_QUICK_TYPES =
     listOf(AiRequestType.EXPLANATION, AiRequestType.SUGGESTED_ANSWER, AiRequestType.VARIANT)
 
+/** The document and range a document discussion will cite, shown above the discussion. */
+internal data class AiSourceContext(val title: String, val scope: String)
+
+/** One send, as the controller has it ready; the source turns it into the backend command. */
+internal data class AiSendRequest(
+    val commandId: String,
+    val session: SessionView,
+    val type: AiRequestType,
+    val input: String,
+    val draftToken: DraftToken?,
+    val savedDraftRevision: Long?,
+)
+
+/**
+ * What the discussions are about. Questions use the 1.7.0 facade calls below; 1.7.1 Markdown
+ * documents plug in through GPT's document entry (PLAN-1.7.1). Only listing, creating and sending
+ * differ by source: opening, messages, drafts, rename, stop and retry are per session and shared.
+ */
+internal interface AiChatSource {
+    val context: AiSourceContext?
+        get() = null
+    val quickTypes: List<AiRequestType>
+    /** Tag on a discussion of an older version of this source (it is read only). */
+    val staleLabel: String
+    /** Pre-upgrade single-turn history exists only for questions. */
+    val legacyQuestion: QuestionOwner?
+        get() = null
+
+    suspend fun sessions(facade: AiConversationFacade, cursor: PageCursor?, limit: Int): ResultOf<AiPage<SessionView>>
+    suspend fun create(facade: AiConversationFacade, commandId: String): ResultOf<CreateReceipt>
+    /** True for a discussion of this source's current version, the only kind a one-tap request may use. */
+    fun current(session: SessionView): Boolean
+    suspend fun send(facade: AiConversationFacade, request: AiSendRequest): ResultOf<AcceptedReceipt>
+    /** The chapters or paragraphs a reply cited, when the backend reports them. */
+    fun citation(message: MessageView): String? = null
+}
+
+/** The 1.7.0 question discussions, unchanged. */
+internal class QuestionAiSource(
+    val owner: QuestionOwner,
+    /** Programming questions also offer the code review request. */
+    programming: Boolean = false,
+    private val sendContext: () -> AiSendContext = { AiSendContext(emptySet(), "", "") },
+) : AiChatSource {
+    override val quickTypes =
+        if (programming) AI_QUICK_TYPES + AiRequestType.CODE_REVIEW else AI_QUICK_TYPES
+    override val staleLabel = "旧版题目"
+    override val legacyQuestion = owner
+
+    override suspend fun sessions(facade: AiConversationFacade, cursor: PageCursor?, limit: Int) =
+        facade.sessions(owner.questionId, includeArchived = true, cursor, limit)
+
+    override suspend fun create(facade: AiConversationFacade, commandId: String) = facade.createSession(commandId, owner)
+
+    override fun current(session: SessionView) = session.question == owner
+
+    override suspend fun send(facade: AiConversationFacade, request: AiSendRequest): ResultOf<AcceptedReceipt> {
+        val ctx = sendContext()
+        val s = request.session
+        return facade.send(
+            SendCommand(
+                commandId = request.commandId, sessionId = s.sessionId, question = s.question,
+                expectedContextRevision = s.contextRevision, draftToken = request.draftToken,
+                savedDraftRevision = request.savedDraftRevision, input = request.input, choices = ctx.choices,
+                code = if (request.type == AiRequestType.CODE_REVIEW) ctx.code else "",
+                requestType = request.type, model = ctx.model,
+            )
+        )
+    }
+}
+
+/** Saves one completed reply as a sticky note; the same command id always answers the same note. */
+internal fun interface AiNoteSaver {
+    suspend fun save(commandId: String, reply: MessageView): ResultOf<StickyNote>
+}
+
+/** Save state of one reply. The command id is kept so a retry or a second tap cannot make a copy. */
+internal data class AiNoteSave(
+    val commandId: String,
+    val saving: Boolean = false,
+    val note: StickyNote? = null,
+    val error: String? = null,
+)
+
+/** Only a finished, complete answer is worth keeping; a partial or failed one is not offered. */
+internal fun aiReplySavable(m: MessageView) =
+    m.role == MessageRole.ASSISTANT && m.completion == TextState.COMPLETE &&
+        m.run?.status == RunStatus.COMPLETED && m.text.isNotBlank()
+
 @Stable
 internal class AiChatController(
     /** Resolved on first use: taking the facade hands the send right to the new conversations. */
     facadeProvider: () -> AiConversationFacade,
-    val question: QuestionOwner,
+    val source: AiChatSource,
     private val scope: CoroutineScope,
-    /** Programming questions also offer the code review request. */
-    val programming: Boolean = false,
-    private val sendContext: () -> AiSendContext = { AiSendContext(emptySet(), "", "") },
+    /** Null where saving replies to sticky notes is not offered. */
+    private val noteSaver: AiNoteSaver? = null,
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) {
+    /** The question page's discussions, as in 1.7.0. */
+    constructor(
+        facadeProvider: () -> AiConversationFacade,
+        question: QuestionOwner,
+        scope: CoroutineScope,
+        programming: Boolean = false,
+        sendContext: () -> AiSendContext = { AiSendContext(emptySet(), "", "") },
+        noteSaver: AiNoteSaver? = null,
+        newId: () -> String = { UUID.randomUUID().toString() },
+    ) : this(facadeProvider, QuestionAiSource(question, programming, sendContext), scope, noteSaver, newId)
+
     val facade: AiConversationFacade by lazy(facadeProvider)
+
+    val canSaveNotes: Boolean
+        get() = noteSaver != null
+
+    /** Keyed by reply messageId. */
+    var noteSaves by mutableStateOf<Map<String, AiNoteSave>>(emptyMap())
+        private set
 
     var legacy by mutableStateOf<List<LegacyEntryView>>(emptyList())
         private set
@@ -145,7 +251,7 @@ internal class AiChatController(
 
     suspend fun loadSessions(reset: Boolean) {
         val cursor = if (reset) null else sessionsNext ?: return
-        when (val r = facade.sessions(question.questionId, includeArchived = true, cursor, AI_PAGE_SIZE)) {
+        when (val r = source.sessions(facade, cursor, AI_PAGE_SIZE)) {
             is ResultOf.Ok -> {
                 sessions = if (reset) r.value.items else (sessions + r.value.items).distinctBy { it.sessionId }
                 sessionsNext = r.value.next
@@ -159,8 +265,9 @@ internal class AiChatController(
 
     fun moreSessions() = scope.launch { loadSessions(reset = false) }
 
-    /** Old single-turn records of this question (every version), read only. */
+    /** Old single-turn records of this question (every version), read only; documents have none. */
     suspend fun loadLegacy(reset: Boolean) {
+        val question = source.legacyQuestion ?: return
         val cursor = if (reset) null else legacyNext ?: return
         when (val r = facade.legacy(HistoryFilter.AllVersions(question.questionId), cursor, AI_PAGE_SIZE)) {
             is ResultOf.Ok -> {
@@ -198,7 +305,7 @@ internal class AiChatController(
         }
 
     private suspend fun createAndOpen(): Boolean =
-        when (val r = facade.createSession(newId(), question)) {
+        when (val r = source.create(facade, newId())) {
             is ResultOf.Ok -> {
                 loadSessions(reset = true)
                 openNow(r.value.session.sessionId)
@@ -211,13 +318,13 @@ internal class AiChatController(
         }
 
     /**
-     * Makes sure an editable discussion of this question version is open: keeps the open one, else
+     * Makes sure an editable discussion of this source version is open: keeps the open one, else
      * opens the most recent editable one, else creates one.
      */
     private suspend fun ensureEditable(): Boolean {
         current()?.let { if (!it.readOnly) return true }
         loadSessions(reset = true)
-        val target = sessions.firstOrNull { !it.readOnly && it.question == question }
+        val target = sessions.firstOrNull { !it.readOnly && source.current(it) }
         if (target == null) return createAndOpen()
         openNow(target.sessionId)
         return current()?.let { !it.readOnly } == true
@@ -260,16 +367,7 @@ internal class AiChatController(
                 savedRevision = draftRevision
             }
             val s = current() ?: return
-            val ctx = sendContext()
-            val command =
-                SendCommand(
-                    commandId = newId(), sessionId = s.sessionId, question = s.question,
-                    expectedContextRevision = s.contextRevision, draftToken = token,
-                    savedDraftRevision = savedRevision, input = text, choices = ctx.choices,
-                    code = if (type == AiRequestType.CODE_REVIEW) ctx.code else "",
-                    requestType = type, model = ctx.model,
-                )
-            when (val r = facade.send(command)) {
+            when (val r = source.send(facade, AiSendRequest(newId(), s, type, text, token, savedRevision))) {
                 is ResultOf.Ok -> {
                     if (!useDraft || opened?.sessionId != s.sessionId) return
                     draftRevision = r.value.draftRevision
@@ -314,6 +412,23 @@ internal class AiChatController(
         scope.launch {
             awaitStarted()
             openNow(sessionId)
+        }
+
+    /** Saves a finished reply as a sticky note. Taps while saving or after success do nothing more. */
+    fun saveToNote(reply: MessageView) =
+        scope.launch {
+            val saver = noteSaver ?: return@launch
+            if (!aiReplySavable(reply)) return@launch
+            val prior = noteSaves[reply.messageId]
+            if (prior != null && (prior.saving || prior.note != null)) return@launch
+            val commandId = prior?.commandId ?: newId()
+            noteSaves = noteSaves + (reply.messageId to AiNoteSave(commandId, saving = true))
+            val outcome =
+                when (val r = saver.save(commandId, reply)) {
+                    is ResultOf.Ok -> AiNoteSave(commandId, note = r.value)
+                    is ResultOf.Rejected -> AiNoteSave(commandId, error = aiRejectionText(r.reason))
+                }
+            noteSaves = noteSaves + (reply.messageId to outcome)
         }
 
     private suspend fun openNow(sessionId: String) {
@@ -538,9 +653,16 @@ internal fun rememberAiChatController(
     question: QuestionOwner,
     programming: Boolean = false,
     sendContext: () -> AiSendContext = { AiSendContext(emptySet(), "", "") },
+    noteSaver: AiNoteSaver? = null,
 ): AiChatController {
     val scope = rememberCoroutineScope()
-    return remember(facade, question) { AiChatController({ facade }, question, scope, programming, sendContext) }
+    return remember(facade, question) { AiChatController({ facade }, question, scope, programming, sendContext, noteSaver) }
+}
+
+@Composable
+internal fun rememberAiChatController(facade: AiConversationFacade, source: AiChatSource, noteSaver: AiNoteSaver? = null): AiChatController {
+    val scope = rememberCoroutineScope()
+    return remember(facade, source) { AiChatController({ facade }, source, scope, noteSaver) }
 }
 
 /** The whole conversation page: the session list, or the open session with its messages and draft. */
@@ -550,6 +672,8 @@ internal fun AiChatScreen(
     modifier: Modifier = Modifier,
     /** Leaves the conversation page from its list; back inside a session returns to the list. */
     onClose: (() -> Unit)? = null,
+    /** Opens a note saved from a reply; null hides the link (the saved message still shows). */
+    onOpenNote: ((StickyNote) -> Unit)? = null,
 ) {
     val state by controller.facade.state.collectAsState()
     val session = controller.current(state)
@@ -566,7 +690,7 @@ internal fun AiChatScreen(
             Box(Modifier.testTag("ai-notice").clickable { controller.dismissNotice() }) { ErrorNotice(text) }
         }
         if (session == null) AiSessionList(controller, state, Modifier.weight(1f), onClose)
-        else AiSessionPane(controller, state, session, Modifier.weight(1f))
+        else AiSessionPane(controller, state, session, Modifier.weight(1f), onOpenNote)
     }
 }
 
@@ -606,6 +730,7 @@ private fun AiSessionList(
                 Text("新建讨论")
             }
         }
+        controller.source.context?.let { AiSourceContextCard(it) }
         if (controller.sessions.isEmpty())
             InlineNote("还没有讨论。点“新建讨论”开始。", Modifier.testTag("ai-sessions-empty"))
         LazyColumn(
@@ -613,7 +738,7 @@ private fun AiSessionList(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(bottom = 24.dp),
         ) {
-            items(controller.sessions, key = { it.sessionId }) { s -> AiSessionRow(s, controller.question) { controller.open(s.sessionId) } }
+            items(controller.sessions, key = { it.sessionId }) { s -> AiSessionRow(s, controller.source) { controller.open(s.sessionId) } }
             if (controller.hasMoreSessions)
                 item(key = "more") {
                     TextButton(onClick = { controller.moreSessions() }, modifier = Modifier.heightIn(min = 48.dp)) {
@@ -627,7 +752,9 @@ private fun AiSessionList(
                         InlineNote("升级前的单轮问答，只能查看和复制，不会带入新讨论的上下文。")
                     }
                 }
-            items(controller.legacy, key = { "legacy-" + it.cacheKey }) { AiLegacyRow(it, controller.question) }
+            items(controller.legacy, key = { "legacy-" + it.cacheKey }) { e ->
+                controller.source.legacyQuestion?.let { AiLegacyRow(e, it) }
+            }
             if (controller.hasMoreLegacy)
                 item(key = "legacy-more") {
                     TextButton(onClick = { controller.moreLegacy() }, modifier = Modifier.heightIn(min = 48.dp)) {
@@ -639,7 +766,7 @@ private fun AiSessionList(
 }
 
 @Composable
-private fun AiSessionRow(s: SessionView, question: QuestionOwner, onOpen: () -> Unit) {
+private fun AiSessionRow(s: SessionView, source: AiChatSource, onOpen: () -> Unit) {
     Surface(
         onClick = onOpen,
         shape = MaterialTheme.shapes.medium,
@@ -652,7 +779,7 @@ private fun AiSessionRow(s: SessionView, question: QuestionOwner, onOpen: () -> 
             val tags =
                 buildList {
                     if (s.readOnly) add("只读")
-                    if (s.question.contentHash != question.contentHash) add("旧版题目")
+                    if (!source.current(s)) add(source.staleLabel)
                     if (s.draft.text.isNotBlank()) add("草稿：" + s.draft.text.lineSequence().first())
                 }
             if (tags.isNotEmpty())
@@ -703,12 +830,29 @@ private fun AiLegacyRow(e: LegacyEntryView, question: QuestionOwner) {
     }
 }
 
+/** Which document the discussion is about and which part of it the answers will cite. */
+@Composable
+private fun AiSourceContextCard(context: AiSourceContext) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth().testTag("ai-source-context"),
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(context.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            InlineNote(context.scope)
+        }
+    }
+}
+
 @Composable
 private fun AiSessionPane(
     controller: AiChatController,
     state: AiConversationUiState,
     session: SessionView,
     modifier: Modifier,
+    onOpenNote: ((StickyNote) -> Unit)?,
 ) {
     var renaming by remember { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -738,7 +882,8 @@ private fun AiSessionPane(
         val busy = state.globalBusy
         if (busy != null) AiBusyRow(busy, session, controller)
         val canSend = aiCanSend(state, session, controller)
-        AiMessageList(controller, state, session, Modifier.weight(1f), canSend)
+        controller.source.context?.let { AiSourceContextCard(it) }
+        AiMessageList(controller, state, session, Modifier.weight(1f), canSend, onOpenNote)
         AiQuickRow(controller, canSend)
         AiDraftBox(controller, session, canSend)
     }
@@ -782,9 +927,7 @@ private fun AiBusyRow(busy: BusyRun, session: SessionView, controller: AiChatCon
 @Composable
 private fun AiQuickRow(controller: AiChatController, canSend: Boolean) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        AI_QUICK_TYPES.forEach { type -> AiQuickChip(type.label, canSend) { controller.quick(type) } }
-        if (controller.programming)
-            AiQuickChip(AiRequestType.CODE_REVIEW.label, canSend) { controller.quick(AiRequestType.CODE_REVIEW) }
+        controller.source.quickTypes.forEach { type -> AiQuickChip(type.label, canSend) { controller.quick(type) } }
     }
 }
 
@@ -812,6 +955,7 @@ private fun AiMessageList(
     session: SessionView,
     modifier: Modifier,
     canSend: Boolean,
+    onOpenNote: ((StickyNote) -> Unit)?,
 ) {
     val messages = controller.messages(state)
     val hasOlder = controller.hasOlder(state)
@@ -859,7 +1003,7 @@ private fun AiMessageList(
                 }
             if (messages.isEmpty())
                 item(key = "empty") { InlineNote("还没有消息。") }
-            items(messages, key = { it.messageId }) { m -> AiMessage(m, canSend) { controller.retry(it) } }
+            items(messages, key = { it.messageId }) { m -> AiMessage(m, canSend, controller, onOpenNote) }
         }
         if (latestHidden && latestReply != null)
             FilledTonalButton(
@@ -877,7 +1021,7 @@ private fun AiMessageList(
 }
 
 @Composable
-private fun AiMessage(m: MessageView, canRetry: Boolean, onRetry: (RunView) -> Unit) {
+private fun AiMessage(m: MessageView, canRetry: Boolean, controller: AiChatController, onOpenNote: ((StickyNote) -> Unit)?) {
     if (m.role == MessageRole.USER) {
         Column(Modifier.fillMaxWidth().testTag("ai-message-user"), horizontalAlignment = Alignment.End) {
             Surface(
@@ -904,20 +1048,45 @@ private fun AiMessage(m: MessageView, canRetry: Boolean, onRetry: (RunView) -> U
         if (m.text.isNotEmpty()) MarkdownContent(m.text)
         if (m.completion == TextState.PARTIAL)
             InlineNote("回复不完整，只保存了已收到的部分。", Modifier.testTag("ai-partial"))
+        controller.source.citation(m)?.let { InlineNote("引用：$it", Modifier.testTag("ai-citation")) }
         m.run?.let(::aiUsageText)?.let {
             Text(it, style = MaterialTheme.typography.labelSmall, color = aiCostTextColor(MaterialTheme.colorScheme), modifier = Modifier.testTag("ai-usage"))
         }
-        Row {
+        val save = controller.noteSaves[m.messageId]
+        Row(verticalAlignment = Alignment.CenterVertically) {
             AiCopyButton(m.text, "复制回复")
             val run = m.run
             if (run != null && run.canRetry)
                 TextButton(
-                    onClick = { onRetry(run) },
+                    onClick = { controller.retry(run) },
                     enabled = canRetry,
                     modifier = Modifier.heightIn(min = 48.dp).testTag("ai-retry"),
                 ) {
                     Text("重试")
                 }
+            if (controller.canSaveNotes && aiReplySavable(m) && save?.note == null)
+                TextButton(
+                    onClick = { controller.saveToNote(m) },
+                    enabled = save?.saving != true,
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("ai-save-note"),
+                ) {
+                    Text(if (save?.saving == true) "正在保存…" else "保存到便签")
+                }
+        }
+        save?.error?.let { Text("未保存到便签：$it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("ai-save-note-error")) }
+        save?.note?.let { note ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("ai-saved-note")) {
+                Icon(AppIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                Text(
+                    "已保存到便签「${note.title.ifBlank { "未命名便签" }}」",
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(start = 4.dp),
+                )
+                if (onOpenNote != null)
+                    TextButton(onClick = { onOpenNote(note) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("打开便签") }
+            }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }

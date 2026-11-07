@@ -588,6 +588,14 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
             ai,
             Modifier.padding(horizontal = 16.dp).padding(top = 8.dp).testTag("ai-page"),
             onClose = { aiPage = false },
+            // A saved reply opens in 便签 through the normal leave; back from there returns to this question.
+            onOpenNote = { note ->
+                aiPage = false
+                leaveQuestion {
+                    vm.openStickyNotes()
+                    vm.editStickyNote(note)
+                }
+            },
         )
         return
     }

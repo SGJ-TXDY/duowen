@@ -9,15 +9,48 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.ZoneId
+import kotlinx.coroutines.launch
 
 @Composable
-fun StickyNotesScreen(vm: QuizViewModel) {
+internal fun StickyNotesScreen(
+    vm: QuizViewModel,
+    /** Sources of notes saved from AI replies (PLAN-1.7.1); null shows notes without them. */
+    sources: StickyNoteSources? = null,
+) {
     var search by rememberSaveable { mutableStateOf("") }
     var deleting by remember { mutableStateOf<StickyNote?>(null) }
     val draft = vm.noteDraft
+    val scope = rememberCoroutineScope()
+    var viewing by remember { mutableStateOf<NoteSourceOpen.Ready?>(null) }
+    var opening by remember { mutableStateOf<String?>(null) }
+    var sourceNotice by remember { mutableStateOf<String?>(null) }
+
+    /** Opens the note's question read only; a missing one only explains itself. */
+    fun openSource(note: StickyNote) {
+        val reader = sources ?: return
+        if (opening != null) return
+        opening = note.id
+        sourceNotice = null
+        scope.launch {
+            try {
+                when (val r = reader.open(note)) {
+                    is NoteSourceOpen.Ready -> viewing = r
+                    NoteSourceOpen.Missing -> sourceNotice = "原题已不在题库中，来源不可用；便签内容不受影响。"
+                }
+            } finally {
+                opening = null
+            }
+        }
+    }
+
+    viewing?.let {
+        SourceQuestionView(it) { viewing = null }
+        return
+    }
     deleting?.let { note ->
         AlertDialog(
             onDismissRequest = { deleting = null },
@@ -55,6 +88,7 @@ fun StickyNotesScreen(vm: QuizViewModel) {
         }
         if (vm.mode == "模拟考试" && !vm.examFinished && vm.queue.isNotEmpty())
             Text("考试仍在计时，作答进度已保留。", color = MaterialTheme.colorScheme.error)
+        sourceNotice?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("note-source-notice")) }
         if (vm.noteSaveError.isNotBlank()) {
             Text(vm.noteSaveError, color = MaterialTheme.colorScheme.error)
             Action("重试保存", !vm.busy && vm.pendingNoteWrites == 0) { vm.retryStickyNotes() }
@@ -68,6 +102,7 @@ fun StickyNotesScreen(vm: QuizViewModel) {
                 OutlinedButton(onClick = vm::closeStickyNote) { Text("全部便签") }
                 TextButton(onClick = { deleting = draft }, enabled = !vm.busy) { Text("删除便签") }
             }
+            sources?.source(draft)?.let { NoteSourceRow(it, opening == draft.id) { openSource(draft) } }
             key(draft.id) {
                 OutlinedTextField(
                     value = draft.title,
@@ -131,6 +166,7 @@ fun StickyNotesScreen(vm: QuizViewModel) {
                                 maxLines = 2,
                             )
                             Text(note.content.ifBlank { "空白便签" }, maxLines = 4)
+                            sources?.source(note)?.let { NoteSourceRow(it, opening == note.id) { openSource(note) } }
                             Text(
                                 "更新于 ${Instant.ofEpochMilli(note.updated).atZone(ZoneId.systemDefault()).toLocalDateTime().withSecond(0).withNano(0)}",
                                 style = MaterialTheme.typography.labelSmall,
