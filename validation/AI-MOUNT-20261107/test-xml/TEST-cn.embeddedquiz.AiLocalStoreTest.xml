@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiLocalStoreTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-07T04:16:11" hostname="LAPTOP-0JLS131B" time="0.444">
+  <properties/>
+  <testcase name="globalBusyAndCommandReplayWorkAcrossIndependentStores" classname="cn.embeddedquiz.AiLocalStoreTest" time="0.037"/>
+  <testcase name="metadataIsVerifiedAtImportAndColdAuditAndNotAcceptedAsWireAuthority" classname="cn.embeddedquiz.AiLocalStoreTest" time="0.033"/>
+  <testcase name="newerEditorOnSecondStoreRevokesOldOwnerEvenIfOldWriterReloadsRevision" classname="cn.embeddedquiz.AiLocalStoreTest" time="0.034"/>
+  <testcase name="checkpointsAcrossSessionsChargeExactArraySeparatorsAndKeepMeterOnRollback" classname="cn.embeddedquiz.AiLocalStoreTest" time="0.166"/>
+  <testcase name="interruptedClockRollbackDoesNotMakeValidLedgerUnrecoverable" classname="cn.embeddedquiz.AiLocalStoreTest" time="0.038"/>
+  <testcase name="draftAndRenameNeverSelectUnrelatedBodiesAndMatchFullOracle" classname="cn.embeddedquiz.AiLocalStoreTest" time="0.063"/>
+  <testcase name="processReopenRetainsExactMeterAndRejectsStaleEditor" classname="cn.embeddedquiz.AiLocalStoreTest" time="0.073"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

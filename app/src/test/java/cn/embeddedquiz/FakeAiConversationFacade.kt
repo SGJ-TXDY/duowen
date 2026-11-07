@@ -8,10 +8,9 @@ import kotlinx.coroutines.flow.StateFlow
 /**
  * In-memory AiConversationFacade for UI tests. It follows the frozen contract rules the UI depends
  * on (revisions, editor epochs, stale draft/session rejections, cursor paging, read-only sessions);
- * it is not a backend and does not send, retry or cancel.
- *
- * Page order assumption (to be confirmed by the backend): firstMessages is the newest page and its
- * cursor leads to older messages.
+ * it is not a backend. Sending only records the command and adds a pending reply; tests finish,
+ * fail or stop it explicitly. firstMessages is the newest page and its cursor leads to older
+ * messages, as AI_02B_CALLABLE_20261107 states.
  */
 class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationFacade {
     private val sessionsById = LinkedHashMap<String, SessionView>()
@@ -28,6 +27,14 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
     var flushRejection: Rejection? = null
     /** When set, the next saveDraft waits for it before answering. */
     var saveGate: CompletableDeferred<Unit>? = null
+    val sends = mutableListOf<SendCommand>()
+    val cancels = mutableListOf<RunOwner>()
+    val retries = mutableListOf<RetryCommand>()
+    var sendRejection: Rejection? = null
+    /** When set, the next send waits for it before it is processed. */
+    var sendGate: CompletableDeferred<Unit>? = null
+    val legacyEntries = mutableListOf<LegacyEntryView>()
+    private val assistantFor = HashMap<String, String>() // requestId -> assistant messageId
 
     private val _state =
         MutableStateFlow(
@@ -131,8 +138,14 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
         return ResultOf.Ok(AiPage(page, next))
     }
 
-    override suspend fun legacy(filter: HistoryFilter, cursor: PageCursor?, limit: Int): ResultOf<AiPage<LegacyEntryView>> =
-        ResultOf.Ok(AiPage(emptyList(), null))
+    override suspend fun legacy(filter: HistoryFilter, cursor: PageCursor?, limit: Int): ResultOf<AiPage<LegacyEntryView>> {
+        val id = (filter as HistoryFilter.AllVersions).questionId
+        val all = legacyEntries.filter { it.questionId == id }
+        val from = cursor?.opaque?.removePrefix("legacy:")?.toInt() ?: 0
+        val items = all.drop(from).take(limit)
+        val next = if (from + items.size < all.size) PageCursor("legacy:${from + items.size}") else null
+        return ResultOf.Ok(AiPage(items, next))
+    }
 
     override suspend fun rename(commandId: String, sessionId: String, expectedSessionRevision: Long, title: String): ResultOf<RenameReceipt> {
         renameRejection?.let { return ResultOf.Rejected(it) }
@@ -170,9 +183,85 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
         return ResultOf.Ok(FlushReceipt(sessionId, s.draft.revision))
     }
 
-    override suspend fun send(command: SendCommand): ResultOf<AcceptedReceipt> = error("send is not part of this UI batch")
-    override suspend fun retry(command: RetryCommand): ResultOf<AcceptedReceipt> = error("retry is not part of this UI batch")
-    override suspend fun cancel(commandId: String, owner: RunOwner): ResultOf<CancelReceipt> = error("cancel is not part of this UI batch")
+    override suspend fun send(command: SendCommand): ResultOf<AcceptedReceipt> {
+        sends += command
+        sendGate?.let {
+            sendGate = null
+            it.await()
+        }
+        sendRejection?.let { return ResultOf.Rejected(it) }
+        if (_state.value.globalBusy != null) return reject(RejectCode.BUSY)
+        val s = sessionsById[command.sessionId] ?: return reject(RejectCode.NOT_FOUND)
+        if (s.readOnly) return reject(RejectCode.READ_ONLY)
+        if (s.contextRevision != command.expectedContextRevision) return reject(RejectCode.STALE_CONTEXT)
+        if (command.requestType == AiRequestType.FOLLOW_UP && command.input.isBlank()) return reject(RejectCode.INVALID)
+        // The draft is consumed only when the declared token is still the saved one.
+        val clear = command.draftToken != null && command.draftToken == s.draft.savedToken &&
+            command.savedDraftRevision == s.draft.revision
+        val draft = if (clear) DraftView("", s.draft.revision + 1, false, s.draft.savedToken) else s.draft
+        sessionsById[s.sessionId] = s.copy(contextRevision = s.contextRevision + 1, draft = draft)
+        val user = add(s.sessionId, MessageRole.USER, command.input.ifBlank { command.requestType.label })
+        val owner = RunOwner(s.question, s.sessionId, "r${++nextId}")
+        val reply = pending(owner, null)
+        return ResultOf.Ok(
+            AcceptedReceipt(command.commandId, owner, user.messageId, reply.messageId, s.contextRevision + 1, draft.revision, command.draftToken, clear)
+        )
+    }
+
+    private fun pending(owner: RunOwner, retryOf: String?): MessageView {
+        val run = RunView(owner, RunStatus.GENERATING, RunSource.NETWORK, retryOf, null, usage(null, null, null, UsageState.UNKNOWN), null, false)
+        val list = messagesBySession.getValue(owner.sessionId)
+        val m = MessageView("m${++nextId}", owner.sessionId, list.last().seq + 1, MessageRole.ASSISTANT, "", TextState.EMPTY, run)
+        list += m
+        assistantFor[owner.requestId] = m.messageId
+        _state.value = _state.value.copy(globalBusy = BusyRun(owner, TransportPhase.READING))
+        publish()
+        return m
+    }
+
+    private fun settle(owner: RunOwner, update: (MessageView) -> MessageView) {
+        val id = assistantFor.getValue(owner.requestId)
+        val m = messagesBySession.getValue(owner.sessionId).first { it.messageId == id }
+        _state.value = _state.value.copy(globalBusy = null)
+        replace(update(m))
+    }
+
+    /** Ends the running request with a complete answer. */
+    fun finish(text: String) {
+        val owner = _state.value.globalBusy!!.owner
+        settle(owner) {
+            it.copy(text = text, completion = TextState.COMPLETE, run = it.run!!.copy(status = RunStatus.COMPLETED, usage = usage(10, 20, "0.0001")))
+        }
+    }
+
+    fun fail(code: String) {
+        val owner = _state.value.globalBusy!!.owner
+        settle(owner) { it.copy(run = it.run!!.copy(status = RunStatus.FAILED, errorCode = code, canRetry = true)) }
+    }
+
+    fun busyElsewhere(question: QuestionOwner) {
+        _state.value = _state.value.copy(globalBusy = BusyRun(RunOwner(question, "elsewhere", "r-elsewhere"), TransportPhase.READING))
+    }
+
+    override suspend fun retry(command: RetryCommand): ResultOf<AcceptedReceipt> {
+        retries += command
+        if (_state.value.globalBusy != null) return reject(RejectCode.BUSY)
+        val old = command.owner
+        val oldId = assistantFor.getValue(old.requestId)
+        messagesBySession.getValue(old.sessionId).first { it.messageId == oldId }.let { replace(it.copy(run = it.run!!.copy(canRetry = false))) }
+        val owner = old.copy(requestId = "r${++nextId}")
+        val reply = pending(owner, old.requestId)
+        val s = sessionsById.getValue(old.sessionId)
+        return ResultOf.Ok(AcceptedReceipt(command.commandId, owner, "", reply.messageId, s.contextRevision, s.draft.revision, null, false))
+    }
+
+    override suspend fun cancel(commandId: String, owner: RunOwner): ResultOf<CancelReceipt> {
+        cancels += owner
+        val busy = _state.value.globalBusy
+        if (busy?.owner != owner) return ResultOf.Rejected(Rejection(RejectCode.ALREADY_TERMINAL, false, RecoveryAction.NONE))
+        settle(owner) { it.copy(run = it.run!!.copy(status = RunStatus.CANCELLED, canRetry = true)) }
+        return ResultOf.Ok(CancelReceipt(owner, RunStatus.CANCELLED, false))
+    }
     override suspend fun awaitIdle(): ResultOf<IdleReceipt> = ResultOf.Ok(IdleReceipt(_state.value.datasetEpoch))
     override fun shutdown() = Unit
     override suspend fun awaitClosed(): ClosedReport = ClosedReport(null)

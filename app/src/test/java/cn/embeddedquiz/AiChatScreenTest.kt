@@ -43,6 +43,24 @@ class AiChatScreenTest {
 
     private fun type(text: String) = ui.onNodeWithTag("ai-draft").performTextInput(text)
 
+    private fun editable() =
+        ui.onNodeWithTag("ai-draft").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.EditableText].text
+
+    private lateinit var controller: AiChatController
+    private var code = ""
+
+    /** Like [show], with the send context a question page would give and access to the controller. */
+    private fun showWith(programming: Boolean = false) {
+        ui.setContent {
+            MaterialTheme {
+                val c = rememberAiChatController(facade, q, programming) { AiSendContext(setOf("A"), code, "deepseek-test") }
+                controller = c
+                AiChatScreen(c, Modifier.padding(16.dp))
+            }
+        }
+        ui.waitForIdle()
+    }
+
     @Test
     fun listShowsTitlesAndStateAndNewSessionOpens() {
         facade.seed(q, "中断与轮询")
@@ -114,8 +132,9 @@ class AiChatScreenTest {
         val question = ui.onNodeWithText("第一问").fetchSemanticsNode().boundsInRoot.top
         val answer = ui.onNodeWithText("已知用量的回答").fetchSemanticsNode().boundsInRoot.top
         assertTrue(question < answer)
-        ui.onNodeWithText("输入 120 / 输出 80 tokens · 估算 $0.001235").assertExists()
-        ui.onNodeWithText("缓存命中 · 本次不计费").assertExists()
+        val list = ui.onNodeWithTag("ai-messages")
+        list.performScrollToNode(hasText("输入 120 / 输出 80 tokens · 估算 $0.001235"))
+        list.performScrollToNode(hasText("缓存命中 · 本次不计费"))
         ui.onNodeWithTag("ai-messages").performScrollToNode(hasText("用量未知 · 费用未知"))
         ui.onNodeWithText("· 失败（timeout）").assertIsDisplayed()
         ui.onNodeWithTag("ai-partial").assertIsDisplayed()
@@ -313,5 +332,164 @@ class AiChatScreenTest {
         ui.onNodeWithTag("ai-phase").assertTextEquals("AI 存储准备中…")
         ui.onNodeWithTag("ai-new-session").assertIsNotEnabled()
         ui.onNodeWithTag("ai-sessions-empty").assertIsDisplayed()
+    }
+
+    @Test
+    fun sendSavesAndConsumesTheDraftThenStopAndRetryUseTheBackendOwner() {
+        facade.seed(q, "发送")
+        showWith()
+        openRow("发送")
+        type("volatile 有什么用？")
+        ui.onNodeWithContentDescription("发送追问").performClick()
+        ui.waitForIdle()
+
+        val sent = facade.sends.single()
+        assertEquals(AiRequestType.FOLLOW_UP, sent.requestType)
+        assertEquals("volatile 有什么用？", sent.input)
+        assertEquals(setOf("A"), sent.choices)
+        assertEquals("", sent.code)
+        assertEquals("deepseek-test", sent.model)
+        assertEquals(0L, sent.expectedContextRevision)
+        // The draft was saved first and the send names exactly that saved version.
+        assertEquals(facade.saves.last().token, sent.draftToken)
+        assertEquals(1L, sent.savedDraftRevision)
+        assertEquals("", editable())
+        assertEquals("", facade.session("s1").draft.text)
+        ui.onNodeWithText("volatile 有什么用？").assertExists()
+
+        // One request at a time: sending, one-tap requests and retry wait for the slot.
+        ui.onNodeWithTag("ai-stop").assertIsDisplayed()
+        type("再问")
+        ui.onNodeWithContentDescription("发送追问").assertIsNotEnabled()
+        ui.onNodeWithText("生成详细解析").assertIsNotEnabled()
+
+        ui.onNodeWithTag("ai-stop").performClick()
+        ui.waitForIdle()
+        val owner = facade.cancels.single()
+        assertEquals("s1", owner.sessionId)
+        ui.onNodeWithText("· 已取消").assertExists()
+        ui.onAllNodesWithTag("ai-stop").assertCountEquals(0)
+
+        ui.onNodeWithTag("ai-retry").performClick()
+        ui.waitForIdle()
+        assertEquals(owner, facade.retries.single().owner)
+        ui.onAllNodesWithTag("ai-retry").assertCountEquals(0)
+        facade.finish("防止编译器优化掉对寄存器的访问。")
+        ui.waitForIdle()
+        ui.onNodeWithTag("ai-messages").performScrollToNode(hasText("防止编译器优化掉对寄存器的访问。", substring = true))
+        ui.onNodeWithContentDescription("发送追问").assertIsEnabled()
+    }
+
+    @Test
+    fun textTypedWhileASendIsInFlightIsKeptAndSaved() {
+        facade.seed(q, "并发")
+        showWith()
+        openRow("并发")
+        type("one")
+        val gate = CompletableDeferred<Unit>()
+        facade.sendGate = gate
+        ui.mainClock.autoAdvance = false
+        try {
+            ui.onNodeWithContentDescription("发送追问").performClick()
+            ui.mainClock.advanceTimeBy(16)
+            assertEquals(1, facade.sends.size)
+            type("two")
+            gate.complete(Unit)
+            ui.mainClock.advanceTimeBy(16)
+            // The backend consumed "one"; the newer text is not cleared by that receipt.
+            assertEquals("onetwo", editable())
+            ui.mainClock.advanceTimeBy(400)
+        } finally {
+            ui.mainClock.autoAdvance = true
+        }
+        ui.waitForIdle()
+        assertEquals("onetwo", facade.session("s1").draft.text)
+        assertEquals("草稿已保存", draftStatus())
+    }
+
+    @Test
+    fun oneTapRequestsUseTheLatestEditableDiscussionAndCodeReviewSendsTheCode() {
+        facade.seed(q.copy(contentHash = "h0"), "旧版", readOnly = true)
+        facade.seed(q, "最近")
+        code = "int main(void) { return 0; }"
+        showWith(programming = true)
+
+        ui.runOnIdle { controller.quick(AiRequestType.CODE_REVIEW) }
+        ui.waitForIdle()
+        ui.onNodeWithTag("ai-title").assertTextEquals("最近")
+        val review = facade.sends.single()
+        assertEquals(AiRequestType.CODE_REVIEW, review.requestType)
+        assertEquals(code, review.code)
+        assertEquals("", review.input)
+        assertNull(review.draftToken)
+        facade.finish("建议检查返回值。")
+        ui.waitForIdle()
+
+        // A typed draft is left alone by one-tap requests, and only code review carries the code.
+        type("留着")
+        ui.onNodeWithText("出一道同知识点变式题").performClick()
+        ui.waitForIdle()
+        assertEquals(AiRequestType.VARIANT, facade.sends.last().requestType)
+        assertEquals("", facade.sends.last().code)
+        assertEquals("留着", editable())
+    }
+
+    @Test
+    fun aOneTapRequestCreatesADiscussionWhenNoneIsEditable() {
+        facade.seed(q.copy(contentHash = "h0"), "旧版", readOnly = true)
+        showWith(programming = true)
+        ui.runOnIdle { controller.quick(AiRequestType.EXPLANATION) }
+        ui.waitForIdle()
+        ui.onNodeWithTag("ai-title").assertTextEquals("新讨论 2")
+        assertEquals("s2", facade.sends.single().sessionId)
+        assertEquals(AiRequestType.EXPLANATION, facade.sends.single().requestType)
+    }
+
+    @Test
+    fun aFirstTapWhileTheBackendStartsWaitsInsteadOfBeingRefused() {
+        facade.setPhase(ServicePhase.INITIALIZING)
+        code = "int x;"
+        showWith(programming = true)
+        ui.runOnIdle { controller.quick(AiRequestType.CODE_REVIEW) }
+        ui.waitForIdle()
+        assertTrue(facade.sends.isEmpty())
+        ui.onNodeWithTag("ai-phase").assertTextEquals("AI 存储准备中…")
+        ui.onAllNodesWithTag("ai-notice").assertCountEquals(0)
+
+        facade.setPhase(ServicePhase.READY)
+        ui.waitForIdle()
+        assertEquals(AiRequestType.CODE_REVIEW, facade.sends.single().requestType)
+        ui.onNodeWithTag("ai-title").assertExists()
+    }
+
+    @Test
+    fun aRequestRunningElsewhereBlocksSendingHereButCanBeStopped() {
+        facade.seed(q, "等待")
+        showWith()
+        openRow("等待")
+        facade.busyElsewhere(q)
+        ui.waitForIdle()
+        ui.onNodeWithText("AI 正在处理其他讨论，完成后才能在这里发送。").assertIsDisplayed()
+        ui.onNodeWithText("生成详细解析").assertIsNotEnabled()
+        type("x")
+        ui.onNodeWithContentDescription("发送追问").assertIsNotEnabled()
+        ui.onNodeWithTag("ai-stop").assertIsDisplayed()
+    }
+
+    @Test
+    fun preUpgradeRecordsOfThisQuestionAreListedReadOnlyAndCopyable() {
+        facade.legacyEntries +=
+            LegacyEntryView("k1", "q1", null, "旧问题", "旧回答 **粗体**", 1_700_000_000_000, "deepseek-chat", java.math.BigDecimal("0.000123"))
+        facade.legacyEntries += LegacyEntryView("k2", "q-other", "h1", "别的题", "不应出现", 0, "m", java.math.BigDecimal.ZERO)
+        showWith()
+
+        ui.onNodeWithText("早期记录（只读）").assertIsDisplayed()
+        ui.onAllNodesWithTag("ai-legacy-row").assertCountEquals(1)
+        ui.onNodeWithText("题目版本未知", substring = true).assertIsDisplayed()
+        ui.onNodeWithText("旧估算 $0.000123", substring = true).assertIsDisplayed()
+        ui.onNodeWithText("旧问题").performClick()
+        ui.onNodeWithContentDescription("复制早期回复").performClick()
+        val clipboard = ApplicationProvider.getApplicationContext<Context>().getSystemService(ClipboardManager::class.java)
+        assertEquals("旧回答 **粗体**", clipboard.primaryClip!!.getItemAt(0).text.toString())
     }
 }

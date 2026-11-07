@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiRuntimeTest" tests="16" skipped="0" failures="0" errors="0" timestamp="2026-11-07T04:16:25" hostname="LAPTOP-0JLS131B" time="2.746">
+  <properties/>
+  <testcase name="costCurrenciesRemainSeparate" classname="cn.embeddedquiz.AiRuntimeTest" time="0.188"/>
+  <testcase name="closingWaitsForTransportAndPersistsTerminal" classname="cn.embeddedquiz.AiRuntimeTest" time="0.118"/>
+  <testcase name="providerTextLimitAndCredentialRedaction" classname="cn.embeddedquiz.AiRuntimeTest" time="0.047"/>
+  <testcase name="badCredentialsNeverDispatch" classname="cn.embeddedquiz.AiRuntimeTest" time="0.131"/>
+  <testcase name="completionStillOwnsCleaningSlot" classname="cn.embeddedquiz.AiRuntimeTest" time="0.192"/>
+  <testcase name="stopWaitsForExitAndRetryUsesOneUser" classname="cn.embeddedquiz.AiRuntimeTest" time="0.203"/>
+  <testcase name="serverRetryAfterCannotReplayOneShot" classname="cn.embeddedquiz.AiRuntimeTest" time="0.135"/>
+  <testcase name="replacementWaitsAndInvalidatesCursorAndWriter" classname="cn.embeddedquiz.AiRuntimeTest" time="0.34"/>
+  <testcase name="pagingArchiveAndImmutableReceipts" classname="cn.embeddedquiz.AiRuntimeTest" time="0.13"/>
+  <testcase name="partialAndInvalidUsageAreNotFreeOrCompleteCache" classname="cn.embeddedquiz.AiRuntimeTest" time="0.163"/>
+  <testcase name="newestWindowPagesBackwardsWithoutGaps" classname="cn.embeddedquiz.AiRuntimeTest" time="0.388"/>
+  <testcase name="redirectDoesNotSendAgain" classname="cn.embeddedquiz.AiRuntimeTest" time="0.131"/>
+  <testcase name="failedCancelStillStopsAndBlocksNewWork" classname="cn.embeddedquiz.AiRuntimeTest" time="0.117"/>
+  <testcase name="cutoverDrainsLegacyWriterBeforeNewSend" classname="cn.embeddedquiz.AiRuntimeTest" time="0.115"/>
+  <testcase name="frozenBodyReplayCacheAndFees" classname="cn.embeddedquiz.AiRuntimeTest" time="0.235"/>
+  <testcase name="draftCoalescesAndFlushesDuringClose" classname="cn.embeddedquiz.AiRuntimeTest" time="0.113"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Nov 07, 2026 1:16:26 PM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[61280] connection from /127.0.0.1 didn't make a request
+Nov 07, 2026 1:16:26 PM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[61285] connection from /127.0.0.1 didn't make a request
+Nov 07, 2026 1:16:27 PM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[61290] connection from /127.0.0.1 didn't make a request
+Nov 07, 2026 1:16:28 PM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[61299] connection from /127.0.0.1 didn't make a request
+]]></system-err>
+</testsuite>

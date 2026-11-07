@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.CodeDraftPersistenceTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-07T04:16:31" hostname="LAPTOP-0JLS131B" time="1.434">
+  <properties/>
+  <testcase name="retryAllOnlyRetriesTheLatestFailedQuestions" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.085"/>
+  <testcase name="draftTransactionPreservesConcurrentLearningAndPersonalFields" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.08"/>
+  <testcase name="shutdownCancelsAStalledPreWriteWithoutPretendingItWasSaved" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.18"/>
+  <testcase name="failedOldVersionThenNewSuccessCannotBeReplayedByRetry" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.077"/>
+  <testcase name="supersededGenerationDoesNotReportAnOldFlushAsSaved" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.076"/>
+  <testcase name="cancellingAnExclusiveBoundaryReleasesEditingAndPreservesAcceptedText" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.081"/>
+  <testcase name="continuousTypingKeepsTheTwoSecondLimitAndFinalTrailingSave" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.082"/>
+  <testcase name="slowIoHasOneWriterAndOneReplaceablePendingVersionPerQuestion" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.087"/>
+  <testcase name="shutdownFlushesTheWindowAndRejectsLaterUpdates" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.069"/>
+  <testcase name="hundredEditsCoalesceAndIdenticalTextDoesNotWriteAgain" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.536"/>
+  <testcase name="cancellingFlushDoesNotCancelTheAcceptedWrite" classname="cn.embeddedquiz.CodeDraftPersistenceTest" time="0.081"/>
+  <system-out><![CDATA[T4 virtual committed save times ms: [2000, 4000, 6000]; codes=[v19, v39, v59]
+T4 actual committed writes for 100 edits/10ms: 1; reopened bytes match
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

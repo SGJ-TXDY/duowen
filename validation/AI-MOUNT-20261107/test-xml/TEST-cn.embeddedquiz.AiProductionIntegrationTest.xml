@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiProductionIntegrationTest" tests="18" skipped="0" failures="0" errors="0" timestamp="2026-11-07T04:16:19" hostname="LAPTOP-0JLS131B" time="5.656">
+  <properties/>
+  <testcase name="coldValidationRejectsForgedMetadataBeforeAnyProductionStoreWrite" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.09"/>
+  <testcase name="growingTargetResourceFailureRollsBackAfterWritesHaveStarted" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.157"/>
+  <testcase name="ownerClosingWaitsActualBackupStreamAndClosesLate" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.158"/>
+  <testcase name="failedProductionExportCloseCannotReportSuccess" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.123"/>
+  <testcase name="viewModelClosingWaitsForOwnedExportBeforeClosingRoom" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="1.387"/>
+  <testcase name="cancelledPreflightDoesNotRevokeWriterOrLeaveAdmissionPaused" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.126"/>
+  <testcase name="forgedColdMetadataFailsBeforeReadyAndPreservesSource" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.203"/>
+  <testcase name="missingAiTablesAndColumnsFailBeforeReadyWithoutDeletingSource" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="1.735"/>
+  <testcase name="networkInFlightIsCancelledBeforeDirectRepositoryReplacement" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.18"/>
+  <testcase name="invalidPreflightAndResourcesNeverPauseOrReplaceTarget" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.302"/>
+  <testcase name="oldRequestBeforeWriteIsAwaitedAndCannotArriveAfterReplacement" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.202"/>
+  <testcase name="activeExamIsRecheckedImmediatelyBeforeReplacementAcrossWrappers" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.145"/>
+  <testcase name="failedReplacementResumesAdmissionAndKeepsCommittedOldHistory" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.148"/>
+  <testcase name="resourceGuardKeepsGrowthTimeAndRowChecksWithoutStattingEveryChunk" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.013"/>
+  <testcase name="productionColdRecoveryRetainsPartialTextAndReleasesReservation" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.107"/>
+  <testcase name="oldRequestAfterWriteIsAwaitedAndRestoredWorldWins" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.147"/>
+  <testcase name="productionLegacyMatrixRetainsAbsentSectionsAndConversations" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.199"/>
+  <testcase name="productionRoundTripAndFaultRollbackUseActualAdapter" classname="cn.embeddedquiz.AiProductionIntegrationTest" time="0.233"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

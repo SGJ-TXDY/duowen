@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -27,15 +28,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /*
  * AI conversation UI on the frozen AiConversationFacade (AI_02_CONTRACT_FREEZE_20261106): session
- * list, title, messages, input draft, copy and "jump to the latest reply". Sending, retry and cancel
- * are not part of this batch. Nothing here is mounted in the app yet; the host wires a real facade
- * once the backend is ready.
+ * list, title, messages, input draft, copy, "jump to the latest reply", send, one-tap requests
+ * (including code review), stop, retry and the read-only pre-upgrade history. The question page
+ * mounts it through its AI assistant entry (QuestionScreen).
  *
  * Everything the backend owns (selection, the first message page, run status, usage, busy, faults)
  * is read from facade.state. The controller keeps only what the contract leaves to the editor: the
@@ -51,13 +53,36 @@ internal const val AI_PAGE_SIZE = 20
 
 internal enum class DraftSave { SAVED, SAVING, FAILED }
 
+/** What a send freezes from the question page at the moment the user asks. */
+internal data class AiSendContext(val choices: Set<String>, val code: String, val model: String)
+
+/** One-tap requests; their user message is the type label, so the draft is left alone. */
+internal val AI_QUICK_TYPES =
+    listOf(AiRequestType.EXPLANATION, AiRequestType.SUGGESTED_ANSWER, AiRequestType.VARIANT)
+
 @Stable
 internal class AiChatController(
-    val facade: AiConversationFacade,
+    /** Resolved on first use: taking the facade hands the send right to the new conversations. */
+    facadeProvider: () -> AiConversationFacade,
     val question: QuestionOwner,
     private val scope: CoroutineScope,
+    /** Programming questions also offer the code review request. */
+    val programming: Boolean = false,
+    private val sendContext: () -> AiSendContext = { AiSendContext(emptySet(), "", "") },
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) {
+    val facade: AiConversationFacade by lazy(facadeProvider)
+
+    var legacy by mutableStateOf<List<LegacyEntryView>>(emptyList())
+        private set
+    private var legacyNext: PageCursor? = null
+    var hasMoreLegacy by mutableStateOf(false)
+        private set
+
+    /** True from the tap until the backend answers, so one tap sends once. */
+    var sending by mutableStateOf(false)
+        private set
+
     var sessions by mutableStateOf<List<SessionView>>(emptyList())
         private set
     private var sessionsNext: PageCursor? = null
@@ -134,19 +159,162 @@ internal class AiChatController(
 
     fun moreSessions() = scope.launch { loadSessions(reset = false) }
 
+    /** Old single-turn records of this question (every version), read only. */
+    suspend fun loadLegacy(reset: Boolean) {
+        val cursor = if (reset) null else legacyNext ?: return
+        when (val r = facade.legacy(HistoryFilter.AllVersions(question.questionId), cursor, AI_PAGE_SIZE)) {
+            is ResultOf.Ok -> {
+                legacy = if (reset) r.value.items else (legacy + r.value.items).distinctBy { it.cacheKey }
+                legacyNext = r.value.next
+                hasMoreLegacy = r.value.next != null
+            }
+            is ResultOf.Rejected ->
+                if (r.reason.code == RejectCode.STALE_CURSOR && !reset) loadLegacy(reset = true)
+                else notice = aiRejectionText(r.reason)
+        }
+    }
+
+    fun moreLegacy() = scope.launch { loadLegacy(reset = false) }
+
+    /**
+     * Taking the facade starts it; the first tap on a page (often code review) arrives while it is
+     * still initializing, so every action waits for that to finish instead of being refused.
+     */
+    private suspend fun awaitStarted() {
+        facade.state.first { it.phase != ServicePhase.INITIALIZING }
+    }
+
+    suspend fun refresh() {
+        awaitStarted()
+        loadSessions(reset = true)
+        loadLegacy(reset = true)
+    }
+
     fun create() =
         scope.launch {
             notice = null
-            when (val r = facade.createSession(newId(), question)) {
-                is ResultOf.Ok -> {
-                    loadSessions(reset = true)
-                    openNow(r.value.session.sessionId)
-                }
-                is ResultOf.Rejected -> notice = aiRejectionText(r.reason)
+            awaitStarted()
+            createAndOpen()
+        }
+
+    private suspend fun createAndOpen(): Boolean =
+        when (val r = facade.createSession(newId(), question)) {
+            is ResultOf.Ok -> {
+                loadSessions(reset = true)
+                openNow(r.value.session.sessionId)
+                current()?.sessionId == r.value.session.sessionId
+            }
+            is ResultOf.Rejected -> {
+                notice = aiRejectionText(r.reason)
+                false
             }
         }
 
-    fun open(sessionId: String) = scope.launch { openNow(sessionId) }
+    /**
+     * Makes sure an editable discussion of this question version is open: keeps the open one, else
+     * opens the most recent editable one, else creates one.
+     */
+    private suspend fun ensureEditable(): Boolean {
+        current()?.let { if (!it.readOnly) return true }
+        loadSessions(reset = true)
+        val target = sessions.firstOrNull { !it.readOnly && it.question == question }
+        if (target == null) return createAndOpen()
+        openNow(target.sessionId)
+        return current()?.let { !it.readOnly } == true
+    }
+
+    // ---- sending ----
+
+    /** Sends the draft as a follow-up; the draft is saved first so the backend can consume it. */
+    fun send() =
+        scope.launch {
+            if (draft.isBlank()) return@launch
+            submit(AiRequestType.FOLLOW_UP, useDraft = true)
+        }
+
+    /** A one-tap request (explanation, suggested answer, variant, code review) in this question's discussion. */
+    fun quick(type: AiRequestType) =
+        scope.launch {
+            if (sending) return@launch
+            notice = null
+            awaitStarted()
+            if (ensureEditable()) submit(type, useDraft = false)
+        }
+
+    private suspend fun submit(type: AiRequestType, useDraft: Boolean) {
+        if (sending) return
+        sending = true
+        try {
+            notice = null
+            var token: DraftToken? = null
+            var savedRevision: Long? = null
+            val text = if (useDraft) draft else ""
+            if (useDraft) {
+                quietJob?.cancel()
+                maxJob?.cancel()
+                // Text restored on open belongs to an older editor; save it under this one first.
+                if (localVersion == savedVersion && savedVersion == 0L) localVersion = 1
+                if (!saveNow()) return
+                val epoch = editorEpoch ?: return
+                token = DraftToken(epoch, savedVersion)
+                savedRevision = draftRevision
+            }
+            val s = current() ?: return
+            val ctx = sendContext()
+            val command =
+                SendCommand(
+                    commandId = newId(), sessionId = s.sessionId, question = s.question,
+                    expectedContextRevision = s.contextRevision, draftToken = token,
+                    savedDraftRevision = savedRevision, input = text, choices = ctx.choices,
+                    code = if (type == AiRequestType.CODE_REVIEW) ctx.code else "",
+                    requestType = type, model = ctx.model,
+                )
+            when (val r = facade.send(command)) {
+                is ResultOf.Ok -> {
+                    if (!useDraft || opened?.sessionId != s.sessionId) return
+                    draftRevision = r.value.draftRevision
+                    // Clear only what was sent: text typed after the tap stays and is saved later.
+                    if (r.value.draftCleared && r.value.acceptedDraftToken == DraftToken(editorEpoch ?: "", localVersion)) {
+                        draft = ""
+                        savedVersion = localVersion
+                    }
+                }
+                is ResultOf.Rejected -> notice = aiRejectionText(r.reason)
+            }
+        } finally {
+            sending = false
+        }
+    }
+
+    /** Stops the run that holds the send slot; the owner always comes from the backend state. */
+    fun stop(owner: RunOwner) =
+        scope.launch {
+            when (val r = facade.cancel(newId(), owner)) {
+                is ResultOf.Ok -> Unit
+                is ResultOf.Rejected -> if (r.reason.code != RejectCode.ALREADY_TERMINAL) notice = aiRejectionText(r.reason)
+            }
+        }
+
+    fun retry(run: RunView) =
+        scope.launch {
+            if (sending) return@launch
+            sending = true
+            try {
+                notice = null
+                when (val r = facade.retry(RetryCommand(newId(), run.owner))) {
+                    is ResultOf.Ok -> Unit
+                    is ResultOf.Rejected -> notice = aiRejectionText(r.reason)
+                }
+            } finally {
+                sending = false
+            }
+        }
+
+    fun open(sessionId: String) =
+        scope.launch {
+            awaitStarted()
+            openNow(sessionId)
+        }
 
     private suspend fun openNow(sessionId: String) {
         notice = null
@@ -191,13 +359,15 @@ internal class AiChatController(
                 }
             }
         }
-        when (val r = facade.deselect()) {
-            is ResultOf.Ok -> Unit
-            is ResultOf.Rejected -> {
-                notice = aiRejectionText(r.reason)
-                return false
+        // Another question page may already have opened its own discussion; leave that one alone.
+        if (facade.state.value.selectedSessionId == s.sessionId)
+            when (val r = facade.deselect()) {
+                is ResultOf.Ok -> Unit
+                is ResultOf.Rejected -> {
+                    notice = aiRejectionText(r.reason)
+                    return false
+                }
             }
-        }
         opened = null
         editorEpoch = null
         older = emptyList()
@@ -363,19 +533,30 @@ internal fun aiRunStatusText(run: RunView): String? =
     }
 
 @Composable
-internal fun rememberAiChatController(facade: AiConversationFacade, question: QuestionOwner): AiChatController {
+internal fun rememberAiChatController(
+    facade: AiConversationFacade,
+    question: QuestionOwner,
+    programming: Boolean = false,
+    sendContext: () -> AiSendContext = { AiSendContext(emptySet(), "", "") },
+): AiChatController {
     val scope = rememberCoroutineScope()
-    val controller = remember(facade, question) { AiChatController(facade, question, scope) }
-    LaunchedEffect(controller) { controller.loadSessions(reset = true) }
-    return controller
+    return remember(facade, question) { AiChatController({ facade }, question, scope, programming, sendContext) }
 }
 
 /** The whole conversation page: the session list, or the open session with its messages and draft. */
 @Composable
-internal fun AiChatScreen(controller: AiChatController, modifier: Modifier = Modifier) {
+internal fun AiChatScreen(
+    controller: AiChatController,
+    modifier: Modifier = Modifier,
+    /** Leaves the conversation page from its list; back inside a session returns to the list. */
+    onClose: (() -> Unit)? = null,
+) {
     val state by controller.facade.state.collectAsState()
     val session = controller.current(state)
-    BackHandler(enabled = session != null) { controller.back() }
+    LaunchedEffect(controller) { controller.refresh() }
+    BackHandler(enabled = session != null || onClose != null) {
+        if (session != null) controller.back() else onClose?.invoke()
+    }
     Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         aiPhaseText(state.phase)?.let { InlineNote(it, Modifier.testTag("ai-phase")) }
         state.storageFault?.let {
@@ -384,7 +565,7 @@ internal fun AiChatScreen(controller: AiChatController, modifier: Modifier = Mod
         controller.notice?.let { text ->
             Box(Modifier.testTag("ai-notice").clickable { controller.dismissNotice() }) { ErrorNotice(text) }
         }
-        if (session == null) AiSessionList(controller, state, Modifier.weight(1f))
+        if (session == null) AiSessionList(controller, state, Modifier.weight(1f), onClose)
         else AiSessionPane(controller, state, session, Modifier.weight(1f))
     }
 }
@@ -400,9 +581,18 @@ private fun InlineNote(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun AiSessionList(controller: AiChatController, state: AiConversationUiState, modifier: Modifier) {
+private fun AiSessionList(
+    controller: AiChatController,
+    state: AiConversationUiState,
+    modifier: Modifier,
+    onClose: (() -> Unit)?,
+) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            if (onClose != null)
+                IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) {
+                    Icon(AppIcons.Back, contentDescription = "返回题目")
+                }
             Text(
                 "AI 讨论",
                 style = MaterialTheme.typography.titleLarge,
@@ -428,6 +618,20 @@ private fun AiSessionList(controller: AiChatController, state: AiConversationUiS
                 item(key = "more") {
                     TextButton(onClick = { controller.moreSessions() }, modifier = Modifier.heightIn(min = 48.dp)) {
                         Text("加载更多讨论")
+                    }
+                }
+            if (controller.legacy.isNotEmpty())
+                item(key = "legacy-head") {
+                    Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("早期记录（只读）", style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() })
+                        InlineNote("升级前的单轮问答，只能查看和复制，不会带入新讨论的上下文。")
+                    }
+                }
+            items(controller.legacy, key = { "legacy-" + it.cacheKey }) { AiLegacyRow(it, controller.question) }
+            if (controller.hasMoreLegacy)
+                item(key = "legacy-more") {
+                    TextButton(onClick = { controller.moreLegacy() }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text("加载更多早期记录")
                     }
                 }
         }
@@ -459,6 +663,42 @@ private fun AiSessionRow(s: SessionView, question: QuestionOwner, onOpen: () -> 
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+        }
+    }
+}
+
+/** One pre-upgrade record: collapsed to its question, expanded to the full reply. */
+@Composable
+private fun AiLegacyRow(e: LegacyEntryView, question: QuestionOwner) {
+    var open by rememberSaveable(e.cacheKey) { mutableStateOf(false) }
+    Surface(
+        onClick = { open = !open },
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("ai-legacy-row"),
+    ) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(e.prompt.ifBlank { "（无提问文字）" }, style = MaterialTheme.typography.bodyMedium, maxLines = if (open) Int.MAX_VALUE else 2, overflow = TextOverflow.Ellipsis)
+            val version =
+                when (e.contentHash) {
+                    null -> "题目版本未知"
+                    question.contentHash -> null
+                    else -> "旧版题目"
+                }
+            InlineNote(
+                listOfNotNull(
+                        java.time.Instant.ofEpochMilli(e.createdAt).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString(),
+                        e.model,
+                        version,
+                        "旧估算 " + aiMoney(e.originalEstimatedUsd, "USD"),
+                    )
+                    .joinToString(" · ")
+            )
+            if (open) {
+                MarkdownContent(e.response)
+                AiCopyButton(e.response, "复制早期回复")
+            }
         }
     }
 }
@@ -496,14 +736,73 @@ private fun AiSessionPane(
         if (session.readOnly)
             InlineNote("题目已更新，这段讨论只能查看和复制。", Modifier.testTag("ai-read-only"))
         val busy = state.globalBusy
-        if (busy != null)
-            InlineNote(
-                if (busy.owner.sessionId == session.sessionId) "正在生成回复…" else "AI 正在处理其他讨论。",
-                Modifier.testTag("ai-busy"),
-            )
-        AiMessageList(controller, state, session, Modifier.weight(1f))
-        AiDraftBox(controller, session)
+        if (busy != null) AiBusyRow(busy, session, controller)
+        val canSend = aiCanSend(state, session, controller)
+        AiMessageList(controller, state, session, Modifier.weight(1f), canSend)
+        AiQuickRow(controller, canSend)
+        AiDraftBox(controller, session, canSend)
     }
+}
+
+/** One request at a time for the whole app; cleaning up a stopped one still holds the slot. */
+private fun aiCanSend(state: AiConversationUiState, session: SessionView, controller: AiChatController) =
+    state.phase == ServicePhase.READY && state.globalBusy == null && !session.readOnly && !controller.sending
+
+@Composable
+private fun AiBusyRow(busy: BusyRun, session: SessionView, controller: AiChatController) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.testTag("ai-busy"),
+    ) {
+        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
+        val mine = busy.owner.sessionId == session.sessionId
+        Text(
+            when {
+                busy.phase == TransportPhase.CLEANING -> "正在停止，收尾完成后才能再发送…"
+                mine -> "正在生成回复…"
+                else -> "AI 正在处理其他讨论，完成后才能在这里发送。"
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        // Stopping goes to the run that holds the slot, wherever it was started.
+        if (busy.phase != TransportPhase.CLEANING)
+            TextButton(
+                onClick = { controller.stop(busy.owner) },
+                modifier = Modifier.heightIn(min = 48.dp).testTag("ai-stop"),
+            ) {
+                Text("停止")
+            }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AiQuickRow(controller: AiChatController, canSend: Boolean) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AI_QUICK_TYPES.forEach { type -> AiQuickChip(type.label, canSend) { controller.quick(type) } }
+        if (controller.programming)
+            AiQuickChip(AiRequestType.CODE_REVIEW.label, canSend) { controller.quick(AiRequestType.CODE_REVIEW) }
+    }
+}
+
+@Composable
+internal fun AiQuickChip(text: String, enabled: Boolean, onClick: () -> Unit) {
+    SuggestionChip(
+        onClick = onClick,
+        enabled = enabled,
+        label = { Text(text) },
+        shape = MaterialTheme.shapes.small,
+        colors =
+            SuggestionChipDefaults.suggestionChipColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                labelColor = MaterialTheme.colorScheme.primary,
+            ),
+        border = SuggestionChipDefaults.suggestionChipBorder(enabled = enabled, borderColor = MaterialTheme.selection.line),
+        modifier = Modifier.heightIn(min = 40.dp),
+    )
 }
 
 @Composable
@@ -512,6 +811,7 @@ private fun AiMessageList(
     state: AiConversationUiState,
     session: SessionView,
     modifier: Modifier,
+    canSend: Boolean,
 ) {
     val messages = controller.messages(state)
     val hasOlder = controller.hasOlder(state)
@@ -559,7 +859,7 @@ private fun AiMessageList(
                 }
             if (messages.isEmpty())
                 item(key = "empty") { InlineNote("还没有消息。") }
-            items(messages, key = { it.messageId }) { m -> AiMessage(m) }
+            items(messages, key = { it.messageId }) { m -> AiMessage(m, canSend) { controller.retry(it) } }
         }
         if (latestHidden && latestReply != null)
             FilledTonalButton(
@@ -577,7 +877,7 @@ private fun AiMessageList(
 }
 
 @Composable
-private fun AiMessage(m: MessageView) {
+private fun AiMessage(m: MessageView, canRetry: Boolean, onRetry: (RunView) -> Unit) {
     if (m.role == MessageRole.USER) {
         Column(Modifier.fillMaxWidth().testTag("ai-message-user"), horizontalAlignment = Alignment.End) {
             Surface(
@@ -607,7 +907,18 @@ private fun AiMessage(m: MessageView) {
         m.run?.let(::aiUsageText)?.let {
             Text(it, style = MaterialTheme.typography.labelSmall, color = aiCostTextColor(MaterialTheme.colorScheme), modifier = Modifier.testTag("ai-usage"))
         }
-        AiCopyButton(m.text, "复制回复")
+        Row {
+            AiCopyButton(m.text, "复制回复")
+            val run = m.run
+            if (run != null && run.canRetry)
+                TextButton(
+                    onClick = { onRetry(run) },
+                    enabled = canRetry,
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("ai-retry"),
+                ) {
+                    Text("重试")
+                }
+        }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
@@ -636,7 +947,7 @@ private fun AiCopyButton(text: String, label: String) {
 }
 
 @Composable
-private fun AiDraftBox(controller: AiChatController, session: SessionView) {
+private fun AiDraftBox(controller: AiChatController, session: SessionView, canSend: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         OutlinedTextField(
             value = controller.draft,
@@ -652,6 +963,22 @@ private fun AiDraftBox(controller: AiChatController, session: SessionView) {
                     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
                     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
                 ),
+            trailingIcon = {
+                if (!session.readOnly)
+                    IconButton(
+                        onClick = { controller.send() },
+                        enabled = canSend && controller.draft.isNotBlank(),
+                        colors =
+                            IconButtonDefaults.iconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                disabledContentColor = MaterialTheme.colorScheme.outline,
+                            ),
+                    ) {
+                        Icon(AppIcons.Send, contentDescription = "发送追问", modifier = Modifier.size(20.dp))
+                    }
+            },
         )
         if (!session.readOnly) {
             val status =

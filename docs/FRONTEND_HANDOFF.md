@@ -1,5 +1,47 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-07 · 题目页挂载新会话，迁移旧 AI 入口与费用（Claude）
+
+### 来源与边界
+
+- 用户指示：“从题目页的 AI 助手入口挂载新会话，接通发送、停止、重试、历史和费用。打开新会话会切换发送权，因此要同时迁移旧入口，尤其是编程题的 AI 代码审查，避免按钮失效。”
+- 依据 GPT 的 `docs/AI_02B_CALLABLE_20261107.md`：`vm.aiConversations` 第一次被取用时，就把本数据库的发送权切换到新会话，此后旧的 ask/retry 不再发出请求。因此所有旧发送入口都在同一次改动里迁走，没有哪个按钮会停留在“点了没反应”的状态。
+- 只改了界面文件：`AiChat.kt`、`QuestionScreen.kt`、`StatisticsScreen.kt`、`MoreScreen.kt` 及对应测试。没有改 QuizViewModel、Repository、AiStateHolder、AI 后端文件，也没有改 GPT 的测试。
+- **依赖 GPT 未提交的 AI-02b 后端**（VM 上的 `aiConversations`/`aiCostsState`、运行时、费用存储等）。本提交单独无法编译，必须与那批文件一起，所以 GPT 那批需要先提交或一起提交。验证时用的 60 个未提交文件，指纹见 `validation/AI-MOUNT-20261107/input-fingerprints.csv`。
+
+### 旧入口迁移对照
+
+| 旧入口（AiStateHolder） | 现在 |
+| --- | --- |
+| 题目页“AI 学习助手”里的生成详细解析 / AI 建议答案 / 变式题快捷按钮 | 同一位置仍有这三个快捷按钮。点按后打开讨论页，在本题当前版本最近一个可编辑的讨论里发送（没有就新建），`input` 为空，用户消息显示请求类型名称。 |
+| 追问输入框和发送 | 讨论页底部的草稿框和发送按钮。发送前先保存草稿，并按 `DraftToken` 和 `savedDraftRevision` 声明要消费的那一版；只有回执的 token 与当前编辑版本一致时才清空输入框，所以发送途中继续输入的文字会保留，并照常保存。 |
+| 编程题“AI 代码审查”（原来 `vm.aiState.ask(..., CODE_REVIEW, code)`） | 按钮仍在代码编辑器下方，有代码时可点。点按后打开讨论页，以 CODE_REVIEW 发送当前编辑器里的代码，规则同快捷按钮。讨论页的快捷按钮中也有“AI 代码审查”（仅编程题）。只有代码审查携带 `code`，与旧行为一致。 |
+| 取消 AI 请求 | “停止”，使用 `state.globalBusy` 里的完整 `RunOwner`，即使是在其他讨论发起的请求也能停。处于 `CLEANING` 时显示“正在停止…”，不提供按钮，也不能发送。 |
+| 重试 AI 请求 | 回复下方的“重试”，只在后端给出 `RunView.canRetry` 时显示，用原来的 `RunOwner`。 |
+| 旧历史（`ai.entries`） | 讨论列表下方的“早期记录（只读）”，通过 `legacy(AllVersions(questionId))` 分页读取。显示日期、模型、版本标记和“旧估算”金额，点开可看全文并复制；不会带入新讨论的上下文。 |
+| 费用页 `learning.costs` | 读 `vm.aiCostsState`：按月（已知估算、网络请求次数、缓存命中、早期记录条数、用量或费率未知的次数）和按日 × 模型 × 币种列出。旧估算单独一行写“旧估算”。未知的不按 0 计入金额。 |
+| 更多页“本月 $x”提示 | 读同一份 `aiCostsState` 的本月 USD 数据。全部未知时显示“本月费用未知”，部分未知时显示“本月 $x（另 n 次未知）”。 |
+
+- 题目页的“AI 学习助手”区块本身不读取后端，展开它也不会切换发送权；只有打开讨论或点快捷按钮时才会切换。考试中依然不显示 AI。
+- 讨论页占满题目页，返回顺序：讨论 → 讨论列表 → 题目。控制器使用 `vm.viewModelScope`，离开题目时在 ViewModel 作用域里完成“保存 → flush → deselect”。如果另一题已经选中了自己的讨论，不会去 deselect 别人的。
+- 旧组件 `AiConversationSection` 已不再挂载，但代码保留：GPT 修改过的 `AiConversationUiTest` 仍直接渲染它。建议由 Architect 决定，连同这个测试一起删除。
+
+### 验证中发现并修好的问题
+
+1. **第一次点“AI 代码审查”会被拒绝**（真实缺陷）：这一下正是第一次取用门面，后端还在 INITIALIZING，于是返回 NOT_READY。现在所有动作都先等初始化完成，等待期间页面显示“AI 存储准备中…”。新增了对应测试。
+2. **新的端到端测试拖垮了后续测试**（我的测试清理有误）：AI 运行时随 ViewModel 异步关闭，而测试清理时立刻删除数据库；Windows 上删不掉仍打开的文件，此后所有 Robolectric 界面类测试都因“界面不空闲”超时。现在像 `AiProductionIntegrationTest` 一样，先等 `vm.examResourcesClosed` 完成再删库，最多等 20 秒，超时就判失败，这也顺带验证了关闭确实能完成。
+3. 一次全量运行中出现过 `ExamTerminationUiTest` 的单项失败：该类单独运行 12/12 通过，不带本次改动的基线全量也全部通过。它出现在第 2 点修复之前，但没有单独证实两者有关。
+
+### 验证（证据：`validation/AI-MOUNT-20261107/README.md`，9 次运行全部保留）
+
+- 新增或修改的测试：
+  - `AiChatScreenTest` 共 17 项，比上次多 7 项：发送并消费草稿、停止和重试使用后端给的 owner、发送途中继续输入的文字保留、快捷按钮选择最近可编辑讨论、代码审查携带代码、没有可编辑讨论时新建、其他讨论占用发送槽、早期记录只读可复制、初始化期间首次点按会等待。
+  - `QuestionAiEntryUiTest` 共 2 项，使用真实 ViewModel 和运行时，没有网络也没有 Key：编程题“AI 代码审查”被受理，最后显示可重试的 `CREDENTIALS_UNAVAILABLE` 失败；从助手入口打开讨论并发送追问，被受理后草稿被消费。
+  - `MoreUiStateTest` 共 5 项：本月金额只算 USD；未知请求不显示为 0。
+- 最后一次全量（构建、测试、lint）：BUILD SUCCESSFUL，49 类、398 项，0 失败 / 0 错误 / 0 跳过。Lint 0 错误；新增的 2 个 `UsableSpace` 警告位于 GPT 的 `AiStorageResources.kt`。
+- **未闭环**：修复后的第一次全量出现 7 项 AppNotIdle，都发生在 `setContent`。其中包括未改动的旧 `AiConversationUiTest` 4 项，特征与 UI-04A 那次相同；另有 `AiChatScreenTest` 3 项，分散出现。下一次全量没有复现，根因未证实，交 Architect 裁定，不宣称与本次无关。
+- 没有生成 APK：输入含 GPT 未提交的 Room 6 / 备份 4 升级，装上就不能退回 Room 5，试装包需要另行确认后再准备。
+
 ## 2026-11-07 · AI 会话界面（按冻结契约实现，尚未挂载，Claude）
 
 ### 来源与边界

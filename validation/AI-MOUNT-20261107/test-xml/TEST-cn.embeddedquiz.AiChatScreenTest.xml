@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiChatScreenTest" tests="17" skipped="0" failures="0" errors="0" timestamp="2026-11-07T04:15:25" hostname="LAPTOP-0JLS131B" time="6.633">
+  <properties/>
+  <testcase name="notReadyBlocksNewSessionsAndExplainsWhy" classname="cn.embeddedquiz.AiChatScreenTest" time="4.13"/>
+  <testcase name="oneTapRequestsUseTheLatestEditableDiscussionAndCodeReviewSendsTheCode" classname="cn.embeddedquiz.AiChatScreenTest" time="0.819"/>
+  <testcase name="aLateAcknowledgementNeverMarksNewerTextSavedAndFailuresKeepTheEditorOpen" classname="cn.embeddedquiz.AiChatScreenTest" time="0.157"/>
+  <testcase name="jumpToLatestReplyAppearsOnlyWhenItIsOffScreenAndScrollingUpIsNeverOverridden" classname="cn.embeddedquiz.AiChatScreenTest" time="0.208"/>
+  <testcase name="aOneTapRequestCreatesADiscussionWhenNoneIsEditable" classname="cn.embeddedquiz.AiChatScreenTest" time="0.057"/>
+  <testcase name="readOnlySessionShowsItsDraftButNeverSaves" classname="cn.embeddedquiz.AiChatScreenTest" time="0.069"/>
+  <testcase name="listShowsTitlesAndStateAndNewSessionOpens" classname="cn.embeddedquiz.AiChatScreenTest" time="0.082"/>
+  <testcase name="preUpgradeRecordsOfThisQuestionAreListedReadOnlyAndCopyable" classname="cn.embeddedquiz.AiChatScreenTest" time="0.071"/>
+  <testcase name="copyPutsTheStoredTextOnTheClipboardAndSaysSo" classname="cn.embeddedquiz.AiChatScreenTest" time="0.078"/>
+  <testcase name="sendSavesAndConsumesTheDraftThenStopAndRetryUseTheBackendOwner" classname="cn.embeddedquiz.AiChatScreenTest" time="0.154"/>
+  <testcase name="aRequestRunningElsewhereBlocksSendingHereButCanBeStopped" classname="cn.embeddedquiz.AiChatScreenTest" time="0.094"/>
+  <testcase name="messagesShowOldestFirstWithRunStatusAndHonestUsage" classname="cn.embeddedquiz.AiChatScreenTest" time="0.095"/>
+  <testcase name="textTypedWhileASendIsInFlightIsKeptAndSaved" classname="cn.embeddedquiz.AiChatScreenTest" time="0.091"/>
+  <testcase name="renameUpdatesTitleWithinEightyCodePointsAndShowsStaleRejection" classname="cn.embeddedquiz.AiChatScreenTest" time="0.263"/>
+  <testcase name="aFirstTapWhileTheBackendStartsWaitsInsteadOfBeingRefused" classname="cn.embeddedquiz.AiChatScreenTest" time="0.046"/>
+  <testcase name="draftSavesAfterAQuietPauseAtMostEveryTwoSecondsAndIsFlushedOnLeave" classname="cn.embeddedquiz.AiChatScreenTest" time="0.127"/>
+  <testcase name="olderMessagesLoadByCursorAndMergeInOrder" classname="cn.embeddedquiz.AiChatScreenTest" time="0.091"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

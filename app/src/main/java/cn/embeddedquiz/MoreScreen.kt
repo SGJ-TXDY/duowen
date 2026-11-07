@@ -1,5 +1,8 @@
 package cn.embeddedquiz
 
+import java.math.BigDecimal
+import java.math.RoundingMode
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,7 +35,9 @@ data class MoreUiState(
     /** Null while the summary for [today] is loading or failed: no hint and no dot then. */
     val due: Int?,
     val pendingVerify: Int,
-    val monthUsd: Double,
+    /** Known USD estimate of this month; requests with unknown usage or price are counted apart. */
+    val monthEstimated: BigDecimal,
+    val monthUnknownCalls: Long,
     val todayDone: Int,
     val dailyGoal: Int,
 ) {
@@ -45,9 +50,15 @@ data class MoreUiState(
     val costHint
         get() =
             when {
-                monthUsd <= 0 -> null
-                monthUsd < 0.01 -> "本月 <$0.01"
-                else -> "本月 $${"%.2f".format(monthUsd)}"
+                monthEstimated.signum() <= 0 && monthUnknownCalls == 0L -> null
+                monthEstimated.signum() <= 0 -> "本月费用未知"
+                else -> {
+                    val known =
+                        if (monthEstimated < BigDecimal("0.01")) "本月 <$0.01"
+                        else "本月 $" + monthEstimated.setScale(2, RoundingMode.HALF_UP).toPlainString()
+                    // An unknown request is never shown as free.
+                    if (monthUnknownCalls > 0) "$known（另 $monthUnknownCalls 次未知）" else known
+                }
             }
 }
 
@@ -59,11 +70,12 @@ fun moreUiState(
     summary: TodaySummary?,
     questions: List<QuestionSummary>,
     canGrade: (QuestionSummary) -> Boolean,
-    costs: List<CostCount>,
+    costMonths: List<CostMonthUi>,
     daily: List<DailyCount>,
     dailyGoal: Int,
 ): MoreUiState {
     val day = today.toEpochDay()
+    val month = costMonths.filter { it.year == today.year && it.month == today.monthValue && it.currency == "USD" }
     return MoreUiState(
         streak = LearningDates.streak(learnedDays, today),
         studied = totals.studied,
@@ -75,13 +87,8 @@ fun moreUiState(
             questions.count {
                 it.objective && (it.reviewRequired || it.correctKeys.isBlank()) && !canGrade(it)
             },
-        monthUsd =
-            costs
-                .filter {
-                    val date = LocalDate.ofEpochDay(it.day)
-                    date.year == today.year && date.month == today.month
-                }
-                .sumOf { it.estimatedUsd },
+        monthEstimated = month.fold(BigDecimal.ZERO) { sum, it -> sum + it.knownEstimated },
+        monthUnknownCalls = month.sumOf { it.unknownEstimateCalls + it.unknownUsageCalls },
         todayDone = daily.firstOrNull { it.day == day }?.answered ?: 0,
         dailyGoal = dailyGoal,
     )
@@ -99,6 +106,8 @@ private data class MoreEntry(
 @Composable
 fun MoreScreen(vm: QuizViewModel, today: LocalDate) {
     val learning = vm.learning
+    // The shared cost state also feeds the costs page; reading it does not move the AI send right.
+    val costs by vm.aiCostsState.collectAsState()
     val state =
         remember(
             today,
@@ -108,7 +117,7 @@ fun MoreScreen(vm: QuizViewModel, today: LocalDate) {
             vm.todaySummaryState,
             vm.questions,
             learning.answers,
-            learning.costs,
+            costs.months,
             learning.daily,
             learning.settings.dailyGoal,
         ) {
@@ -120,7 +129,7 @@ fun MoreScreen(vm: QuizViewModel, today: LocalDate) {
                 vm.todaySummaryState.value,
                 vm.questions,
                 learning::canGrade,
-                learning.costs,
+                costs.months,
                 learning.daily,
                 learning.settings.dailyGoal,
             )

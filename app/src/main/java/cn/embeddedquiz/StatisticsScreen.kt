@@ -207,6 +207,13 @@ private fun DueChart(values: List<DueCount>, today: Long) {
 
 @Composable
 fun CostsScreen(vm: QuizViewModel) {
+    // The shared cost ledger: new discussions and the old single-turn estimates, kept apart.
+    val state by vm.aiCostsState.collectAsState()
+    CostsContent(state)
+}
+
+@Composable
+internal fun CostsContent(state: AiCostsUiState) {
     LazyColumn(
         modifier = Modifier.testTag("costs-list"),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -214,18 +221,53 @@ fun CostsScreen(vm: QuizViewModel) {
     ) {
         item {
             Text(
-                "按日、按模型汇总成功请求。缓存读取不新增费用。采用 ${DeepSeekClient.PRICES_VERIFIED} 核对的官方美元高峰费率作保守估算，实际以 DeepSeek 账单为准。"
+                "按月、按日和模型汇总 AI 请求。金额按请求时保存的官方费率估算，实际以 DeepSeek 账单为准；用量或费率未知的请求单独计数，不按 0 计入。缓存命中不产生费用。"
             )
         }
-        if (vm.learning.costs.isEmpty()) item { Text("尚无成功请求的用量记录。") }
-        items(vm.learning.costs, key = { "${it.day}-${it.model}" }) { cost ->
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp)) {
-                    Text("${LocalDate.ofEpochDay(cost.day)} · ${cost.model}")
-                    Text("输入 ${cost.inputTokens} / 输出 ${cost.outputTokens} 词元")
-                    Text("估算费用：$${"%.6f".format(cost.estimatedUsd)} 美元")
+        when {
+            state.errorCode != null -> item { ErrorNotice("费用读取失败（${state.errorCode}），已有记录不受影响。") }
+            state.loading -> item { Text("正在读取费用…") }
+            state.months.isEmpty() && state.buckets.isEmpty() -> item { Text("尚无 AI 请求记录。") }
+        }
+        if (state.months.isNotEmpty())
+            item(key = "months") { Text("按月", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() }) }
+        items(state.months, key = { "m-${it.year}-${it.month}-${it.currency}" }) { m ->
+            Card(Modifier.fillMaxWidth().testTag("cost-month")) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("${m.year} 年 ${m.month} 月 · ${m.currency}", style = MaterialTheme.typography.titleSmall)
+                    Text("已知估算 " + aiMoney(m.knownEstimated, m.currency))
+                    Text("网络请求 ${m.networkCalls} 次 · 缓存命中 ${m.cacheHits} 次")
+                    costUnknownLine(m.unknownUsageCalls, m.unknownEstimateCalls)?.let { Text(it) }
+                    if (m.legacyRecords > 0) Text("含早期记录 ${m.legacyRecords} 条（旧估算）")
+                }
+            }
+        }
+        if (state.buckets.isNotEmpty())
+            item(key = "days") { Text("按日", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() }) }
+        items(state.buckets, key = { "d-${it.day}-${it.model}-${it.currency}" }) { b ->
+            Card(Modifier.fillMaxWidth().testTag("cost-day")) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("${LocalDate.ofEpochDay(b.day)} · ${b.model} · ${b.currency}", style = MaterialTheme.typography.titleSmall)
+                    b.parts.forEach { part ->
+                        if (part.origin == CostOrigin.LEGACY_ESTIMATE)
+                            Text("早期记录 ${part.legacyRecords} 条 · 旧估算 " + aiMoney(part.knownEstimated, b.currency))
+                        else {
+                            Text("输入 ${part.knownInput} / 输出 ${part.knownOutput} tokens · 估算 " + aiMoney(part.knownEstimated, b.currency))
+                            Text("网络请求 ${part.networkCalls} 次 · 缓存命中 ${part.cacheHits} 次")
+                            costUnknownLine(part.unknownUsageCalls, part.unknownEstimateCalls)?.let { Text(it) }
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+/** Requests whose usage or price is unknown are counted, never priced at zero. */
+internal fun costUnknownLine(unknownUsage: Long, unknownEstimate: Long): String? =
+    listOfNotNull(
+            unknownUsage.takeIf { it > 0 }?.let { "用量未知 $it 次" },
+            unknownEstimate.takeIf { it > 0 }?.let { "费率未知 $it 次" },
+        )
+        .takeIf { it.isNotEmpty() }
+        ?.joinToString(" · ", postfix = "（未计入金额）")

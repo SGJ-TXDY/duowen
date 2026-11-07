@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewModelScope
 import java.time.LocalDate
 import kotlinx.coroutines.*
 
@@ -512,11 +513,25 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
     val savedAssessment = vm.practiceRecords[q.id]?.takeUnless { it == "AUTO" }.orEmpty()
     var code by draft.code
     var notes by draft.notes
-    var prompt by draft.prompt
     var remaining by remember { mutableLongStateOf(0) }
     val canGrade = vm.learning.canGrade(q)
     val personal = vm.learning.personal(q)
-    LaunchedEffect(q.id, q.contentHash) { vm.aiState.observe(q) }
+    // The AI discussions of this question version. The facade is only taken when the user first
+    // uses AI here, because taking it moves the send right from the old single-turn entry for good.
+    val aiOwner = QuestionOwner(q.id, q.contentHash)
+    val ai =
+        remember(aiOwner) {
+            AiChatController(
+                { vm.aiConversations },
+                aiOwner,
+                vm.viewModelScope,
+                programming = !q.daily,
+                sendContext = { AiSendContext(draft.selected.value.toSet(), draft.code.value, vm.model) },
+            )
+        }
+    // Leaving the question saves and releases its draft in the ViewModel's scope, after this page is gone.
+    DisposableEffect(ai) { onDispose { ai.back() } }
+    var aiPage by rememberSaveable(q.id) { mutableStateOf(false) }
     val exam = vm.mode == "模拟考试" && !vm.examFinished
     LaunchedEffect(exam, vm.examDeadline) {
         if (exam)
@@ -566,6 +581,16 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
     DraftLeaveDialog(draftLeave)
     // Takes precedence over the shell's back handler while a question is shown.
     BackHandler { leaveQuestion { vm.page = Page.HOME } }
+
+    // The discussion takes the whole page; its own back handling returns to the list, then here.
+    if (aiPage && !exam) {
+        AiChatScreen(
+            ai,
+            Modifier.padding(horizontal = 16.dp).padding(top = 8.dp).testTag("ai-page"),
+            onClose = { aiPage = false },
+        )
+        return
+    }
 
     Column(Modifier.fillMaxSize()) {
         QuestionTopBar(
@@ -847,9 +872,10 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                                 vm.updateCodeDraft(q.id, code, notes)
                             }
                             CodingTimer(draft.timer)
-                            TonalAction("AI 代码审查", !vm.aiBusy && code.isNotBlank()) {
-                                aiOpen = true
-                                vm.aiState.ask(q, "", selected.toSet(), AiRequestType.CODE_REVIEW, code)
+                            // Sent in this question's latest discussion (or a new one) with the code as typed.
+                            TonalAction("AI 代码审查", code.isNotBlank()) {
+                                aiPage = true
+                                ai.quick(AiRequestType.CODE_REVIEW)
                             }
                             Text(
                                 "当前版本不执行或在线判定代码，请在自己的开发环境验证。",
@@ -904,15 +930,10 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                     }
                 }
                 item {
-                    AiConversationSection(
-                        ai = vm.aiState,
-                        q = q,
-                        selected = selected.toSet(),
-                        prompt = prompt,
-                        onPromptChange = { prompt = it },
-                        open = aiOpen,
-                        onToggle = { aiOpen = !aiOpen },
-                    )
+                    AiAssistantSection(open = aiOpen, onToggle = { aiOpen = !aiOpen }) { type ->
+                        aiPage = true
+                        if (type != null) ai.quick(type)
+                    }
                 }
                 item {
                     ExpandableSection(
@@ -1303,6 +1324,37 @@ private fun InfoLine(label: String, value: String) {
 internal fun aiCostTextColor(colors: ColorScheme) = colors.onSurfaceVariant
 
 /**
+ * Entry to the multi-turn AI discussions of this question. It reads nothing from the AI backend, so
+ * showing it does not move the send right; opening the page or a one-tap request does.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun AiAssistantSection(open: Boolean, onToggle: () -> Unit, onOpen: (AiRequestType?) -> Unit) {
+    ExpandableSection(
+        icon = AppIcons.Chat,
+        title = "AI 学习助手",
+        summary = "多轮讨论 · DeepSeek · 需自行核实",
+        expanded = open,
+        onToggle = onToggle,
+    ) {
+        Text(
+            "发送时会把本题、参考答案、所选选项和本讨论最近几轮内容发送到 DeepSeek。AI 内容独立存储，不写入题库、不参与判分。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Button(onClick = { onOpen(null) }, modifier = Modifier.heightIn(min = 48.dp).testTag("ai-open")) {
+            Text("打开 AI 讨论")
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AI_QUICK_TYPES.forEach { type -> AiQuickChip(type.label, true) { onOpen(type) } }
+        }
+    }
+}
+
+/**
+ * Not mounted any more: the question page uses [AiAssistantSection] and the discussions page. Kept
+ * only while AiConversationUiTest still covers the old single-turn holder; remove both together.
+ *
  * The question's AI conversation. Saved history comes from [AiStateHolder.entries]; the pending
  * bubble, analysis, error, retry and cancel come only from [AiStateHolder.requestFor], so a
  * request started on another question (or another version of this one) never shows here.

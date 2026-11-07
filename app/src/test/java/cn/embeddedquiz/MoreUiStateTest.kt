@@ -11,13 +11,14 @@ class MoreUiStateTest {
     private fun summary(id: String, kind: Kind = Kind.SINGLE, review: Boolean = false, keys: String = "A") =
         QuestionSummary(id, "题干 $id", kind, "测试", "", "", "", "", review, keys, keys.isNotBlank(), "h-$id", "A,B")
 
-    private fun cost(day: Long, usd: Double) = CostCount(day, "flash", 0, 0, usd)
+    private fun month(date: LocalDate, usd: String, unknown: Long = 0, currency: String = "USD") =
+        CostMonthUi(date.year, date.monthValue, currency, java.math.BigDecimal(usd), unknown, 0, 0, 1, 0)
 
     private fun state(
         summary: TodaySummary? = TodaySummary(day, 3, 0, 10, 0),
         questions: List<QuestionSummary> = emptyList(),
         graded: Set<String> = emptySet(),
-        costs: List<CostCount> = emptyList(),
+        months: List<CostMonthUi> = emptyList(),
         progress: List<Progress> = emptyList(),
     ) =
         moreUiState(
@@ -28,7 +29,7 @@ class MoreUiStateTest {
             summary = summary,
             questions = questions,
             canGrade = { it.id in graded },
-            costs = costs,
+            costMonths = months,
             daily = listOf(DailyCount(day, 4, 0, 0, 0, 0, 0, 0, 0)),
             dailyGoal = 20,
         )
@@ -51,13 +52,26 @@ class MoreUiStateTest {
 
     @Test
     fun monthCostOnlyCountsThisMonthAndHidesWhenZero() {
-        val lastMonth = LocalDate.of(2026, 10, 31).toEpochDay()
-        val lastYear = LocalDate.of(2025, 11, 5).toEpochDay()
-        val s = state(costs = listOf(cost(day, 0.2), cost(day - 4, 0.12), cost(lastMonth, 5.0), cost(lastYear, 5.0)))
-        assertEquals(0.32, s.monthUsd, 1e-9)
+        val lastMonth = LocalDate.of(2026, 10, 31)
+        val lastYear = LocalDate.of(2025, 11, 5)
+        val s =
+            state(
+                months =
+                    listOf(
+                        month(today, "0.2"), month(today, "0.12"), month(lastMonth, "5"), month(lastYear, "5"),
+                        month(today, "9", currency = "CNY"),
+                    )
+            )
+        assertEquals(0, java.math.BigDecimal("0.32").compareTo(s.monthEstimated))
         assertEquals("本月 $0.32", s.costHint)
-        assertNull(state(costs = listOf(cost(lastMonth, 1.0))).costHint)
-        assertEquals("本月 <$0.01", state(costs = listOf(cost(day, 0.001))).costHint)
+        assertNull(state(months = listOf(month(lastMonth, "1"))).costHint)
+        assertEquals("本月 <$0.01", state(months = listOf(month(today, "0.001"))).costHint)
+    }
+
+    @Test
+    fun unknownRequestsAreNeverShownAsFree() {
+        assertEquals("本月费用未知", state(months = listOf(month(today, "0", unknown = 2))).costHint)
+        assertEquals("本月 $0.32（另 2 次未知）", state(months = listOf(month(today, "0.32", unknown = 2))).costHint)
     }
 
     @Test
