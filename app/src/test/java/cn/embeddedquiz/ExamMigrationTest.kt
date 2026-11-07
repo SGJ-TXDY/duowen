@@ -25,6 +25,7 @@ class ExamMigrationTest {
         val tables = (0 until entities.length()).map { entities.getJSONObject(it).getString("tableName") }
         val raw = app.openOrCreateDatabase(name, 0, null)
         val expected = linkedMapOf<String, List<List<String?>>>()
+        val historicalColumns = mutableMapOf<String, List<String>>()
         try {
             for (i in 0 until entities.length()) {
                 val entity = entities.getJSONObject(i)
@@ -35,6 +36,7 @@ class ExamMigrationTest {
                 // Seed every column (including nullable values), without changing historical schema.
                 val fields = entity.getJSONArray("fields")
                 val names = (0 until fields.length()).map { fields.getJSONObject(it).getString("columnName") }
+                historicalColumns[table] = names
                 val args = (0 until fields.length()).map { n ->
                     val field = fields.getJSONObject(n)
                     when (field.getString("affinity")) {
@@ -55,8 +57,8 @@ class ExamMigrationTest {
         val db = QuizDatabase.open(app, name)
         try {
             val sql = db.openHelper.writableDatabase
-            assertEquals(6, sql.version)
-            for (table in tables) assertEquals("all fields in $table", expected[table], rows(sql, table))
+            assertEquals(7, sql.version)
+            for (table in tables) assertEquals("all fields in $table", expected[table], rows(sql, table, historicalColumns.getValue(table)))
             val terminal = ExamTermination("test-session", "ABANDONED", null, null, null, null, null, 123, 7, null)
             db.dao().addExamTermination(terminal)
             assertEquals(terminal, db.dao().examTermination("test-session"))
@@ -65,12 +67,12 @@ class ExamMigrationTest {
             val reopened = QuizDatabase.open(app, name)
             try {
                 assertEquals(terminal, reopened.dao().examTermination("test-session"))
-                for (table in tables) assertEquals(expected[table], rows(reopened.openHelper.readableDatabase, table))
+                for (table in tables) assertEquals(expected[table], rows(reopened.openHelper.readableDatabase, table, historicalColumns.getValue(table)))
             } finally { reopened.close() }
         } finally { db.close(); app.deleteDatabase(name) }
     }
-    private fun rows(db: SupportSQLiteDatabase, table: String): List<List<String?>> =
-        db.query("SELECT * FROM `$table`").use { cursor ->
+    private fun rows(db: SupportSQLiteDatabase, table: String, columns: List<String>): List<List<String?>> =
+        db.query("SELECT "+columns.joinToString { "`$it`" }+" FROM `$table`").use { cursor ->
             buildList { while (cursor.moveToNext()) add((0 until cursor.columnCount).map { cursor.getString(it) }) }
         }
 }

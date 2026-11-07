@@ -26,7 +26,7 @@ class AiFullBackupTest {
     private val context=ApplicationProvider.getApplicationContext<Context>()
     private fun id()=UUID.randomUUID().toString()
     private val bank="""{"schemaVersion":1,"questions":[{"id":"backup-q","kind":"SHORT","stem":"保留原题","source":"fixture","raw":" untouched raw \\n"}]}"""
-    private fun host(name:String):AiFoundationTestDb=Room.databaseBuilder(context,AiFoundationTestDb::class.java,name).allowMainThreadQueries().addMigrations(AiConversationMigration).build()
+    private fun host(name:String):AiFoundationTestDb=Room.databaseBuilder(context,AiFoundationTestDb::class.java,name).allowMainThreadQueries().addMigrations(AiConversationMigration, StickyNoteSourceMigration).build()
     private suspend fun fixture(name:String):AiFoundationTestDb {
         val old=AiLegacyV5TestDb.open(context,name)
         try {
@@ -34,7 +34,7 @@ class AiFullBackupTest {
             old.dao().putProgress(Progress("backup-q",seen=1,notes="original note",code="int x;"))
             old.dao().putAi(AiEntry("old-empty","backup-q",DeepSeekClient.FLASH,"legacy prompt","old empty hash",10,2,0,0.1,1000))
             old.dao().putAi(AiEntry("old-hash","backup-q",DeepSeekClient.FLASH,"legacy prompt2","old known version",10,3,0,0.2,1001,contentHash="old-version"))
-            old.dao().putStickyNote(StickyNote("note","original title","original body",1,2))
+            old.dao().putStickyNote(LegacyStickyNote("note","original title","original body",1,2))
             old.dao().putSettings(LearningSettings(dailyGoal=42))
             old.dao().putPersonalAnswer(PersonalAnswer("backup-q","A","keep personal","a".repeat(64),1))
             old.dao().putPersonalMetadata(QuestionPersonal("backup-q","keep tags","中","",false))

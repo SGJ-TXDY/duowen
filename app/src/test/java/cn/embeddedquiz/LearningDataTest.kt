@@ -95,7 +95,7 @@ class LearningDataTest {
             repo.dao.putPersonalMetadata(metadata)
             repo.dao.putStickyNote(StickyNote("note", "标题", "便签", 1, 2))
             val backup = repo.backup()
-            assertEquals(4, JSONObject(backup).getInt("backupVersion"))
+            assertEquals(5, JSONObject(backup).getInt("backupVersion"))
             repo.dao.clearPersonalAnswers()
             repo.dao.clearPersonalMetadata()
             repo.dao.putSettings(LearningSettings())

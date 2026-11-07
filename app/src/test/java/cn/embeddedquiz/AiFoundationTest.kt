@@ -22,7 +22,7 @@ class AiFoundationTest {
     private fun id()=UUID.randomUUID().toString()
     private val q=Question("q","指针与内存",Kind.MULTIPLE,"test",options=listOf(Option("B","乙"),Option("A","甲")),correct=setOf("A"),raw="  { \"keep\": 1 }\n")
     private fun host(name: String?=null): AiFoundationTestDb = (if(name==null) Room.inMemoryDatabaseBuilder(context,AiFoundationTestDb::class.java)
-        else Room.databaseBuilder(context,AiFoundationTestDb::class.java,name)).allowMainThreadQueries().addMigrations(AiConversationMigration).build()
+        else Room.databaseBuilder(context,AiFoundationTestDb::class.java,name)).allowMainThreadQueries().addMigrations(AiConversationMigration, StickyNoteSourceMigration).build()
     private suspend fun insert(db:AiFoundationTestDb, question:Question=q) {
         db.old().addQuestions(listOf(QuestionRow(question.id,JSONObject(AiSnapshotCodec.question(question)).getJSONObject("question").toString(),contentHash=question.contentHash)))
     }
@@ -275,7 +275,8 @@ class AiFoundationTest {
         } finally { old.close() }
         val sqlite=context.openOrCreateDatabase(name,0,null)
         fun digestRows(db:android.database.sqlite.SQLiteDatabase)=listOf("questions","ai","progress","attempts","exam_terminations","sticky_notes","learning_settings","personal_answers","question_personal").associateWith { table ->
-            db.rawQuery("SELECT * FROM $table",null).use { c -> buildString { while(c.moveToNext()) for(i in 0 until c.columnCount) append(c.getString(i)).append('|') } }
+            val columns = if (table == "sticky_notes") "id,title,content,created,updated" else "*"
+            db.rawQuery("SELECT $columns FROM $table",null).use { c -> buildString { while(c.moveToNext()) for(i in 0 until c.columnCount) append(c.getString(i)).append('|') } }
         }
         val before=digestRows(sqlite); sqlite.close()
         val migrated=host(name)
@@ -284,12 +285,12 @@ class AiFoundationTest {
             assertEquals(raw,migrated.old().question("legacy")!!.json)
             val c=migrated.openHelper.readableDatabase.query("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'ai_%'")
             c.use { assertEquals(5,it.count) }
-            assertEquals(6,migrated.openHelper.readableDatabase.version)
+            assertEquals(7,migrated.openHelper.readableDatabase.version)
         } finally { migrated.close() }
         val after=context.openOrCreateDatabase(name,0,null); assertEquals(before,digestRows(after)); after.close()
         context.deleteDatabase(name)
         val productionName="ai-production-${id()}.db"; val production=QuizDatabase.open(context,productionName)
-        try { assertEquals(6,production.openHelper.readableDatabase.version) } finally { production.close(); context.deleteDatabase(productionName) }
+        try { assertEquals(7,production.openHelper.readableDatabase.version) } finally { production.close(); context.deleteDatabase(productionName) }
     }
     @Test fun migrationFailureRollsBackNewTablesAndLeavesV5Readable() {
         val name="ai-fail-${id()}.db"; val old=AiLegacyV5TestDb.open(context,name)

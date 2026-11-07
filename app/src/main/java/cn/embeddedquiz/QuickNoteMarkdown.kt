@@ -8,6 +8,9 @@ import java.util.IdentityHashMap
 import java.util.Locale
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
 import org.commonmark.ext.gfm.tables.TableBlock
+import org.commonmark.ext.gfm.tables.TableBody
+import org.commonmark.ext.gfm.tables.TableHead
+import org.commonmark.ext.gfm.tables.TableRow
 import org.commonmark.ext.gfm.tables.TablesExtension
 import org.commonmark.node.*
 import org.commonmark.parser.Parser
@@ -58,11 +61,7 @@ class QuickNoteMarkdown {
         fun visit(node: Node) {
             if (node is Heading) {
                 val title = plain(node)
-                val base = title.lowercase(Locale.ROOT).replace(Regex("[^\\p{L}\\p{N}_ -]"), "")
-                    .trim().replace(Regex("\\s+"), "-").ifBlank { "section" }.take(2000)
-                var id = base
-                var suffix = 1
-                while (!used.add(id)) id = "$base-${suffix++}"
+                val id = headingId(title, used)
                 ids[node] = id
                 outline.add(QuickNoteHeading(id, node.level, title))
             }
@@ -140,6 +139,63 @@ class QuickNoteMarkdown {
             } }.extensions(extensions).build()
         val body = renderer.render(root)
         return QuickNoteRendered(body, outline, code, warnings.toList())
+    }
+
+    private fun headingId(title: String, used: MutableSet<String>): String {
+        val base = boundedAiText(title.lowercase(Locale.ROOT).replace(Regex("[^\\p{L}\\p{N}_ -]"), "")
+            .trim().replace(Regex("\\s+"), "-").ifBlank { "section" }, 2000)
+        var id = base
+        var suffix = 1
+        while (!used.add(id)) id = "$base-${suffix++}"
+        return id
+    }
+
+    internal fun aiParagraphs(markdown: String): List<QuickNoteAiParagraph> {
+        val used = mutableSetOf<String>()
+        val paragraphs = mutableListOf<QuickNoteAiParagraph>()
+        var heading = QuickNoteHeading("", 0, "文档开头")
+        var ordinal = 0
+        fun add(text: String) {
+            if (text.isNotBlank()) paragraphs += QuickNoteAiParagraph(heading, ++ordinal, text.trim())
+        }
+        fun visit(node: Node) {
+            when (node) {
+                is Heading -> {
+                    val title = plain(node)
+                    heading = QuickNoteHeading(headingId(title, used), node.level, title)
+                    ordinal = 0
+                }
+                is Paragraph, is TableBlock -> add(aiPlain(node))
+                is FencedCodeBlock -> add(node.literal)
+                is IndentedCodeBlock -> add(node.literal)
+                else -> {
+                    var child = node.firstChild
+                    while (child != null) { visit(child); child = child.next }
+                }
+            }
+        }
+        visit(parser.parse(markdown))
+        return paragraphs
+    }
+
+    private fun aiPlain(node: Node): String = buildString {
+        fun visit(n: Node) {
+            when (n) {
+                is Text -> append(n.literal)
+                is Code -> append(n.literal)
+                is SoftLineBreak, is HardLineBreak -> append(' ')
+                is Image, is HtmlInline, is HtmlBlock -> Unit
+                else -> {
+                    var child = n.firstChild
+                    while (child != null) {
+                        visit(child)
+                        if (n is TableRow || n is TableHead || n is TableBody) append(' ')
+                        child = child.next
+                    }
+                }
+            }
+        }
+        visit(node)
     }
 
     private fun plain(node: Node): String {

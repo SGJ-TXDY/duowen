@@ -1,8 +1,8 @@
 package cn.embeddedquiz
 
-/** Prepare the exact v6 reader columns before publishing Ready. No rows or source data are changed.
+/** Prepare the exact v7 reader columns before publishing Ready. No rows or source data are changed.
  * Room checks its stored identity hash on an already-current DB; that is not a live check that a
- * damaged/deleted dependent table is still present. Keep this list aligned with schema 6.
+ * damaged/deleted dependent table is still present. Keep this list aligned with schema 7.
  */
 internal object StartupStorageCheck {
     private val queries = listOf(
@@ -11,7 +11,7 @@ internal object StartupStorageCheck {
         "SELECT `questionId`,`seen`,`correctCount`,`repetitions`,`interval`,`ease`,`due`,`lapses`,`wrong`,`favorite`,`flagged`,`code`,`notes` FROM `progress` LIMIT 0",
         "SELECT `id`,`questionId`,`timestamp`,`day`,`response`,`correct`,`feedback`,`mode`,`wasNew`,`assessment`,`answerSource`,`normalizedCategory`,`questionHash` FROM `attempts` LIMIT 0",
         "SELECT `cacheKey`,`questionId`,`model`,`prompt`,`response`,`inputTokens`,`outputTokens`,`hitTokens`,`estimatedUsd`,`created`,`contentHash`,`requestType`,`day` FROM `ai` LIMIT 0",
-        "SELECT `id`,`title`,`content`,`created`,`updated` FROM `sticky_notes` LIMIT 0",
+        "SELECT `id`,`title`,`content`,`created`,`updated`,`sourceRequestId`,`sourceCommandId`,`sourceQuestionId`,`sourceQuestionHash`,`sourceQuestionLabel` FROM `sticky_notes` LIMIT 0",
         "SELECT `id`,`dailyGoal`,`theme`,`fontSize`,`reminderEnabled`,`reminderMinute`,`notificationPermissionAsked`,`lastNotifiedDay` FROM `learning_settings` LIMIT 0",
         "SELECT `questionId`,`choices`,`notes`,`questionHash`,`updated` FROM `personal_answers` LIMIT 0",
         "SELECT `questionId`,`tags`,`perceivedDifficulty`,`verifiedCode`,`codeVerified` FROM `question_personal` LIMIT 0",

@@ -120,11 +120,23 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     val notesState = NotesStateHolder(viewModelScope, repo, autoStart = false)
     val quickNotes = QuickNotesStateHolder(
         viewModelScope,
-        QuickNotesRepository(java.io.File(app.filesDir, "quicknotes-v1")),
+        db.quickNotesRepository,
         app,
     )
 
     fun openQuickNotes() = quickNotes.enter()
+
+    suspend fun quickNoteAiContext(document: QuickNoteSummary, section: QuickNoteHeading?, query: String = "") =
+        db.quickNotesRepository.previewAiContext(document, section, query)
+
+    suspend fun saveAiReplyAsStickyNote(commandId: String, reply: MessageView): ResultOf<StickyNote> =
+        repo.saveAiReplyAsStickyNote(commandId, reply)
+
+    fun stickyNoteSource(note: StickyNote): StickyNoteOriginView? =
+        note.stickyNoteOrigin { id -> questions.firstOrNull { it.id == id }?.contentHash }
+
+    suspend fun openStickyNoteSource(note: StickyNote): StickyNoteOriginOpen =
+        repo.openStickyNoteSource(note)
 
     val stickyNotes
         get() = notesState.stickyNotes

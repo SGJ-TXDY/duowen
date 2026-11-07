@@ -135,6 +135,18 @@ class QuickNotesRepositoryTest {
     }
 
     @Test
+    fun replacingBackupRepairsMissingDocumentFolderWithoutLosingItsId() = runBlocking {
+        withDirectory { directory, repo ->
+            val original = imported(repo.importDocument(pack("# DMA\n\nDescriptor ring")))
+            val backup = repo.exportBackup()
+            assertTrue(File(directory, original.id).deleteRecursively())
+            assertEquals(1, repo.restoreBackup(backup, replace = true))
+            assertEquals(original.id, repo.listDocuments().single().id)
+            assertEquals("DMA", repo.openDocument(original.id).rendered.headings.single().title)
+        }
+    }
+
+    @Test
     fun damagedBackupAndIndexDoNotSilentlyEraseDataAndExplicitRestoreCanRecover() = runBlocking {
         withDirectory { directory, repo ->
             val original = imported(repo.importDocument(pack()))

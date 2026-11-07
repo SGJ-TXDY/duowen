@@ -76,6 +76,173 @@ class AiRuntimeTest {
             db.close();app.deleteDatabase(name);server.shutdown()
         }
     }
+    @Test fun quickNoteDiscussionSendsBoundedReferencesAndRetriesFrozenPayload() = runBlocking {
+        fixture {
+            val docs = db.quickNotesRepository
+            val markdown = """
+                # Intro
+                Unselected private paragraph.
+
+                ## DMA
+                The **DMA** controller uses [descriptors](https://private.example/hidden).
+
+                ${"很长😀".repeat(7000)} END-OF-LONG-SECTION
+
+                ## Tuning
+                The DMA descriptor ring defines transfer ownership.
+            """.trimIndent()
+            val document = (docs.importDocument(QuickNotePackage("dma.md", "dma.md", markdown.toByteArray()))
+                as QuickNoteImportResult.Imported).document
+            val section = docs.openDocument(document.id).rendered.headings.single { it.title == "DMA" }
+            val preview = ok(docs.previewAiContext(document, section, "DMA descriptor"))
+            assertEquals("DMA", preview.references.first().headingTitle)
+            assertTrue(preview.references.any { it.headingTitle == "Tuning" })
+            assertEquals(0, server.requestCount)
+
+            val created = ok(service.createDocumentSession(id(), document)).session
+            val s = ok(service.open(created.sessionId)).session
+            assertEquals(QuestionOwner(document.id, document.contentHash, AiOwnerKind.QUICK_NOTE), s.question)
+            assertTrue(ok(service.sessions(document.id, true, null, 10)).items.isEmpty())
+            val command = send(s, "DMA descriptor", AiRequestType.FOLLOW_UP)
+                .copy(question = s.question, documentSectionId = section.id)
+            server.enqueue(MockResponse().setResponseCode(500))
+            val accepted = ok(service.send(command))
+            val body = request().body.readUtf8()
+            idle()
+            val failed = ok(service.messages(s.sessionId, null, 10)).items.last()
+            val failedRun = requireNotNull(failed.run)
+            assertEquals(RunStatus.FAILED, failedRun.status)
+            assertTrue(failedRun.canRetry)
+            assertEquals(preview.references, failedRun.documentReferences)
+            assertFalse(body.contains("private.example"))
+            assertFalse(body.contains("Unselected private paragraph"))
+            assertFalse(body.contains("END-OF-LONG-SECTION"))
+            val frozen = db.ai().run(accepted.owner.requestId)!!.contextSnapshot
+            assertTrue(AiJson.encodedBytes(JSONObject(frozen).getJSONObject("data").getJSONArray("excerpts")) <= QUICK_NOTE_CONTEXT_BYTES)
+
+            server.enqueue(response("**Markdown** answer"))
+            val retry = ok(service.retry(RetryCommand(id(), accepted.owner)))
+            assertEquals(body, request().body.readUtf8())
+            idle()
+            val reply = ok(service.messages(s.sessionId, null, 10)).items.last()
+            val successfulRun = requireNotNull(reply.run)
+            assertEquals(retry.owner, successfulRun.owner)
+            assertEquals(preview.references, successfulRun.documentReferences)
+            rejected(RejectCode.INVALID, repo.saveAiReplyAsStickyNote(id(), reply))
+
+            val other = (docs.importDocument(QuickNotePackage("other.md", "other.md", "# Other".toByteArray()))
+                as QuickNoteImportResult.Imported).document
+            assertTrue(ok(service.documentSessions(other, true, null, 10)).items.isEmpty())
+            val otherSession = ok(service.createDocumentSession(id(), other)).session
+            server.enqueue(response("Other document"))
+            ok(service.send(command.copy(commandId = id(), sessionId = otherSession.sessionId, question = otherSession.question,
+                expectedContextRevision = 0, documentSectionId = null)))
+            assertFalse(request().body.readUtf8().contains("defines transfer ownership"))
+            idle()
+            val otherReply = ok(service.messages(otherSession.sessionId, null, 10)).items.last()
+            assertEquals(RunSource.NETWORK, otherReply.run!!.source)
+            val cost = withTimeout(8000) { repo.aiCosts.observe().first { it.months.any { month -> month.networkCalls == 3L } } }
+            assertEquals(3L, cost.months.single().networkCalls)
+
+            val updatedDocs = QuickNotesRepository(java.io.File(app.cacheDir, "revision-${id()}"))
+            val updated = (updatedDocs.importDocument(QuickNotePackage("dma.md", "dma.md", "# Revised DMA".toByteArray()))
+                as QuickNoteImportResult.Imported).document
+            val revisedBackup = quickNoteBackupWithId(updatedDocs.exportBackup(), updated.id, document.id)
+            ok(service.open(s.sessionId))
+            assertEquals(1, docs.restoreBackup(revisedBackup, replace = true))
+            val revised = docs.listDocuments().single()
+            assertEquals(document.id, revised.id)
+            assertNotEquals(document.contentHash, revised.contentHash)
+            assertEquals("Revised DMA", docs.openDocument(revised.id).rendered.headings.single().title)
+            whenState { it.selected?.readOnly == true }
+            assertTrue(ok(service.documentSessions(revised, false, null, 10)).items.isEmpty())
+            assertEquals(s.sessionId, ok(service.documentSessions(revised, true, null, 10)).items.single().sessionId)
+            assertTrue(ok(service.open(otherSession.sessionId)).session.readOnly)
+            rejected(RejectCode.STALE_OWNER, docs.previewAiContext(document, section, "DMA"))
+            rejected(RejectCode.STALE_OWNER, service.createDocumentSession(id(), document))
+            rejected(RejectCode.READ_ONLY, service.send(command.copy(commandId = id(), expectedContextRevision = 1)))
+            rejected(RejectCode.READ_ONLY, service.retry(RetryCommand(id(), accepted.owner)))
+            rejected(RejectCode.READ_ONLY, service.rename(id(), s.sessionId, s.sessionRevision, "旧讨论"))
+
+            val full = repo.backup()
+            repo.restore(full)
+            assertEquals(preview.references, ok(service.messages(s.sessionId, null, 10)).items.last().run!!.documentReferences)
+            assertEquals(3, server.requestCount)
+        }
+    }
+
+    private fun quickNoteBackupWithId(bytes: ByteArray, oldId: String, id: String): ByteArray {
+        val result = java.io.ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(result).use { output ->
+            java.util.zip.ZipInputStream(bytes.inputStream()).use { input ->
+                while (true) {
+                    val entry = input.nextEntry ?: break
+                    output.putNextEntry(java.util.zip.ZipEntry(entry.name.replace(oldId, id)))
+                    val content = input.readBytes()
+                    output.write(if (entry.name == "manifest.json")
+                        content.toString(Charsets.UTF_8).replace(oldId, id).toByteArray() else content)
+                    output.closeEntry()
+                }
+            }
+        }
+        return result.toByteArray()
+    }
+
+    @Test fun completedQuestionReplySavesOneMarkdownNoteAndRestoresReadOnlyOrigin() = runBlocking {
+        fixture {
+            val s = opened()
+            val markdown = "## 结论\n\n- **保留 Markdown**"
+            server.enqueue(response(markdown))
+            ok(service.send(send(s)))
+            request()
+            idle()
+            val reply = ok(service.messages(s.sessionId, null, 10)).items.last()
+            val commandId = id()
+            val writes = coroutineScope {
+                List(8) { async { ok(repo.saveAiReplyAsStickyNote(commandId, reply.copy(text = "caller text"))) } }.awaitAll()
+            }
+            val saved = writes.first()
+            assertEquals(1, writes.distinct().size)
+            assertEquals(saved, ok(repo.saveAiReplyAsStickyNote(id(), reply)))
+            assertEquals(markdown, saved.content)
+            assertEquals("original", saved.sourceQuestionLabel)
+            assertEquals(StickyNoteOriginStatus.CURRENT, saved.stickyNoteOrigin { q.contentHash }!!.status)
+            assertEquals(StickyNoteOriginOpen.Ready(q, false), repo.openStickyNoteSource(saved))
+            val run = requireNotNull(reply.run)
+            val forgedOwner = run.owner.copy(question = run.owner.question.copy(contentHash = "0".repeat(64)))
+            rejected(RejectCode.STALE_OWNER, repo.saveAiReplyAsStickyNote(id(), reply.copy(run = run.copy(owner = forgedOwner))))
+
+            val old = StickyNote("old", "旧便签", "旧正文", 1, 2)
+            repo.dao.putStickyNote(old)
+            val full = repo.backup()
+            assertEquals(5, JSONObject(full).getInt("backupVersion"))
+            val legacy = JSONObject(full).put("backupVersion", 4)
+            val notes = legacy.getJSONArray("stickyNotes")
+            for (i in 0 until notes.length()) {
+                val json = notes.getJSONObject(i)
+                json.keys().asSequence().filter { it.startsWith("source") }.toList().forEach(json::remove)
+            }
+            repo.restore(legacy.toString())
+            assertTrue(repo.dao.allStickyNotes().all { it.sourceQuestionId == null })
+            repo.restore(full)
+            assertEquals(setOf(old, saved), repo.dao.allStickyNotes().toSet())
+            assertEquals(saved, ok(repo.saveAiReplyAsStickyNote(commandId, reply)))
+            assertNull(old.stickyNoteOrigin { q.contentHash })
+
+            repo.dao.updateQuestions(BankCodec.parseBank(bank.replace("original", "revised")))
+            val current = repo.question(q.id)!!
+            assertEquals(StickyNoteOriginStatus.CHANGED, saved.stickyNoteOrigin { current.contentHash }!!.status)
+            assertEquals(StickyNoteOriginOpen.Ready(current, true), repo.openStickyNoteSource(saved))
+            repo.dao.clearQuestions()
+            assertEquals(StickyNoteOriginStatus.MISSING, saved.stickyNoteOrigin { null }!!.status)
+            assertEquals(StickyNoteOriginOpen.Missing, repo.openStickyNoteSource(saved))
+            repo.restore(repo.backup())
+            assertEquals(markdown, repo.dao.allStickyNotes().single { it.id == saved.id }.content)
+            assertTrue(repo.dao.allAttempts().isEmpty())
+            assertNull(repo.dao.getProgress(q.id))
+        }
+    }
+
     @Test fun frozenBodyReplayCacheAndFees()=runBlocking {
         val dispatch=CompletableDeferred<Unit>()
         fixture(configure={it.copy(beforeDispatch={dispatch.await()})},cleanup={dispatch.complete(Unit)}) {

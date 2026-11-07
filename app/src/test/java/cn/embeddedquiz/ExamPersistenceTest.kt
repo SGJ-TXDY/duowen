@@ -248,9 +248,9 @@ class ExamPersistenceTest {
         release.complete(Unit); assertTrue(holder.flushSave()); assertTrue(file.exists())
     }
 
-    @Test fun backupRemainsV3GuardsRestoreAndResetAndKeepsTerminalLedger() = runBlocking {
+    @Test fun backupGuardsRestoreAndResetAndKeepsTerminalLedger() = runBlocking {
         val backup = repo.backup(); start(); assertTrue(holder.flushSave()); val snap = stored()
-        assertEquals(4, JSONObject(backup).getInt("backupVersion"))
+        assertEquals(5, JSONObject(backup).getInt("backupVersion"))
         for (action in listOf<suspend () -> Unit>({ repo.reset() }, { repo.restore(backup) })) {
             try { action(); fail("active exam must reject replacement") }
             catch (e: IllegalStateException) { assertTrue(e.message!!.contains("请先结束")) }

@@ -53,6 +53,7 @@ internal class AiBackupStage private constructor(
                         override fun onCreate(db:SupportSQLiteDatabase) {
                             AiConversationMigration.statements.forEach(db::execSQL)
                             db.execSQL("CREATE TABLE legacy (section TEXT NOT NULL, rowKey TEXT NOT NULL, ordinal INTEGER NOT NULL, wire TEXT NOT NULL, validated TEXT, PRIMARY KEY(section,rowKey), UNIQUE(section,ordinal))")
+                            db.execSQL("CREATE TABLE note_sources (requestId TEXT PRIMARY KEY NOT NULL, commandId TEXT UNIQUE NOT NULL)")
                         }
                         override fun onConfigure(db:SupportSQLiteDatabase) { db.setForeignKeyConstraintsEnabled(false) }
                         override fun onUpgrade(db:SupportSQLiteDatabase,oldVersion:Int,newVersion:Int) { error("TEMP_VERSION") }
@@ -98,12 +99,12 @@ internal class AiBackupStage private constructor(
                             }
                         };reader.endObject();require(reader.peek()==JsonToken.END_DOCUMENT)
                     }
-                    require(headers["schemaVersion"]==1L && headers["backupVersion"] in 1L..4L) { "UNSUPPORTED_BACKUP_VERSION" }
+                    require(headers["schemaVersion"]==1L && headers["backupVersion"] in 1L..5L) { "UNSUPPORTED_BACKUP_VERSION" }
                     val v=headers.getValue("backupVersion").toInt()
                     require(seen.containsAll(setOf("questions","progress","attempts","ai"))) { "MISSING_LEGACY_SECTION" }
                     if(v>=2) require("stickyNotes" in seen)
                     if(v>=3) require(seen.containsAll(setOf("learningSettings","personalAnswers","questionPersonal")))
-                    if(v==4) require(headers["aiConversationVersion"]==1L && seen.containsAll(aiSections.keys)) { "MISSING_AI_SECTION" }
+                    if(v>=4) require(headers["aiConversationVersion"]==1L && seen.containsAll(aiSections.keys)) { "MISSING_AI_SECTION" }
                     else require(headers["aiConversationVersion"]==null && seen.none { it in aiSections }) { "AI_IN_LEGACY_FORMAT" }
                     val stage=AiBackupStage(helper,stageFile,v)
                     stage.validateAll(context,now)
@@ -154,10 +155,16 @@ internal class AiBackupStage private constructor(
             db.query("SELECT rowKey,wire FROM legacy WHERE section=? ORDER BY ordinal",arrayOf(section)).use { c ->
                 while(c.moveToNext()) { currentCoroutineContext().ensureActive()
                     val row=AiLegacyBackupCodec.validate(section,JSONObject(c.getString(1)),version) { legacy("questions",it) }
+                    if (section == "stickyNotes" && !row.isNull("sourceRequestId")) {
+                        db.execSQL("INSERT INTO note_sources VALUES (?,?)",
+                            arrayOf(row.getString("sourceRequestId"), row.getString("sourceCommandId")))
+                    }
                     db.execSQL("UPDATE legacy SET validated=? WHERE section=? AND rowKey=?",arrayOf(row.toString(),section,c.getString(0)))
                 }
             }
         }
+        if (version < 5) require(AiSqlAccess(db).scalar(
+            "SELECT COUNT(*) FROM ai_sessions WHERE questionSnapshotVersion<>1") == 0L) { "DOCUMENT_AI_IN_LEGACY_FORMAT" }
         AiStorageValidation.verifyAndRecover(db,now)
     }
     override fun close() { if(!closed) { closed=true;try { helper.close() } finally { deleteFiles(file) } } }

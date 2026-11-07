@@ -10,7 +10,7 @@ internal class AiBackupRestorer(private val host:QuizDatabase,private val resour
         stage.requireSealed();val target=host.openHelper.writableDatabase
         val version=stage.version
         // Old backups contain no new conversations: preserve them, including their usage ledger.
-        if(version==4) {
+        if(version>=4) {
             target.execSQL("DELETE FROM ai_response_cache");target.execSQL("DELETE FROM ai_commands")
             while(true) {
                 currentCoroutineContext().ensureActive();resource()
@@ -34,7 +34,7 @@ internal class AiBackupRestorer(private val host:QuizDatabase,private val resour
         for(section in listOf("questions","progress","attempts","ai")+if(version>=2) listOf("stickyNotes") else emptyList()) {
             stage.forLegacy(section) { currentCoroutineContext().ensureActive();resource();AiSqlAccess.insert(target,AiLegacyBackupCodec.tables.getValue(section),it) }
         }
-        if(version==4) {
+        if(version>=4) {
             for(table in listOf("ai_sessions","ai_messages","ai_runs","ai_commands","ai_response_cache")) {
                 stage.forAi(table,if(table=="ai_runs") "assistantSeq" else AiSqlAccess.keys.getValue(table)) { row ->
                     currentCoroutineContext().ensureActive();resource();AiSqlAccess.insert(target,table,AiSqlAccess.normalized(table,row))

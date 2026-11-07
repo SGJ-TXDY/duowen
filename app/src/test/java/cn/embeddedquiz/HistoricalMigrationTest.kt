@@ -67,7 +67,7 @@ class HistoricalMigrationTest {
             try {
                 assertEquals(1, db.dao().questionCount())
                 val sql = db.openHelper.readableDatabase
-                assertEquals(6, sql.version)
+                assertEquals(7, sql.version)
                 for (snapshot in snapshots) {
                     sql.query("SELECT ${snapshot.columns.joinToString { "`$it`" }} FROM `${snapshot.table}`").use { cursor ->
                         val actual = buildList { while (cursor.moveToNext()) add(snapshot.columns.indices.map { cursor.getString(it) }) }

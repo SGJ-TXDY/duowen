@@ -31,7 +31,7 @@ internal class StartupRecovery(private val context: Context, private val prefs: 
     private fun files() = listOf(database, File(database.path + "-wal"), File(database.path + "-journal"))
         .filter { it.isFile }
     fun describe(state: StartupState, exceptionType: String): String = JSONObject()
-        .put("diagnosticVersion", 1).put("roomVersion", 6).put("backupVersion", 4).put("aiConversationVersion", 1)
+        .put("diagnosticVersion", 1).put("roomVersion", 7).put("backupVersion", 5).put("aiConversationVersion", 1)
         .put("state", state.javaClass.simpleName)
         .put("attempt", when (state) {
             is StartupState.Loading -> state.attempt

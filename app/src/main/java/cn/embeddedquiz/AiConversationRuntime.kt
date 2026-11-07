@@ -108,7 +108,8 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
                 if(phase==ServicePhase.CLOSING || phase==ServicePhase.CLOSED) return
                 activated=true;phase=ServicePhase.READY;publish()
                 if(observation==null) observation=scope.launch {
-                    db.aiInvalidations("ai_sessions","ai_messages","ai_runs","questions").conflate().catch {
+                    merge(db.aiInvalidations("ai_sessions","ai_messages","ai_runs","questions").map { Unit },
+                        db.quickNotesRepository.aiChanges.map { Unit }).conflate().catch {
                         actor.withLock { storageFault() }
                     }.collect {
                         actor.withLock {
@@ -194,8 +195,9 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
     }
     private fun receipt(row:AiCommandRow)=JSONObject(row.receiptJson)
     private suspend fun session(sid:String)=dao.session(sid) ?: refuse(RejectCode.NOT_FOUND)
-    private fun question(s:AiSessionRow)=QuestionOwner(s.questionId,s.contentHash)
+    private fun question(s:AiSessionRow)=s.owner
     override suspend fun createSession(commandId:String,question:QuestionOwner)=action {
+        require(question.kind == AiOwnerKind.QUESTION)
         // Replay uses the immutable snapshot even if the current bank question changed.
         val prior=dao.command(commandId)
         if(prior!=null && prior.kind!="CREATE") refuse(RejectCode.IDEMPOTENCY_CONFLICT)
@@ -206,8 +208,30 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
             val current=repo.question(question.questionId) ?: refuse(RejectCode.NOT_FOUND)
             if(current.contentHash!=question.contentHash) refuse(RejectCode.READ_ONLY);current
         }
-        val row=store.create(commandId,q);val json=receipt(row);val s=session(requireNotNull(row.sessionId))
-        CreateReceipt(pages.session(s.copy(title=json.getString("title"),sessionRevision=0,contextRevision=0,
+        creationReceipt(store.create(commandId, q))
+    }
+
+    override suspend fun createDocumentSession(commandId: String, document: QuickNoteSummary) = action {
+        val owner = QuestionOwner(document.id, document.contentHash, AiOwnerKind.QUICK_NOTE)
+        AiJson.uuid(owner.questionId)
+        AiJson.hash(owner.contentHash)
+        val prior = dao.command(commandId)
+        val snapshot = if (prior != null) {
+            if (prior.kind != "CREATE") refuse(RejectCode.IDEMPOTENCY_CONFLICT)
+            val row = session(requireNotNull(prior.sessionId))
+            if (row.owner != owner) refuse(RejectCode.IDEMPOTENCY_CONFLICT)
+            row.questionSnapshot
+        } else {
+            val summary = db.quickNotesRepository.aiSummary(owner.questionId) ?: refuse(RejectCode.NOT_FOUND)
+            if (summary.contentHash != owner.contentHash) refuse(RejectCode.STALE_OWNER)
+            AiSnapshotCodec.document(summary)
+        }
+        creationReceipt(store.createDocument(commandId, owner, snapshot))
+    }
+
+    private suspend fun creationReceipt(row: AiCommandRow): CreateReceipt {
+        val json=receipt(row);val s=session(requireNotNull(row.sessionId))
+        return CreateReceipt(pages.session(s.copy(title=json.getString("title"),sessionRevision=0,contextRevision=0,
             draftRevision=0,draftText="",lastEditorEpoch=null,lastLocalEditVersion=null)))
     }
     override suspend fun open(sessionId:String)=action {
@@ -224,6 +248,12 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
     }
     override suspend fun sessions(questionId:String,includeArchived:Boolean,cursor:PageCursor?,limit:Int)=action {
         db.withTransaction { pages.sessions(questionId,includeArchived,cursor,limit) }
+    }
+    override suspend fun documentSessions(document: QuickNoteSummary, includeArchived: Boolean, cursor: PageCursor?, limit: Int) = action {
+        AiJson.uuid(document.id)
+        AiJson.hash(document.contentHash)
+        val owner = QuestionOwner(document.id, document.contentHash, AiOwnerKind.QUICK_NOTE)
+        db.withTransaction { pages.sessions(owner, includeArchived, cursor, limit) }
     }
     override suspend fun messages(sessionId:String,cursor:PageCursor?,limit:Int)=action {
         db.withTransaction { pages.messages(sessionId,cursor,limit,active!=null) }

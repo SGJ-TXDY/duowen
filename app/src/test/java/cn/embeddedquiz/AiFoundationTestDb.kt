@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 @Database(entities = [QuestionRow::class, ExamTermination::class, Progress::class, Attempt::class,
     AiEntry::class, StickyNote::class, LearningSettings::class, PersonalAnswer::class, QuestionPersonal::class,
     AiSessionRow::class, AiMessageRow::class, AiRunRow::class, AiCommandRow::class, AiCacheRow::class],
-    version = 6, exportSchema = false)
+    version = 7, exportSchema = false)
 abstract class AiFoundationTestDb : RoomDatabase() {
     abstract fun ai(): AiConversationDao
     abstract fun old(): QuizDao

@@ -29,26 +29,43 @@ internal class AiPageReader(private val dao:AiConversationDao,private val repo:Q
     }
     private fun filter(vararg fields:Any)=DeepSeekClient.hash(AiJson.canonical(org.json.JSONArray(fields.toList())))
     fun token(row:AiSessionRow)=row.lastEditorEpoch?.let { DraftToken(it,requireNotNull(row.lastLocalEditVersion)) }
-    fun session(row:AiSessionRow,hash:String?)=SessionView(row.sessionId,QuestionOwner(row.questionId,row.contentHash),row.title,
+    fun session(row:AiSessionRow,hash:String?)=SessionView(row.sessionId,row.owner,row.title,
         row.sessionRevision,row.contextRevision,DraftView(row.draftText,row.draftRevision,false,token(row)),
         row.contentHash!=hash,row.questionSnapshotVersion,row.questionSnapshot)
-    suspend fun session(row:AiSessionRow)=session(row,repo.question(row.questionId)?.contentHash)
-    suspend fun sessions(qid:String,archived:Boolean,after:PageCursor?,limit:Int):AiPage<SessionView> {
-        require(limit in 1..100 && qid.isNotBlank());val hash=repo.question(qid)?.contentHash
-        val q=filter("sessions-desc",qid,archived,hash.orEmpty());val b=boundary(q,after)
-        val rows=dao.sessionPage(qid,hash.orEmpty(),archived,b?.at,b?.tie.orEmpty(),limit+1);val page=rows.take(limit)
-        return AiPage(page.map { session(it,hash) },if(rows.size>limit) page.last().let { cursor(q,Boundary(it.updatedAt,it.sessionId)) } else null)
+    private suspend fun currentHash(owner: QuestionOwner): String? = when (owner.kind) {
+        AiOwnerKind.QUESTION -> repo.question(owner.questionId)?.contentHash
+        AiOwnerKind.QUICK_NOTE -> try {
+            repo.db.quickNotesRepository.aiSummary(owner.questionId)?.contentHash
+        } catch (e: AiStoreFailure) {
+            if (e.code != RejectCode.STORAGE_FAILED) throw e
+            null
+        }
+    }
+    suspend fun session(row:AiSessionRow)=session(row,currentHash(row.owner))
+    suspend fun sessions(qid:String,archived:Boolean,after:PageCursor?,limit:Int):AiPage<SessionView> =
+        sessions(QuestionOwner(qid, ""),archived,after,limit)
+    suspend fun sessions(owner:QuestionOwner,archived:Boolean,after:PageCursor?,limit:Int):AiPage<SessionView> {
+        val qid = owner.questionId
+        require(limit in 1..100 && qid.isNotBlank())
+        val hash = currentHash(owner)
+        val version = if (owner.kind == AiOwnerKind.QUICK_NOTE) AiSnapshotCodec.DOCUMENT_VERSION else AiSnapshotCodec.VERSION
+        val q=filter("sessions-desc",qid,archived,version,owner.contentHash,hash.orEmpty());val b=boundary(q,after)
+        val visibleHash = if (owner.kind == AiOwnerKind.QUICK_NOTE && owner.contentHash != hash) null else hash
+        val rows=dao.sessionPage(qid,visibleHash.orEmpty(),archived,b?.at,b?.tie.orEmpty(),limit+1,version);val page=rows.take(limit)
+        return AiPage(page.map { session(it,visibleHash) },if(rows.size>limit) page.last().let { cursor(q,Boundary(it.updatedAt,it.sessionId)) } else null)
     }
     fun run(row:AiRunRow,question:QuestionOwner,canRetry:Boolean)=RunView(RunOwner(question,row.sessionId,row.requestId),
         RunStatus.valueOf(row.status),RunSource.valueOf(row.source),row.retryOf,row.sourceRequestId,
         UsageView(row.inputTokens,row.outputTokens,row.hitTokens,UsageState.valueOf(row.usageStatus),row.estimatedUsd?.let(::BigDecimal),row.currency,row.priceVersion),
-        row.errorCode ?: row.terminalReason,canRetry)
+        row.errorCode ?: row.terminalReason,canRetry,
+        if (row.contextSnapshotVersion == AiSnapshotCodec.DOCUMENT_VERSION) AiSnapshotCodec.documentReferences(row.contextSnapshot)
+        else emptyList())
     suspend fun messages(sid:String,after:PageCursor?,limit:Int,busy:Boolean):AiPage<MessageView> {
         require(limit in 1..100);val s=dao.session(sid) ?: throw AiStoreFailure(RejectCode.NOT_FOUND)
         val q=filter("messages-before",sid);val b=boundary(q,after)
         val rows=dao.messagePage(sid,b?.at,limit+1);val page=rows.take(limit)
-        val newest=dao.maxSeq(sid);val owner=QuestionOwner(s.questionId,s.contentHash)
-        val writable=repo.question(s.questionId)?.contentHash==s.contentHash
+        val newest=dao.maxSeq(sid);val owner=s.owner
+        val writable=currentHash(owner)==s.contentHash
         return AiPage(page.asReversed().map { m -> MessageView(m.messageId,sid,m.seq,MessageRole.valueOf(m.role),m.text,TextState.valueOf(m.completion),
             if(m.role=="ASSISTANT") dao.runForAssistant(m.messageId)?.let { r->
                 run(r,owner,writable && !busy && m.seq==newest && r.status in setOf("FAILED","CANCELLED") && dao.completedAttempts(r.userMessageId)==0)
@@ -57,7 +74,7 @@ internal class AiPageReader(private val dao:AiConversationDao,private val repo:Q
     suspend fun legacy(f:HistoryFilter,after:PageCursor?,limit:Int):AiPage<LegacyEntryView> {
         require(limit in 1..100)
         val (id,mode,hash)=when(f) {
-            is HistoryFilter.Exact -> { AiJson.hash(f.question.contentHash);Triple(f.question.questionId,0,f.question.contentHash) }
+            is HistoryFilter.Exact -> { require(f.question.kind == AiOwnerKind.QUESTION); AiJson.hash(f.question.contentHash);Triple(f.question.questionId,0,f.question.contentHash) }
             is HistoryFilter.UnknownHash -> Triple(f.questionId,1,"")
             is HistoryFilter.AllVersions -> Triple(f.questionId,2,"")
         }

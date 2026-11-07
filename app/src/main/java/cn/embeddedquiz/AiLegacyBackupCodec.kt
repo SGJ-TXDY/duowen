@@ -90,7 +90,22 @@ internal object AiLegacyBackupCodec {
             "stickyNotes" -> {
                 val id=o.getString("id");val created=o.getLong("created");val updated=o.getLong("updated")
                 require(id.isNotBlank() && id.length<=200 && created>=0 && updated>=created)
-                return JSONObject().put("id",id).put("title",o.getString("title")).put("content",o.getString("content")).put("created",created).put("updated",updated)
+                val note = JSONObject().put("id",id).put("title",o.getString("title"))
+                    .put("content",o.getString("content")).put("created",created).put("updated",updated)
+                if (version >= 5) {
+                    val source = listOf("sourceRequestId", "sourceCommandId", "sourceQuestionId", "sourceQuestionHash", "sourceQuestionLabel")
+                    val values = source.map { if (o.isNull(it)) null else AiJson.string(o, it) }
+                    require(values.all { it == null } || values.all { it != null }) { "INCOMPLETE_NOTE_SOURCE" }
+                    if (values.first() != null) {
+                        val (request, command, questionId, hash, label) = values.filterNotNull()
+                        AiJson.uuid(request)
+                        AiJson.uuid(command)
+                        AiJson.hash(hash)
+                        require(questionId.isNotBlank() && questionId.length <= 200 && label.isNotBlank() && label.length <= 120)
+                        source.zip(values).forEach { (key, value) -> note.put(key, value) }
+                    }
+                }
+                return note
             }
             "learningSettings" -> return LearningCodec.settings(LearningCodec.parseSettings(o)).put("id",1)
             "personalAnswers" -> return LearningCodec.answer(LearningCodec.parseAnswer(o))

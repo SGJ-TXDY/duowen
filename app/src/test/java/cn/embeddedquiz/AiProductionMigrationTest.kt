@@ -15,14 +15,14 @@ import org.robolectric.annotation.Config
 class AiProductionMigrationTest {
     private val context=ApplicationProvider.getApplicationContext<Context>()
     private fun name()="m-"+UUID.randomUUID().toString().take(8)+".db"
-    @Test fun realProductionFiveToSixKeepsOldLearningHistoryAndRawJson()=runBlocking {
+    @Test fun realProductionFiveToSevenKeepsOldLearningHistoryAndRawJson()=runBlocking {
         val name=name();val old=AiLegacyV5TestDb.open(context,name)
         val raw=""" { "id":"c","kind":"SHORT","stem":"original","source":"fixture" } """
         try {
             old.dao().addQuestions(listOf(QuestionRow("c",raw)))
             old.dao().putProgress(Progress("c",seen=4,notes="keep old notes"))
             old.dao().putAi(AiEntry("old","c",DeepSeekClient.FLASH,"p","old reply",10,2,0,0.1,1))
-            old.dao().putStickyNote(StickyNote("n","old title","old body",1,2))
+            old.dao().putStickyNote(LegacyStickyNote("n","old title","old body",1,2))
             old.dao().putSettings(LearningSettings(theme="DARK"))
             old.dao().putPersonalMetadata(QuestionPersonal("c",tags="legacy tags"))
             old.dao().putPersonalAnswer(PersonalAnswer("c","A","legacy answer","hash",1))
@@ -36,14 +36,44 @@ class AiProductionMigrationTest {
         }
         val db=QuizDatabase.open(context,name)
         try {
-            StartupStorageCheck.verify(db);assertEquals(6,db.openHelper.readableDatabase.version)
-            for((table,expected) in before) db.openHelper.readableDatabase.query("SELECT * FROM `$table`").use { c ->
-                val actual=buildList { while(c.moveToNext()) add((0 until c.columnCount).map { c.getString(it) }) };assertEquals(table,expected,actual)
+            StartupStorageCheck.verify(db);assertEquals(7,db.openHelper.readableDatabase.version)
+            for((table,expected) in before) {
+                val columns = if (table == "sticky_notes") "id,title,content,created,updated" else "*"
+                db.openHelper.readableDatabase.query("SELECT $columns FROM `$table`").use { c ->
+                    val actual = buildList { while (c.moveToNext()) add((0 until c.columnCount).map { c.getString(it) }) }
+                    assertEquals(table, expected, actual)
+                }
             }
+            assertNull(db.dao().allStickyNotes().single().sourceRequestId)
             assertEquals(raw,db.dao().question("c")!!.json)
             assertEquals(AiDataset(),AiStore(db,db.ai(),{null}).dataset())
         } finally { db.close();context.deleteDatabase(name) }
     }
+    @Test fun roomSixToSevenPreservesExistingConversationAndAddsNullableNoteSource() = runBlocking {
+        val name = name()
+        val old = AiLegacyV5TestDb.open(context, name)
+        val raw = """{"id":"q","kind":"SHORT","stem":"original","source":"fixture"}"""
+        val question = HistoricalQuestionV3.read("q", raw)
+        val session = AiSessionRow(UUID.randomUUID().toString(), question.id, question.contentHash,
+            questionSnapshot = AiSnapshotCodec.question(question), title = "旧讨论", createdAt = 1, updatedAt = 1)
+        try {
+            old.dao().putStickyNote(LegacyStickyNote("n", "旧便签", "旧正文", 1, 2))
+            val sql = old.openHelper.writableDatabase
+            AiConversationMigration.migrate(sql)
+            AiSqlAccess.insert(sql, "ai_sessions", AiSqlAccess.normalized("ai_sessions", AiRowCodec.encode(session)))
+            sql.version = 6
+        } finally { old.close() }
+
+        val db = QuizDatabase.open(context, name)
+        try {
+            assertEquals(7, db.openHelper.readableDatabase.version)
+            assertEquals(listOf(StickyNote("n", "旧便签", "旧正文", 1, 2)), db.dao().allStickyNotes())
+            val stored = db.ai().session(session.sessionId)!!
+            assertEquals(session, stored.copy(encodedBytes = 0))
+            AiStore(db, db.ai(), { null }).audit()
+        } finally { db.close(); context.deleteDatabase(name) }
+    }
+
     @Test fun productionMigrationSchemaFailureRollsBackWithoutDeletingOriginal() {
         val name=name();val old=AiLegacyV5TestDb.open(context,name)
         old.openHelper.writableDatabase.execSQL("INSERT INTO sticky_notes VALUES ('n','original','body',1,1)")

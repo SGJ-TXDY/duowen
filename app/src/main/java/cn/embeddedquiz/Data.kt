@@ -35,13 +35,21 @@ data class QuestionRow(
     @ColumnInfo(defaultValue = "''") val optionKeys: String = "",
 )
 
-@Entity(tableName = "sticky_notes")
+@Entity(tableName = "sticky_notes", indices = [
+    Index(value = ["sourceRequestId"], unique = true),
+    Index(value = ["sourceCommandId"], unique = true),
+])
 data class StickyNote(
     @PrimaryKey val id: String,
     val title: String = "",
     val content: String = "",
     val created: Long,
     val updated: Long,
+    val sourceRequestId: String? = null,
+    val sourceCommandId: String? = null,
+    val sourceQuestionId: String? = null,
+    val sourceQuestionHash: String? = null,
+    val sourceQuestionLabel: String? = null,
 )
 
 @Entity(tableName = "progress")
@@ -243,6 +251,14 @@ interface QuizDao {
     @Query("SELECT * FROM sticky_notes ORDER BY updated DESC, id")
     suspend fun allStickyNotes(): List<StickyNote>
 
+    @Query("SELECT * FROM sticky_notes WHERE sourceRequestId=:id")
+    suspend fun stickyNoteByAiRequest(id: String): StickyNote?
+
+    @Query("SELECT * FROM sticky_notes WHERE sourceCommandId=:id")
+    suspend fun stickyNoteByAiCommand(id: String): StickyNote?
+
+    @Insert suspend fun insertAiStickyNote(row: StickyNote)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun putStickyNote(row: StickyNote)
 
     @Query("DELETE FROM sticky_notes WHERE id=:id") suspend fun deleteStickyNote(id: String)
@@ -305,13 +321,16 @@ interface QuizDao {
             QuestionPersonal::class,
             AiSessionRow::class, AiMessageRow::class, AiRunRow::class, AiCommandRow::class, AiCacheRow::class,
         ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class QuizDatabase : RoomDatabase() {
     internal val examAccess = ExamAccess()
     internal val aiLifecycle = AiStorageLifecycle()
     internal val aiServices by lazy { AiServices(this) }
+    internal val quickNotesRepository by lazy {
+        QuickNotesRepository(java.io.File(storageContext.filesDir, "quicknotes-v1"))
+    }
     internal lateinit var storageContext: Context
     @Suppress("DEPRECATION")
     override fun init(configuration: androidx.room.DatabaseConfiguration) {
@@ -342,12 +361,13 @@ abstract class QuizDatabase : RoomDatabase() {
         val MIGRATION_3_4 = LearningMigration
         val MIGRATION_4_5 = ExamMigration
         val MIGRATION_5_6 = AiConversationMigration
+        internal val MIGRATION_6_7 = StickyNoteSourceMigration
 
         fun open(context: Context, name: String = "embeddedquiz.db"): QuizDatabase {
             CategoryMap.load(context)
             return Room.databaseBuilder(context, QuizDatabase::class.java, name)
                 .openHelperFactory(PreservingOpenHelperFactory())
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .build()
         }
     }

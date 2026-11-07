@@ -4,7 +4,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import java.math.BigDecimal
 
-data class QuestionOwner(val questionId: String, val contentHash: String)
+enum class AiOwnerKind { QUESTION, QUICK_NOTE }
+data class QuestionOwner(val questionId: String, val contentHash: String, val kind: AiOwnerKind = AiOwnerKind.QUESTION)
 data class RunOwner(val question: QuestionOwner, val sessionId: String, val requestId: String)
 data class DraftToken(val editorEpoch: String, val localEditVersion: Long)
 data class DraftView(val text: String, val revision: Long, val pending: Boolean, val savedToken: DraftToken?)
@@ -29,6 +30,7 @@ data class RunView(
     val owner: RunOwner, val status: RunStatus, val source: RunSource,
     val retryOf: String?, val sourceRequestId: String?, val usage: UsageView,
     val errorCode: String?, val canRetry: Boolean,
+    val documentReferences: List<QuickNoteAiReference> = emptyList(),
 )
 data class MessageView(
     val messageId: String, val sessionId: String, val seq: Long, val role: MessageRole,
@@ -64,6 +66,7 @@ data class SendCommand(
     val expectedContextRevision: Long, val draftToken: DraftToken?,
     val savedDraftRevision: Long?, val input: String, val choices: Set<String>,
     val code: String, val requestType: AiRequestType, val model: String,
+    val documentSectionId: String? = null,
 ) // 实际 provider 参数由后端版本化配置冻结；不让 UI 传任意 HTTP 参数。
 data class RetryCommand(val commandId: String, val owner: RunOwner)
 data class CreateReceipt(val session: SessionView)
@@ -105,6 +108,11 @@ interface AiConversationFacade {
     suspend fun deselect(): ResultOf<Unit> // 先由 UI 保存/flush 草稿，再退出选择。
     suspend fun sessions(questionId: String, includeArchived: Boolean,
         cursor: PageCursor?, limit: Int): ResultOf<AiPage<SessionView>>
+    suspend fun documentSessions(document: QuickNoteSummary, includeArchived: Boolean,
+        cursor: PageCursor?, limit: Int): ResultOf<AiPage<SessionView>> =
+        ResultOf.Rejected(Rejection(RejectCode.INVALID, false, RecoveryAction.NONE))
+    suspend fun createDocumentSession(commandId: String, document: QuickNoteSummary): ResultOf<CreateReceipt> =
+        ResultOf.Rejected(Rejection(RejectCode.INVALID, false, RecoveryAction.NONE))
     suspend fun messages(sessionId: String, cursor: PageCursor?, limit: Int): ResultOf<AiPage<MessageView>>
     suspend fun legacy(filter: HistoryFilter, cursor: PageCursor?, limit: Int): ResultOf<AiPage<LegacyEntryView>>
     suspend fun rename(commandId: String, sessionId: String,

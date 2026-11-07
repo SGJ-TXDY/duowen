@@ -53,12 +53,13 @@ internal object AiConversationCodec {
         val commands = d.commands.associateBy { it.commandId }; val assistants = d.runs.associateBy { it.assistantMessageId }
         d.sessions.forEach { s ->
             fields(AiRowCodec.encode(s)); AiJson.uuid(s.sessionId); AiJson.hash(s.contentHash)
-            require(s.questionSnapshotVersion == 1 && s.createdAt >= 0 && s.updatedAt >= s.createdAt)
+            require(s.questionSnapshotVersion in 1..AiSnapshotCodec.DOCUMENT_VERSION && s.createdAt >= 0 && s.updatedAt >= s.createdAt)
             require(s.sessionRevision >= 0 && s.contextRevision >= 0 && s.draftRevision >= 0)
             require(s.title.codePointCount(0, s.title.length) in 1..80)
             require((s.lastEditorEpoch == null) == (s.lastLocalEditVersion == null))
             s.lastEditorEpoch?.let(AiJson::uuid); s.lastLocalEditVersion?.let { require(it >= 0) }
-            AiSnapshotCodec.readQuestion(s.questionSnapshot, QuestionOwner(s.questionId, s.contentHash))
+            if (s.owner.kind == AiOwnerKind.QUICK_NOTE) AiSnapshotCodec.readDocument(s.questionSnapshot, s.owner)
+            else AiSnapshotCodec.readQuestion(s.questionSnapshot, s.owner)
         }
         require(d.messages.map { it.sessionId to it.seq }.toSet().size == d.messages.size) { "DUPLICATE_SEQ" }
         d.messages.forEach { m ->
@@ -77,14 +78,15 @@ internal object AiConversationCodec {
             require(u.sessionId == s.sessionId && a.sessionId == s.sessionId && u.role == "USER" && a.role == "ASSISTANT" && a.seq > u.seq)
             val status = RunStatus.valueOf(r.status); val source = RunSource.valueOf(r.source)
             require(r.createdAt >= 0 && r.eventSeq >= 0 && r.reservedBytes in 0..RUN_RESERVE)
-            require(r.contextSnapshotVersion == 1 && r.promptVersion == "1")
+            require(r.contextSnapshotVersion == s.questionSnapshotVersion && r.promptVersion == "1")
             require(r.model in AiSnapshotCodec.MODELS_V1); AiRequestType.valueOf(r.requestType)
             AiJson.hash(r.contextDigest); AiJson.hash(r.cacheKey)
             require(DeepSeekClient.hash(r.contextSnapshot) == r.contextDigest)
-            require(r.cacheKey == DeepSeekClient.hash("1\n${s.sessionId}\n${s.contentHash}\n${r.contextDigest}"))
-            AiSnapshotCodec.validateRequest(r.contextSnapshot, QuestionOwner(s.questionId, s.contentHash), r.model, r.requestType)
+            require(r.cacheKey == DeepSeekClient.hash("${s.questionSnapshotVersion}\n${s.sessionId}\n${s.contentHash}\n${r.contextDigest}"))
+            AiSnapshotCodec.validateRequest(r.contextSnapshot, s.owner, r.model, r.requestType)
             val frozenData = JSONObject(r.contextSnapshot).getJSONObject("data")
-            require(AiJson.canonical(frozenData.getJSONObject("question")) == s.questionSnapshot)
+            val sourceField = if (s.owner.kind == AiOwnerKind.QUICK_NOTE) "document" else "question"
+            require(AiJson.canonical(frozenData.getJSONObject(sourceField)) == s.questionSnapshot)
             val input = frozenData.getString("input")
             require(u.text == if (input.isBlank()) AiRequestType.valueOf(r.requestType).label else input)
             var previousSeq = -1L

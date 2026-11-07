@@ -141,8 +141,8 @@ interface AiConversationDao : AiRowReader {
     @Query("SELECT 'ai_sessions' AS tableName,COUNT(*) AS rowCount,COALESCE(SUM(encodedBytes),0) AS encodedBytes FROM ai_sessions UNION ALL SELECT 'ai_messages',COUNT(*),COALESCE(SUM(encodedBytes),0) FROM ai_messages UNION ALL SELECT 'ai_runs',COUNT(*),COALESCE(SUM(encodedBytes),0) FROM ai_runs UNION ALL SELECT 'ai_commands',COUNT(*),COALESCE(SUM(encodedBytes),0) FROM ai_commands UNION ALL SELECT 'ai_response_cache',COUNT(*),COALESCE(SUM(encodedBytes),0) FROM ai_response_cache") suspend fun measures():List<AiTableMeasure>
     @Query("UPDATE ai_sessions SET activeEditorEpoch=:epoch WHERE sessionId=:id") suspend fun grantEditor(id:String,epoch:String):Int
 
-    @Query("SELECT * FROM ai_sessions WHERE questionId=:qid AND (:archived OR contentHash=:hash) AND (:at IS NULL OR updatedAt<:at OR (updatedAt=:at AND sessionId<:tie)) ORDER BY updatedAt DESC,sessionId DESC LIMIT :limit")
-    suspend fun sessionPage(qid:String,hash:String,archived:Boolean,at:Long?,tie:String,limit:Int):List<AiSessionRow>
+    @Query("SELECT * FROM ai_sessions WHERE questionId=:qid AND questionSnapshotVersion=:version AND (:archived OR contentHash=:hash) AND (:at IS NULL OR updatedAt<:at OR (updatedAt=:at AND sessionId<:tie)) ORDER BY updatedAt DESC,sessionId DESC LIMIT :limit")
+    suspend fun sessionPage(qid:String,hash:String,archived:Boolean,at:Long?,tie:String,limit:Int,version:Int=1):List<AiSessionRow>
     @Query("SELECT * FROM ai_messages WHERE sessionId=:sid AND (:seq IS NULL OR seq<:seq) ORDER BY seq DESC LIMIT :limit")
     suspend fun messagePage(sid:String,seq:Long?,limit:Int):List<AiMessageRow>
     @Query("SELECT * FROM ai WHERE questionId=:qid AND (:mode=2 OR (:mode=1 AND contentHash='') OR (:mode=0 AND contentHash=:hash)) AND (:at IS NULL OR created<:at OR (created=:at AND cacheKey<:tie)) ORDER BY created DESC,cacheKey DESC LIMIT :limit")

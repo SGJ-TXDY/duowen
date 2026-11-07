@@ -24,6 +24,7 @@ internal class AiStore(
     private val beforeCommit: () -> Unit = {},
     private val ownedByCoordinator:Boolean=false,
     private val useCache:Boolean=false,
+    private val quickNotes: QuickNotesRepository? = (db as? QuizDatabase)?.quickNotesRepository,
 ) {
     private suspend fun <T> transaction(block:suspend () -> T):T =
         if(db is QuizDatabase && !ownedByCoordinator) { QuizRepository(db).ensureAiStorage(); db.aiLifecycle.foundationWrite { db.withTransaction { block() } } }
@@ -47,8 +48,11 @@ internal class AiStore(
         require(AiMeter.total(dao.measures())==AiConversationCodec.encodedBytes(d)) { "INVALID_BYTE_TOTAL" }
     }
     private suspend fun writable(s: AiSessionRow) {
-        val q = currentQuestion(s.questionId)
-        if (q == null || q.contentHash != s.contentHash) refuse(RejectCode.READ_ONLY)
+        val hash = when (s.owner.kind) {
+            AiOwnerKind.QUESTION -> currentQuestion(s.questionId)?.contentHash
+            AiOwnerKind.QUICK_NOTE -> quickNotes?.aiSummary(s.questionId)?.contentHash
+        }
+        if (hash != s.contentHash) refuse(RejectCode.READ_ONLY)
     }
     private fun session(d: AiDataset, id: String) = d.sessions.singleOrNull { it.sessionId == id } ?: refuse(RejectCode.NOT_FOUND)
     private fun withSession(d: AiDataset, s: AiSessionRow) = d.copy(sessions=d.sessions.map { if (it.sessionId==s.sessionId) s else it })
@@ -104,6 +108,17 @@ internal class AiStore(
         val s=AiSessionRow(id(),q.id,q.contentHash,questionSnapshot=AiSnapshotCodec.question(q),title="新讨论",createdAt=acceptedAt,updatedAt=acceptedAt)
         Change(d.copy(sessions=d.sessions+s),s.sessionId)
     }
+    suspend fun createDocument(commandId: String, owner: QuestionOwner, snapshot: String): AiCommandRow =
+        command(commandId, "CREATE", JSONObject().put("snapshot", snapshot)) { d, acceptedAt ->
+            val document = quickNotes?.aiSummary(owner.questionId) ?: refuse(RejectCode.NOT_FOUND)
+            if (document.contentHash != owner.contentHash) refuse(RejectCode.STALE_OWNER)
+            AiSnapshotCodec.readDocument(snapshot, owner)
+            val s = AiSessionRow(id(), document.id, document.contentHash,
+                questionSnapshotVersion = AiSnapshotCodec.DOCUMENT_VERSION, questionSnapshot = snapshot,
+                title = "新讨论", createdAt = acceptedAt, updatedAt = acceptedAt)
+            Change(d.copy(sessions = d.sessions + s), s.sessionId)
+        }
+
     suspend fun openEditor(sessionId: String): String = transaction {
         session(working(sessionId,"SESSION"),sessionId)
         id().also { check(dao.grantEditor(sessionId,it)==1);editors[sessionId]=it }
@@ -115,6 +130,7 @@ internal class AiStore(
     suspend fun rename(commandId: String, sessionId: String, revision: Long, title: String): AiCommandRow = command(commandId,"RENAME",
         JSONObject().put("sessionId",sessionId).put("revision",revision).put("title",title)) { d, acceptedAt ->
         val s=session(d,sessionId); if (s.sessionRevision!=revision) refuse(RejectCode.STALE_SESSION)
+        if (s.owner.kind == AiOwnerKind.QUICK_NOTE) writable(s)
         require(title.codePointCount(0,title.length) in 1..80)
         Change(withSession(d,s.copy(title=title,sessionRevision=Math.addExact(revision,1),updatedAt=maxOf(s.updatedAt,acceptedAt))),sessionId)
     }
@@ -135,7 +151,15 @@ internal class AiStore(
         .put("contextRevision",c.expectedContextRevision).put("input",c.input).put("choices",org.json.JSONArray(c.choices.sorted()))
         .put("code",c.code).put("requestType",c.requestType.name).put("model",c.model)
         .put("editorEpoch",c.draftToken?.editorEpoch ?: JSONObject.NULL).put("localEditVersion",c.draftToken?.localEditVersion ?: JSONObject.NULL)
-        .put("savedDraftRevision",c.savedDraftRevision ?: JSONObject.NULL)
+        .put("savedDraftRevision",c.savedDraftRevision ?: JSONObject.NULL).withOwnerKind(c.question)
+        .apply {
+            if (c.question.kind == AiOwnerKind.QUICK_NOTE || c.documentSectionId != null)
+                put("documentSectionId", c.documentSectionId ?: JSONObject.NULL)
+        }
+
+    private fun JSONObject.withOwnerKind(owner: QuestionOwner): JSONObject = apply {
+        if (owner.kind != AiOwnerKind.QUESTION) put("ownerKind", owner.kind.name)
+    }
     private fun history(d: AiDataset, sessionId: String): List<JSONObject> {
         val m=d.messages.associateBy { it.messageId }
         return d.runs.filter { it.sessionId==sessionId && it.status=="COMPLETED" && m.getValue(it.assistantMessageId).completion=="COMPLETE" }
@@ -147,14 +171,32 @@ internal class AiStore(
     suspend fun acceptedHistory(sessionId: String): List<JSONObject> = transaction { history(working(sessionId,"HISTORY"),sessionId) }
     suspend fun accept(c: SendCommand): AiCommandRow = command(c.commandId,"SEND",sendArgs(c)) { d, acceptedAt ->
         val s=session(d,c.sessionId); writable(s); busy(d)
-        if (c.question != QuestionOwner(s.questionId,s.contentHash)) refuse(RejectCode.STALE_OWNER)
+        if (c.question != s.owner) refuse(RejectCode.STALE_OWNER)
         if (s.contextRevision!=c.expectedContextRevision) refuse(RejectCode.STALE_CONTEXT)
         require(c.requestType!=AiRequestType.FOLLOW_UP || c.input.isNotBlank())
+        val documentContext = if (s.owner.kind == AiOwnerKind.QUICK_NOTE) {
+            require(c.requestType == AiRequestType.FOLLOW_UP && c.choices.isEmpty() && c.code.isEmpty())
+            require(c.documentSectionId == null || c.documentSectionId.length in 1..2048)
+            try {
+                requireNotNull(quickNotes).aiContext(s.questionId, s.contentHash, c.documentSectionId, c.input)
+            } catch (e: AiStoreFailure) {
+                if (e.code in setOf(RejectCode.NOT_FOUND, RejectCode.STALE_OWNER)) refuse(RejectCode.READ_ONLY)
+                throw e
+            }
+        } else {
+            require(c.documentSectionId == null)
+            null
+        }
         // Drop only whole oldest rounds until the frozen local byte budget is satisfied.
         var rounds=if(c.requestType==AiRequestType.FOLLOW_UP) history(d,s.sessionId) else emptyList()
         var snapshot: String
         while(true) {
-            try { snapshot=AiSnapshotCodec.request(s.questionSnapshot,c.model,c.requestType,c.input,c.choices,c.code,rounds); break }
+            try {
+                snapshot = if (documentContext != null)
+                    AiSnapshotCodec.documentRequest(s.questionSnapshot, c.model, c.input, rounds, documentContext)
+                else AiSnapshotCodec.request(s.questionSnapshot, c.model, c.requestType, c.input, c.choices, c.code, rounds)
+                break
+            }
             catch(e:IllegalArgumentException) { if(e.message!="INPUT_LIMIT" || rounds.isEmpty()) throw e; rounds=rounds.drop(1) }
         }
         val zone = businessZone()
@@ -165,16 +207,17 @@ internal class AiStore(
             draftRevision=if(clear) Math.addExact(s.draftRevision,1) else s.draftRevision)
         val digest=DeepSeekClient.hash(snapshot)
         val run=AiRunRow(id(),c.commandId,s.sessionId,user.messageId,assistant.messageId,c.model,c.requestType.name,epoch,snapshot,digest,
-            DeepSeekClient.hash("1\n${s.sessionId}\n${s.contentHash}\n$digest"),acceptedAt,java.time.Instant.ofEpochMilli(acceptedAt).atZone(zone).toLocalDate().toEpochDay(),zone.id,
+            DeepSeekClient.hash("${s.questionSnapshotVersion}\n${s.sessionId}\n${s.contentHash}\n$digest"),acceptedAt,java.time.Instant.ofEpochMilli(acceptedAt).atZone(zone).toLocalDate().toEpochDay(),zone.id,
+            contextSnapshotVersion = s.questionSnapshotVersion,
             effectiveParameters=AiJson.canonical(JSONObject(snapshot).getJSONObject("parameters")),reservedBytes=AiConversationCodec.RUN_RESERVE)
         cached(d,Change(withSession(d,next).copy(messages=d.messages+user+assistant,runs=d.runs+run),s.sessionId,run.requestId,c.draftToken,clear),run)
     }
     private suspend fun nextSeq(d: AiDataset, sessionId: String) = Math.addExact(dao.maxSeq(sessionId),1L)
     suspend fun retry(commandId: String, owner: RunOwner): AiCommandRow = command(commandId,"RETRY",JSONObject().put("sessionId",owner.sessionId)
-        .put("requestId",owner.requestId).put("questionId",owner.question.questionId).put("contentHash",owner.question.contentHash)) { d, acceptedAt ->
+        .put("requestId",owner.requestId).put("questionId",owner.question.questionId).put("contentHash",owner.question.contentHash).withOwnerKind(owner.question)) { d, acceptedAt ->
         val s=session(d,owner.sessionId); writable(s); busy(d)
         val old=d.runs.singleOrNull { it.requestId==owner.requestId && it.sessionId==owner.sessionId } ?: refuse(RejectCode.STALE_OWNER)
-        if(owner.question!=QuestionOwner(s.questionId,s.contentHash)) refuse(RejectCode.STALE_OWNER)
+        if(owner.question!=s.owner) refuse(RejectCode.STALE_OWNER)
         if(old.status !in setOf("FAILED","CANCELLED")) refuse(RejectCode.ALREADY_TERMINAL)
         val latest=d.messages.filter { it.sessionId==s.sessionId }.maxByOrNull { it.seq }
         if(latest?.messageId!=old.assistantMessageId || dao.completedAttempts(old.userMessageId)>0) refuse(RejectCode.STALE_ATTEMPT)
@@ -214,10 +257,10 @@ internal class AiStore(
         persist(before,consume(before,after,requestId,false));r.eventSeq
     }
     suspend fun cancel(commandId: String, owner: RunOwner): AiCommandRow = command(commandId,"CANCEL",JSONObject().put("sessionId",owner.sessionId)
-        .put("requestId",owner.requestId).put("questionId",owner.question.questionId).put("contentHash",owner.question.contentHash)) { d, acceptedAt ->
+        .put("requestId",owner.requestId).put("questionId",owner.question.questionId).put("contentHash",owner.question.contentHash).withOwnerKind(owner.question)) { d, acceptedAt ->
         val s=session(d,owner.sessionId)
         val r=d.runs.singleOrNull { it.requestId==owner.requestId && it.sessionId==owner.sessionId } ?: refuse(RejectCode.STALE_OWNER)
-        if(owner.question!=QuestionOwner(s.questionId,s.contentHash)) refuse(RejectCode.STALE_OWNER)
+        if(owner.question!=s.owner) refuse(RejectCode.STALE_OWNER)
         if(r.status !in setOf("PREPARING","GENERATING")) refuse(RejectCode.ALREADY_TERMINAL)
         val next=r.copy(status="CANCELLED",finishedAt=maxOf(acceptedAt,r.createdAt),terminalReason="USER_STOP",usageCutoffSeq=r.eventSeq)
         Change(d.copy(runs=d.runs.map { if(it.requestId==r.requestId) next else it }),s.sessionId,r.requestId)
