@@ -5,6 +5,8 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.Mac
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import javax.crypto.spec.SecretKeySpec
 import org.json.JSONObject
 
@@ -32,19 +34,28 @@ internal class AiPageReader(private val dao:AiConversationDao,private val repo:Q
     fun session(row:AiSessionRow,hash:String?)=SessionView(row.sessionId,row.owner,row.title,
         row.sessionRevision,row.contextRevision,DraftView(row.draftText,row.draftRevision,false,token(row)),
         row.contentHash!=hash,row.questionSnapshotVersion,row.questionSnapshot)
-    private data class CurrentSource(val hash: String, val label: String)
+    private data class CurrentSource(val hash: String, val label: String, val type: AiDiscussionType)
 
     private suspend fun currentSource(owner: QuestionOwner): CurrentSource? = when (owner.kind) {
-        AiOwnerKind.QUESTION -> repo.question(owner.questionId)?.let { CurrentSource(it.contentHash, it.stem) }
+        AiOwnerKind.QUESTION -> repo.question(owner.questionId)?.let {
+            CurrentSource(it.contentHash, it.stem, questionType(it.kind.name))
+        }
         AiOwnerKind.QUICK_NOTE -> try {
-            repo.db.quickNotesRepository.aiSummary(owner.questionId)?.let { CurrentSource(it.contentHash, it.title) }
+            repo.db.quickNotesRepository.aiSummary(owner.questionId)?.let {
+                CurrentSource(it.contentHash, it.title, AiDiscussionType.QUICK_NOTE)
+            }
         } catch (e: AiStoreFailure) {
             if (e.code != RejectCode.STORAGE_FAILED) throw e
             null
         }
+        AiOwnerKind.FREE, AiOwnerKind.TEMPORARY -> null
     }
 
-    private suspend fun currentHash(owner: QuestionOwner): String? = currentSource(owner)?.hash
+    private fun questionType(kind: String) =
+        if (kind == Kind.PROGRAMMING.name) AiDiscussionType.PROGRAMMING else AiDiscussionType.QUESTION
+
+    private suspend fun currentHash(owner: QuestionOwner): String? =
+        if (owner.kind == AiOwnerKind.FREE) owner.contentHash else currentSource(owner)?.hash
 
     suspend fun session(row:AiSessionRow)=session(row,currentHash(row.owner))
 
@@ -59,13 +70,7 @@ internal class AiPageReader(private val dao:AiConversationDao,private val repo:Q
             val owner = row.owner
             val key = owner.kind to owner.questionId
             if (key !in sources) sources[key] = currentSource(owner)
-            val current = sources[key]?.takeIf { it.hash == owner.contentHash }
-            val label = current?.label ?: snapshotLabel(row, owner.kind)
-            AiDiscussionListItem(
-                row.sessionId, owner, row.title, row.sessionRevision, row.createdAt,
-                if (owner.kind == AiOwnerKind.QUESTION) boundedAiText(label.trim(), 160) else label,
-                readOnly = current == null,
-            )
+            listItem(row, source(row, sources[key]))
         }
         val next = if (rows.size > limit) page.last().let {
             cursor(query, Boundary(it.createdAt, it.sessionId))
@@ -73,11 +78,100 @@ internal class AiPageReader(private val dao:AiConversationDao,private val repo:Q
         return AiPage(items, next)
     }
 
-    private fun snapshotLabel(row: AiSessionRow, kind: AiOwnerKind): String {
-        val snapshot = JSONObject(row.questionSnapshot)
-        return when (kind) {
-            AiOwnerKind.QUESTION -> snapshot.getJSONObject("question").getString("stem")
-            AiOwnerKind.QUICK_NOTE -> snapshot.getString("title")
+    private fun source(row: AiSessionRow, current: CurrentSource?, forGroup: Boolean = false): AiDiscussionSource {
+        val owner = row.owner
+        val groupId = AiDiscussionGroupId(owner.kind, owner.questionId)
+        if (owner.kind == AiOwnerKind.FREE) {
+            val snapshot = AiFreeSnapshot.read(row.questionSnapshot, owner)
+            return AiDiscussionSource(groupId, AiDiscussionType.FREE, snapshot.topic, AiSourceStatus.INDEPENDENT,
+                null, snapshot.reference?.summary)
+        }
+        val status = when {
+            current == null -> AiSourceStatus.DELETED
+            current.hash == owner.contentHash -> AiSourceStatus.CURRENT
+            else -> AiSourceStatus.UPDATED
+        }
+        val snapshot = if (forGroup && current != null || status == AiSourceStatus.CURRENT) null else JSONObject(row.questionSnapshot)
+        val question = snapshot?.optJSONObject("question")
+        val label = question?.getString("stem") ?: snapshot?.getString("title") ?: requireNotNull(current).label
+        val type = current?.type ?: question?.let { questionType(it.getString("kind")) } ?: AiDiscussionType.QUICK_NOTE
+        return AiDiscussionSource(groupId, type, if (owner.kind == AiOwnerKind.QUESTION) boundedAiText(label.trim(), 160) else label,
+            status, current?.let { owner.copy(contentHash = it.hash) })
+    }
+
+    private fun listItem(row: AiSessionRow, source: AiDiscussionSource) = AiDiscussionListItem(
+        row.sessionId, row.owner, row.title, row.sessionRevision, row.createdAt, source.label,
+        source.status == AiSourceStatus.DELETED || source.status == AiSourceStatus.UPDATED,
+    )
+
+    suspend fun discussionSource(row: AiSessionRow) = source(row, currentSource(row.owner))
+
+    suspend fun discussionGroups(type: AiDiscussionType?, after: PageCursor?, limit: Int, generation: Long): AiPage<AiDiscussionGroup> =
+        filteredPage(filter("workbench-groups", generation, type?.name.orEmpty()), after, limit,
+            { b, size -> dao.workbenchGroups(b?.at, b?.tie.orEmpty(), size) },
+            { Boundary(it.lastActivityAt, it.session.sessionId) }) { row ->
+            val source = source(row.session, currentSource(row.session.owner), forGroup = true)
+            if (type == null || type == source.type)
+                AiDiscussionGroup(source.copy(reference = null), row.sessionCount, row.lastActivityAt)
+            else null
+        }
+
+    suspend fun groupDiscussions(groupId: AiDiscussionGroupId, after: PageCursor?, limit: Int, generation: Long): AiPage<AiDiscussionSummary> {
+        val version = groupId.ownerKind.savedSnapshotVersion
+        require(groupId.sourceId.isNotBlank())
+        return filteredPage(filter("workbench-group", generation, version, groupId.sourceId), after, limit,
+            { b, size -> dao.workbenchPage(version, groupId.sourceId, null, b?.at, b?.tie.orEmpty(), size) },
+            ::activityBoundary) { summary(it) }
+    }
+
+    suspend fun recentDiscussions(type: AiDiscussionType?, after: PageCursor?, limit: Int, generation: Long): AiPage<AiDiscussionSummary> =
+        filteredPage(filter("workbench-recent", generation, type?.name.orEmpty()), after, limit,
+            { b, size -> dao.workbenchPage(null, null, null, b?.at, b?.tie.orEmpty(), size) },
+            ::activityBoundary) { row -> summary(row).takeIf { type == null || type == it.source.type } }
+
+    suspend fun searchDiscussions(input: String, after: PageCursor?, limit: Int, generation: Long): AiPage<AiDiscussionSearchHit> {
+        val query = input.trim()
+        require(query.codePointCount(0, query.length) in 1..120)
+        return filteredPage(filter("workbench-search", generation, query), after, limit,
+            { b, size -> dao.workbenchPage(null, null, query, b?.at, b?.tie.orEmpty(), size) },
+            ::activityBoundary) { row ->
+            val source = discussionSource(row.session)
+            val snippet = when {
+                row.session.title.contains(query, ignoreCase = true) -> row.session.title
+                source.label.contains(query, ignoreCase = true) -> source.label
+                else -> row.messageSnippet
+            }
+            snippet?.let { AiDiscussionSearchHit(AiDiscussionSummary(listItem(row.session, source), source, row.lastMessageAt), it) }
+        }
+    }
+
+    private suspend fun summary(row: AiWorkbenchRow): AiDiscussionSummary {
+        val source = discussionSource(row.session)
+        return AiDiscussionSummary(listItem(row.session, source), source, row.lastMessageAt)
+    }
+
+    private fun activityBoundary(row: AiWorkbenchRow) = Boundary(row.lastMessageAt ?: row.session.createdAt, row.session.sessionId)
+
+    private suspend fun <Row, Item> filteredPage(
+        query: String, after: PageCursor?, limit: Int,
+        fetch: suspend (Boundary?, Int) -> List<Row>, key: (Row) -> Boundary, transform: suspend (Row) -> Item?,
+    ): AiPage<Item> {
+        require(limit in 1..100)
+        var next = boundary(query, after)
+        var lastMatch: Boundary? = null
+        val items = mutableListOf<Item>()
+        val batchSize = maxOf(32, limit + 1)
+        while (true) {
+            val batch = fetch(next, batchSize)
+            for (row in batch) {
+                currentCoroutineContext().ensureActive()
+                val item = transform(row) ?: continue
+                if (items.size == limit) return AiPage(items, cursor(query, requireNotNull(lastMatch)))
+                items += item
+                lastMatch = key(row)
+            }
+            if (batch.size < batchSize) return AiPage(items, null)
+            next = key(batch.last())
         }
     }
     suspend fun sessions(qid:String,archived:Boolean,after:PageCursor?,limit:Int):AiPage<SessionView> =

@@ -109,6 +109,22 @@ data class AiCacheRow(
     val encodedBytes: Long = 0,
 )
 
+data class AiWorkbenchRow(
+    @Embedded val session: AiSessionRow,
+    val lastMessageAt: Long?,
+    val messageSnippet: String?,
+)
+
+data class AiWorkbenchGroupRow(
+    @Embedded val session: AiSessionRow,
+    val sessionCount: Int,
+    val lastActivityAt: Long,
+)
+
+private const val WORKBENCH_LAST_MESSAGE =
+    "(SELECT MAX(COALESCE(CASE WHEN m.text<>'' THEN r.finishedAt END,m.createdAt)) " +
+        "FROM ai_messages m LEFT JOIN ai_runs r ON r.assistantMessageId=m.messageId WHERE m.sessionId=s.sessionId)"
+
 @Dao
 interface AiConversationDao : AiRowReader {
     @Query("SELECT * FROM ai_sessions ORDER BY sessionId") suspend fun allSessions(): List<AiSessionRow>
@@ -149,6 +165,44 @@ interface AiConversationDao : AiRowReader {
         ORDER BY createdAt DESC, sessionId DESC LIMIT :limit
     """)
     suspend fun discussionPage(at: Long?, tie: String, limit: Int): List<AiSessionRow>
+    @Query("""
+        WITH activity AS (
+            SELECT s.*, $WORKBENCH_LAST_MESSAGE AS lastMessageAt
+            FROM ai_sessions s
+            WHERE :version IS NULL OR (s.questionSnapshotVersion=:version AND s.questionId=:sourceId)
+        )
+        SELECT a.*, CASE WHEN :query IS NULL THEN NULL ELSE (
+            SELECT substr(m.text, max(1, instr(lower(m.text),lower(:query))-40), length(:query)+80)
+            FROM ai_messages m
+            WHERE m.sessionId=a.sessionId AND instr(lower(m.text),lower(:query))>0
+            ORDER BY m.seq DESC LIMIT 1
+        ) END AS messageSnippet
+        FROM activity a
+        WHERE :at IS NULL OR COALESCE(a.lastMessageAt,a.createdAt)<:at
+            OR (COALESCE(a.lastMessageAt,a.createdAt)=:at AND a.sessionId<:tie)
+        ORDER BY COALESCE(a.lastMessageAt,a.createdAt) DESC, a.sessionId DESC LIMIT :limit
+    """)
+    suspend fun workbenchPage(version: Int?, sourceId: String?, query: String?, at: Long?, tie: String, limit: Int): List<AiWorkbenchRow>
+
+    @Query("""
+        WITH grouped AS (
+            SELECT questionSnapshotVersion, questionId, COUNT(*) AS sessionCount,
+                MAX(COALESCE($WORKBENCH_LAST_MESSAGE,s.createdAt)) AS lastActivityAt
+            FROM ai_sessions s GROUP BY questionSnapshotVersion, questionId
+        )
+        SELECT s.*, g.sessionCount, g.lastActivityAt FROM grouped g JOIN ai_sessions s ON s.sessionId=(
+            SELECT recent.sessionId FROM ai_sessions recent
+            WHERE recent.questionSnapshotVersion=g.questionSnapshotVersion AND recent.questionId=g.questionId
+            ORDER BY recent.createdAt DESC, recent.sessionId DESC LIMIT 1
+        )
+        WHERE :at IS NULL OR g.lastActivityAt<:at OR (g.lastActivityAt=:at AND s.sessionId<:tie)
+        ORDER BY g.lastActivityAt DESC, s.sessionId DESC LIMIT :limit
+    """)
+    suspend fun workbenchGroups(at: Long?, tie: String, limit: Int): List<AiWorkbenchGroupRow>
+
+    @Query("SELECT * FROM ai_sessions WHERE questionSnapshotVersion=:version AND questionId=:sourceId ORDER BY createdAt DESC, sessionId DESC LIMIT 1")
+    suspend fun latestDiscussionInGroup(version: Int, sourceId: String): AiSessionRow?
+
     @Query("SELECT * FROM ai_messages WHERE sessionId=:sid AND (:seq IS NULL OR seq<:seq) ORDER BY seq DESC LIMIT :limit")
     suspend fun messagePage(sid:String,seq:Long?,limit:Int):List<AiMessageRow>
     @Query("SELECT * FROM ai WHERE questionId=:qid AND (:mode=2 OR (:mode=1 AND contentHash='') OR (:mode=0 AND contentHash=:hash)) AND (:at IS NULL OR created<:at OR (created=:at AND cacheKey<:tie)) ORDER BY created DESC,cacheKey DESC LIMIT :limit")

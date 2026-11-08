@@ -64,6 +64,12 @@ ICONS = [
     ("Import", "download", "导入", False),
     ("Person", "user", "头像占位", False),
     ("Flame", "flame", "连续学习", False),
+    ("Plus", "plus", "AI 讨论 来源分组新建", False),
+    ("SquarePen", "square-pen", "AI 讨论 新建自由对话", False),
+    ("FileText", "file-text", "AI 讨论 题目来源", False),
+    ("MessagesSquare", "messages-square", "AI 讨论 自由对话", False),
+    ("Sparkles", "sparkles", "AI 讨论 临时问 AI", False),
+    ("ArrowUpRight", "arrow-up-right", "AI 讨论 打开来源", False),
 ]
 
 ARGS = {"m": 2, "l": 2, "h": 1, "v": 1, "c": 6, "s": 4, "q": 4, "t": 2, "a": 7, "z": 0}

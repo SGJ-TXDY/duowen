@@ -67,6 +67,7 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
         sessionsById[id] = s
         sourceLabels[id] = sourceLabel
         messagesBySession[id] = mutableListOf()
+        touched(id)
         return s
     }
 
@@ -76,6 +77,7 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
         val list = messagesBySession.getValue(sessionId)
         val m = MessageView("m${++nextId}", sessionId, (list.lastOrNull()?.seq ?: 0) + 1, role, text, TextState.COMPLETE, run)
         list += m
+        touched(sessionId)
         publish()
         return m
     }
@@ -140,7 +142,7 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
             if (!cursor.opaque.startsWith(prefix)) return reject(RejectCode.STALE_CURSOR)
             cursor.opaque.removePrefix(prefix).toIntOrNull() ?: return reject(RejectCode.STALE_CURSOR)
         }
-        val rows = sessionsById.values.toList().asReversed().asSequence()
+        val rows = saved().asReversed().asSequence()
             .map { it to it.sessionId.removePrefix("s").toInt() }
             .filter { (_, createdAt) -> createdAt < before }
             .take(limit + 1)
@@ -326,6 +328,7 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
 
     override suspend fun deleteSession(sessionId: String, owner: QuestionOwner): ResultOf<Unit> {
         deletes += sessionId to owner
+        if (owner.kind == AiOwnerKind.TEMPORARY) return reject(RejectCode.INVALID)
         deleteRejection?.let { return ResultOf.Rejected(it) }
         val s = sessionsById[sessionId] ?: return ResultOf.Ok(Unit) // repeated delete is fine
         if (s.question != owner) return reject(RejectCode.STALE_OWNER)
@@ -340,6 +343,175 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
     }
     override fun shutdown() = Unit
     override suspend fun awaitClosed(): ClosedReport = ClosedReport(null)
+
+
+    // ---- 1.7.4 workbench (PLAN-1.7.4, GPT's contract 3053565) ----
+
+    /** Last activity per session: creation, then every message. Recent and groups order by it. */
+    private val activity = HashMap<String, Int>()
+    private var tick = 0
+
+    /**
+     * Where a discussion comes from. Tests give questions and documents a current version (or none)
+     * here; by default every source is current under its seed label, and free chats are independent.
+     */
+    var sourceOf: (SessionView, String) -> AiDiscussionSource = { s, label -> defaultSource(s, label) }
+
+    fun defaultSource(s: SessionView, label: String) =
+        AiDiscussionSource(
+            AiDiscussionGroupId(s.question.kind, s.question.questionId),
+            when (s.question.kind) {
+                AiOwnerKind.QUESTION -> AiDiscussionType.QUESTION
+                AiOwnerKind.QUICK_NOTE -> AiDiscussionType.QUICK_NOTE
+                AiOwnerKind.FREE -> AiDiscussionType.FREE
+                AiOwnerKind.TEMPORARY -> AiDiscussionType.TEMPORARY
+            },
+            label,
+            when {
+                s.question.kind == AiOwnerKind.FREE -> AiSourceStatus.INDEPENDENT
+                s.readOnly -> AiSourceStatus.UPDATED
+                else -> AiSourceStatus.CURRENT
+            },
+            s.question.takeIf { it.kind != AiOwnerKind.FREE },
+            references[s.sessionId],
+        )
+
+    private val references = HashMap<String, AiDiscussionReference>()
+    val freeStarts = mutableListOf<AiFreeDiscussionCommand>()
+    val temporaryCloses = mutableListOf<String>()
+    var temporaryId: String? = null
+        private set
+
+    private fun touched(id: String) {
+        activity[id] = ++tick
+    }
+
+    private fun saved() = sessionsById.values.filter { it.question.kind != AiOwnerKind.TEMPORARY }
+
+    private fun source(s: SessionView) = sourceOf(s, sourceLabels.getValue(s.sessionId))
+
+    private fun summary(s: SessionView): AiDiscussionSummary {
+        val src = source(s)
+        val item = AiDiscussionListItem(
+            s.sessionId, s.question, s.title, s.sessionRevision, s.sessionId.removePrefix("s").toLong(), src.label,
+            src.status == AiSourceStatus.UPDATED || src.status == AiSourceStatus.DELETED,
+        )
+        return AiDiscussionSummary(item, src, messagesBySession[s.sessionId]?.lastOrNull()?.let { activity.getValue(s.sessionId).toLong() })
+    }
+
+    private fun byActivity() = saved().sortedByDescending { activity[it.sessionId] ?: 0 }
+
+    private fun <T> workbenchPage(tag: String, list: List<T>, cursor: PageCursor?, limit: Int): ResultOf<AiPage<T>> {
+        if (limit !in 1..100) return reject(RejectCode.INVALID)
+        val prefix = "$tag:$discussionGeneration:"
+        val from =
+            if (cursor == null) 0
+            else cursor.opaque.takeIf { it.startsWith(prefix) }?.removePrefix(prefix)?.toIntOrNull()
+                ?: return reject(RejectCode.STALE_CURSOR)
+        val items = list.drop(from).take(limit)
+        val next = if (from + items.size < list.size) PageCursor(prefix + (from + items.size)) else null
+        return ResultOf.Ok(AiPage(items, next))
+    }
+
+    override suspend fun discussionGroups(type: AiDiscussionType?, cursor: PageCursor?, limit: Int): ResultOf<AiPage<AiDiscussionGroup>> {
+        val groups =
+            byActivity().groupBy { source(it).groupId }.map { (_, list) ->
+                val head = source(list.first())
+                // A group names its source as it is now; only a missing source stays marked.
+                val shown = if (head.status == AiSourceStatus.UPDATED) head.copy(status = AiSourceStatus.CURRENT) else head
+                AiDiscussionGroup(shown.copy(reference = null), list.size, activity.getValue(list.first().sessionId).toLong())
+            }.filter { type == null || it.source.type == type }
+        return workbenchPage("groups-$type", groups, cursor, limit)
+    }
+
+    override suspend fun groupDiscussions(groupId: AiDiscussionGroupId, cursor: PageCursor?, limit: Int): ResultOf<AiPage<AiDiscussionSummary>> =
+        workbenchPage("group-$groupId", byActivity().filter { source(it).groupId == groupId }.map(::summary), cursor, limit)
+
+    override suspend fun recentDiscussions(type: AiDiscussionType?, cursor: PageCursor?, limit: Int): ResultOf<AiPage<AiDiscussionSummary>> =
+        workbenchPage("recent-$type", byActivity().map(::summary).filter { type == null || it.source.type == type }, cursor, limit)
+
+    override suspend fun discussionSource(sessionId: String): ResultOf<AiDiscussionSource> {
+        val s = sessionsById[sessionId] ?: return reject(RejectCode.NOT_FOUND)
+        return ResultOf.Ok(source(s))
+    }
+
+    val searches = mutableListOf<String>()
+
+    override suspend fun searchDiscussions(query: String, cursor: PageCursor?, limit: Int): ResultOf<AiPage<AiDiscussionSearchHit>> {
+        val q = query.trim()
+        searches += q
+        if (q.codePointCount(0, q.length) !in 1..120) return reject(RejectCode.INVALID)
+        val hits =
+            byActivity().mapNotNull { s ->
+                val src = source(s)
+                val snippet =
+                    when {
+                        s.title.contains(q, ignoreCase = true) -> s.title
+                        src.label.contains(q, ignoreCase = true) -> src.label
+                        else -> messagesBySession[s.sessionId].orEmpty().firstOrNull { it.text.contains(q, ignoreCase = true) }?.text
+                    }
+                snippet?.let { AiDiscussionSearchHit(summary(s), it) }
+            }
+        return workbenchPage("search-$q", hits, cursor, limit)
+    }
+
+    val groupCreates = mutableListOf<AiDiscussionGroupId>()
+
+    override suspend fun createGroupDiscussion(commandId: String, groupId: AiDiscussionGroupId): ResultOf<CreateReceipt> {
+        groupCreates += groupId
+        if (groupId.ownerKind == AiOwnerKind.FREE || groupId.ownerKind == AiOwnerKind.TEMPORARY) return reject(RejectCode.INVALID)
+        val head = byActivity().firstOrNull { source(it).groupId == groupId } ?: return reject(RejectCode.NOT_FOUND)
+        val src = source(head)
+        val owner = src.currentOwner ?: return reject(RejectCode.NOT_FOUND)
+        discussionGeneration++
+        return ResultOf.Ok(CreateReceipt(seed(owner, "新讨论 ${sessionsById.size + 1}", sourceLabel = src.label)))
+    }
+
+    override suspend fun previewDiscussionReference(groupId: String, sessionId: String): ResultOf<AiDiscussionReference> {
+        val s = sessionsById[sessionId] ?: return reject(RejectCode.NOT_FOUND)
+        if (s.question.kind != AiOwnerKind.FREE || s.question.questionId != groupId) return reject(RejectCode.STALE_OWNER)
+        return ResultOf.Ok(AiDiscussionReference(sessionId, s.title, messagesBySession.getValue(sessionId).size > 8))
+    }
+
+    /** The first send creates the free chat, then runs like any send. */
+    override suspend fun startFreeDiscussion(command: AiFreeDiscussionCommand): ResultOf<AcceptedReceipt> {
+        freeStarts += command
+        if (_state.value.globalBusy != null) return reject(RejectCode.BUSY)
+        if (command.input.isBlank()) return reject(RejectCode.INVALID)
+        val group = command.groupId ?: "00000000-0000-4000-8000-0000000f${(1000 + freeStarts.size).toString().padStart(4, '0')}"
+        val topic = command.groupId?.let { g -> saved().firstOrNull { it.question.questionId == g }?.let { sourceLabels.getValue(it.sessionId) } }
+        val title = command.input.lineSequence().first { it.isNotBlank() }.trim().take(80)
+        val s = seed(QuestionOwner(group, "free-$group", AiOwnerKind.FREE), title, sourceLabel = topic ?: title)
+        command.referenceSessionId?.let { ref -> sessionsById[ref]?.let { references[s.sessionId] = AiDiscussionReference(ref, it.title, false) } }
+        discussionGeneration++
+        return send(SendCommand(command.commandId, s.sessionId, s.question, 0, null, null, command.input, emptySet(), "", AiRequestType.FOLLOW_UP, command.model))
+    }
+
+    /** Holds the next temporary open until completed (taken on use, like [openGate]). */
+    var temporaryGate: CompletableDeferred<Unit>? = null
+
+    override suspend fun openTemporaryDiscussion(): ResultOf<OpenReceipt> {
+        temporaryGate?.let {
+            temporaryGate = null
+            it.await()
+        }
+        val id = temporaryId ?: seed(QuestionOwner("tmp", "tmp", AiOwnerKind.TEMPORARY), "临时对话", sourceLabel = "临时对话").sessionId.also { temporaryId = it }
+        return open(id)
+    }
+
+    override suspend fun closeTemporaryDiscussion(sessionId: String): ResultOf<Unit> {
+        temporaryCloses += sessionId
+        if (temporaryId != sessionId) return ResultOf.Ok(Unit)
+        val busy = _state.value.globalBusy
+        if (busy?.owner?.sessionId == sessionId) _state.value = _state.value.copy(globalBusy = null)
+        sessionsById.remove(sessionId)
+        messagesBySession.remove(sessionId)
+        sourceLabels.remove(sessionId)
+        temporaryId = null
+        if (_state.value.selectedSessionId == sessionId)
+            _state.value = _state.value.copy(selectedSessionId = null, selected = null, firstMessages = AiPage(emptyList(), null), activeEditorEpoch = null)
+        return ResultOf.Ok(Unit)
+    }
 
     companion object {
         fun usage(input: Long?, output: Long?, estimated: String?, state: UsageState = UsageState.KNOWN) =

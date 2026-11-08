@@ -717,6 +717,235 @@ class AiRuntimeTest {
         }
     }
 
+    @Test fun workbenchGroupsAndSearchUseStableIdsAndLiveSourceVersions() = runBlocking {
+        val clock = AtomicLong(now)
+        fixture(configure = { it.copy(now = clock::get) }) {
+            repo.importBank("""{"schemaVersion":1,"questions":[
+                {"id":"same-label","stem":"original","kind":"SHORT","source":"fixture"},
+                {"id":"program","stem":"编程练习","kind":"PROGRAMMING","source":"fixture"}
+            ]}""")
+            val first = opened()
+            val qGroup = AiDiscussionGroupId(AiOwnerKind.QUESTION, q.id)
+            val second = ok(service.createGroupDiscussion(id(), qGroup)).session
+            val sameGroup = AiDiscussionGroupId(AiOwnerKind.QUESTION, "same-label")
+            ok(service.createGroupDiscussion(id(), sameGroup))
+            ok(service.createGroupDiscussion(id(), AiDiscussionGroupId(AiOwnerKind.QUESTION, "program")))
+
+            val docs = db.quickNotesRepository
+            val doc = (docs.importDocument(QuickNotePackage("workbench.md", "workbench.md",
+                "# 速记资料\n\n测试".toByteArray())) as QuickNoteImportResult.Imported).document
+            val noteGroup = AiDiscussionGroupId(AiOwnerKind.QUICK_NOTE, doc.id)
+            val note1 = ok(service.createGroupDiscussion(id(), noteGroup)).session
+            val note2 = ok(service.createGroupDiscussion(id(), noteGroup)).session
+            assertNotEquals(note1.sessionId, note2.sessionId)
+            assertEquals(doc.contentHash, note2.question.contentHash)
+            assertTrue(ok(service.messages(note2.sessionId, null, 10)).items.isEmpty())
+
+            val groups = ok(service.discussionGroups(AiDiscussionType.QUESTION, null, 1))
+            val next = ok(service.discussionGroups(AiDiscussionType.QUESTION, requireNotNull(groups.next), 1))
+            val sameNamed = groups.items + next.items
+            assertEquals(setOf(qGroup, sameGroup), sameNamed.map { it.source.groupId }.toSet())
+            assertEquals(listOf("original", "original"), sameNamed.map { it.source.label })
+            assertEquals(2, sameNamed.single { it.source.groupId == qGroup }.sessionCount)
+            assertNull(next.next)
+            assertEquals(1, ok(service.discussionGroups(AiDiscussionType.PROGRAMMING, null, 10)).items.size)
+            assertEquals(setOf(note1.sessionId, note2.sessionId),
+                ok(service.groupDiscussions(noteGroup, null, 10)).items.map { it.discussion.sessionId }.toSet())
+
+            clock.incrementAndGet()
+            server.enqueue(response("独有旧回复关键词"))
+            ok(service.send(send(first, "独有提问关键词")))
+            request()
+            idle()
+            val recent = ok(service.recentDiscussions(AiDiscussionType.QUESTION, null, 1))
+            assertEquals(first.sessionId, recent.items.single().discussion.sessionId)
+            assertEquals(clock.get(), recent.items.single().lastMessageAt)
+            for (query in listOf("旧回复", "提问")) {
+                val hit = ok(service.searchDiscussions(query, null, 10)).items.single()
+                assertEquals(first.sessionId, hit.summary.discussion.sessionId)
+                assertTrue(hit.snippet.contains(query))
+            }
+            assertEquals(1, ok(service.searchDiscussions("独有", null, 10)).items.size)
+            assertEquals(2, ok(service.searchDiscussions("速记资料", null, 10)).items.size)
+
+            ok(service.rename(id(), second.sessionId, 0, "固件讨论"))
+            rejected(RejectCode.STALE_CURSOR, service.recentDiscussions(AiDiscussionType.QUESTION, recent.next, 1))
+            assertEquals(second.sessionId, ok(service.searchDiscussions("固件", null, 10)).items.single().summary.discussion.sessionId)
+            ok(service.deleteSession(first.sessionId, first.question))
+            assertTrue(ok(service.searchDiscussions("旧回复", null, 10)).items.isEmpty())
+
+            repo.dao.updateQuestions(BankCodec.parseBank(bank.replace("original", "current version")))
+            val old = ok(service.discussionSource(second.sessionId))
+            assertEquals(AiSourceStatus.UPDATED, old.status)
+            assertEquals("original", old.label)
+            val fresh = ok(service.createGroupDiscussion(id(), qGroup)).session
+            assertEquals(old.currentOwner, fresh.question)
+            assertEquals("current version", ok(service.discussionSource(fresh.sessionId)).label)
+            assertFalse(fresh.readOnly)
+            docs.deleteDocument(doc.id)
+            val deleted = ok(service.discussionSource(note1.sessionId))
+            assertEquals(AiSourceStatus.DELETED, deleted.status)
+            assertEquals("速记资料", deleted.label)
+            assertNull(deleted.currentOwner)
+            rejected(RejectCode.NOT_FOUND, service.createGroupDiscussion(id(), noteGroup))
+            val cursor = requireNotNull(ok(service.discussionGroups(null, null, 1)).next)
+            repo.restore(repo.backup())
+            rejected(RejectCode.STALE_CURSOR, service.discussionGroups(null, cursor, 1))
+        }
+    }
+
+    private fun sentData(request: RecordedRequest): JSONObject =
+        JSONObject(JSONObject(request.body.readUtf8()).getJSONArray("messages")
+            .getJSONObject(1).getString("content").substringAfter('\n'))
+
+    @Test fun freeDiscussionSendsOnlyItsHistoryAndFreezesExplicitReference() = runBlocking {
+        fixture {
+            opened()
+            val invalid = AiFreeDiscussionCommand(id(), " ", DeepSeekClient.FLASH)
+            rejected(RejectCode.INVALID, service.startFreeDiscussion(invalid))
+            assertTrue(ok(service.discussionGroups(AiDiscussionType.FREE, null, 10)).items.isEmpty())
+
+            val input = "自由首轮独有输入"
+            val start = AiFreeDiscussionCommand(id(), input, DeepSeekClient.FLASH)
+            val answer = "参考内容".repeat(180)
+            server.enqueue(response(answer))
+            val first = ok(service.startFreeDiscussion(start))
+            val initial = sentData(request())
+            assertEquals(setOf("input", "history"), initial.keys().asSequence().toSet())
+            assertEquals(input, initial.getString("input"))
+            assertEquals(0, initial.getJSONArray("history").length())
+            idle()
+            assertEquals(first, ok(service.startFreeDiscussion(start)))
+            rejected(RejectCode.IDEMPOTENCY_CONFLICT, service.startFreeDiscussion(start.copy(input = "different")))
+            assertEquals(1, server.requestCount)
+
+            val session = ok(service.open(first.owner.sessionId)).session
+            assertEquals(AiOwnerKind.FREE, session.question.kind)
+            server.enqueue(response("本讨论内的第二个回答"))
+            val followUp = send(session, "follow up", AiRequestType.FOLLOW_UP).copy(question = session.question)
+            ok(service.send(followUp))
+            val continued = sentData(request())
+            assertEquals(setOf("input", "history"), continued.keys().asSequence().toSet())
+            assertEquals(input, continued.getJSONArray("history").getJSONObject(0).getString("user"))
+            idle()
+            val source = ok(service.discussionSource(session.sessionId))
+            assertEquals(AiDiscussionType.FREE, source.type)
+            assertEquals(input, source.label)
+            assertNull(source.reference)
+            val groupId = source.groupId.sourceId
+            assertNotEquals(session.sessionId, groupId)
+            val preview = ok(service.previewDiscussionReference(groupId, session.sessionId))
+            assertTrue(preview.partial)
+
+            server.enqueue(response("referenced answer"))
+            val branched = ok(service.startFreeDiscussion(AiFreeDiscussionCommand(
+                id(), "新讨论的输入", DeepSeekClient.FLASH, groupId, session.sessionId)))
+            val referenceData = sentData(request())
+            assertEquals(0, referenceData.getJSONArray("history").length())
+            val reference = referenceData.getJSONObject("reference")
+            assertEquals(preview.title, reference.getString("title"))
+            assertTrue(reference.getBoolean("partial"))
+            assertEquals(input, reference.getJSONArray("turns").getJSONObject(0).getString("user"))
+            assertTrue(AiJson.encodedBytes(reference) <= 8192)
+            assertFalse(reference.toString().contains(session.sessionId))
+            idle()
+
+            server.enqueue(response("blank branch"))
+            val blank = ok(service.startFreeDiscussion(AiFreeDiscussionCommand(id(), "同组空白", DeepSeekClient.FLASH, groupId)))
+            assertFalse(sentData(request()).has("reference"))
+            idle()
+            assertNull(ok(service.discussionSource(blank.owner.sessionId)).reference)
+            assertEquals(3, ok(service.groupDiscussions(source.groupId, null, 10)).items.size)
+            rejected(RejectCode.INVALID, service.startFreeDiscussion(AiFreeDiscussionCommand(
+                id(), "wrong group", DeepSeekClient.FLASH, referenceSessionId = session.sessionId)))
+
+            ok(service.rename(id(), session.sessionId, session.sessionRevision, "来源新名称"))
+            ok(service.deleteSession(session.sessionId, session.question))
+            assertEquals(preview, ok(service.discussionSource(branched.owner.sessionId)).reference)
+            repo.restore(repo.backup())
+            val restored = ok(service.open(branched.owner.sessionId)).session
+            assertEquals(branched.owner.question, restored.question)
+            assertEquals(preview, ok(service.discussionSource(restored.sessionId)).reference)
+            assertEquals("referenced answer", ok(service.messages(restored.sessionId, null, 10)).items.last().text)
+            assertEquals(2, ok(service.groupDiscussions(source.groupId, null, 10)).items.size)
+            server.enqueue(response("answer after restore"))
+            ok(service.send(send(restored, "restore follow-up", AiRequestType.FOLLOW_UP).copy(question = restored.question)))
+            val afterRestore = sentData(request())
+            assertEquals(AiJson.canonical(reference), AiJson.canonical(afterRestore.getJSONObject("reference")))
+            val ownHistory = afterRestore.getJSONArray("history")
+            assertEquals(1, ownHistory.length())
+            assertEquals("新讨论的输入", ownHistory.getJSONObject(0).getString("user"))
+            idle()
+        }
+    }
+
+    @Test fun temporaryDiscussionSharesSenderAndKeepsOnlyFeesOnDisk() = runBlocking {
+        fixture {
+            val saved = opened()
+            val temp = ok(service.openTemporaryDiscussion())
+            val session = temp.session
+            assertEquals(AiOwnerKind.TEMPORARY, session.question.kind)
+            assertEquals(AiDiscussionType.TEMPORARY, ok(service.discussionSource(session.sessionId)).type)
+            val draft = DraftCommand(id(), session.sessionId, 0, DraftToken(temp.editorEpoch, 1), "临时草稿独有")
+            val stored = ok(service.saveDraft(draft))
+            assertEquals(draft.text, service.state.value.selected?.draft?.text)
+            val command = send(session, "临时问题独有", AiRequestType.FOLLOW_UP).copy(
+                question = session.question, draftToken = draft.token, savedDraftRevision = stored.draftRevision)
+            server.enqueue(response("临时回答独有"))
+            val accepted = ok(service.send(command))
+            assertTrue(accepted.draftCleared)
+            val body = sentData(request())
+            assertEquals(setOf("input", "history"), body.keys().asSequence().toSet())
+            assertEquals(0, body.getJSONArray("history").length())
+            idle()
+            assertEquals("临时回答独有", ok(service.messages(session.sessionId, null, 10)).items.last().text)
+            val before = repo.backup()
+            for (text in listOf(draft.text, command.input, "临时回答独有", session.sessionId)) assertFalse(before.contains(text))
+            assertEquals(listOf(saved.sessionId), db.ai().allSessions().map { it.sessionId })
+            assertTrue(db.ai().allMessages().isEmpty())
+            assertTrue(db.ai().allRuns().isEmpty())
+            assertTrue(db.ai().allCaches().isEmpty())
+            assertTrue(ok(service.searchDiscussions("临时", null, 10)).items.isEmpty())
+            val firstCharge = JSONObject(before).getJSONArray(AI_DELETED_COST_SECTION).getJSONObject(0)
+            assertEquals(1L, firstCharge.getLong("networkCalls"))
+            assertEquals(0L, firstCharge.getLong("unknownEstimateCalls"))
+            assertEquals(100L, firstCharge.getLong("knownInput"))
+
+            val latest = requireNotNull(service.state.value.selected)
+            val next = send(latest, "取消时仍计费用", AiRequestType.FOLLOW_UP).copy(question = session.question)
+            server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+            val pending = ok(service.send(next))
+            val second = sentData(request())
+            assertEquals(command.input, second.getJSONArray("history").getJSONObject(0).getString("user"))
+            rejected(RejectCode.BUSY, service.send(send(saved)))
+            assertEquals(RunStatus.CANCELLED, ok(service.cancel(id(), pending.owner)).terminal)
+            idle()
+            server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+            ok(service.retry(RetryCommand(id(), pending.owner)))
+            assertEquals(AiJson.canonical(second), AiJson.canonical(sentData(request())))
+            ok(service.closeTemporaryDiscussion(session.sessionId))
+            assertNull(service.state.value.selected)
+            assertNull(service.state.value.globalBusy)
+            rejected(RejectCode.NOT_FOUND, service.messages(session.sessionId, null, 10))
+            rejected(RejectCode.NOT_FOUND, service.open(session.sessionId))
+
+            val nextTemp = ok(service.openTemporaryDiscussion()).session
+            assertNotEquals(session.sessionId, nextTemp.sessionId)
+            assertTrue(ok(service.messages(nextTemp.sessionId, null, 10)).items.isEmpty())
+            assertTrue(nextTemp.draft.text.isEmpty())
+            ok(service.deselect())
+            val after = repo.backup()
+            val charged = JSONObject(after).getJSONArray(AI_DELETED_COST_SECTION).getJSONObject(0)
+            assertEquals(3L, charged.getLong("networkCalls"))
+            assertEquals(2L, charged.getLong("unknownEstimateCalls"))
+            assertFalse(after.contains(next.input))
+            assertFalse(after.contains(session.sessionId))
+            repo.restore(after)
+            assertEquals(3L, AiDeletedCostLedger.read(db.openHelper.readableDatabase).single().networkCalls)
+            assertEquals(listOf(saved.sessionId), ok(service.allSessions(null, 10)).items.map { it.sessionId })
+        }
+    }
+
     @Test fun redirectDoesNotSendAgain()=runBlocking { fixture {
         server.enqueue(MockResponse().setResponseCode(307).addHeader("Location",server.url("/redirect")))
         val s=opened();val accepted=ok(service.send(send(s)));request();idle()

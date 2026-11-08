@@ -91,7 +91,8 @@ class AiChatScreenTest {
         show()
         openRow("旧标题")
 
-        ui.onNodeWithContentDescription("重命名讨论").performClick()
+        ui.onNodeWithContentDescription("讨论操作").performClick()
+        ui.onNodeWithTag("ai-detail-rename").performClick()
         ui.onNodeWithTag("ai-rename-field").performTextReplacement("  DMA 与 cache 一致性  ")
         ui.onNodeWithText("保存标题").performClick()
         ui.waitForIdle()
@@ -99,7 +100,8 @@ class AiChatScreenTest {
         assertEquals(1, facade.session("s1").sessionRevision)
 
         // 80 code points (emoji count once each) is accepted; 81 is not offered.
-        ui.onNodeWithContentDescription("重命名讨论").performClick()
+        ui.onNodeWithContentDescription("讨论操作").performClick()
+        ui.onNodeWithTag("ai-detail-rename").performClick()
         ui.onNodeWithTag("ai-rename-field").performTextReplacement("😀".repeat(81))
         ui.onNodeWithText("保存标题").assertIsNotEnabled()
         ui.onNodeWithTag("ai-rename-field").performTextReplacement("😀".repeat(80))
@@ -107,7 +109,8 @@ class AiChatScreenTest {
         ui.onNodeWithText("取消").performClick()
 
         facade.renameRejection = Rejection(RejectCode.STALE_SESSION, false, RecoveryAction.REOPEN)
-        ui.onNodeWithContentDescription("重命名讨论").performClick()
+        ui.onNodeWithContentDescription("讨论操作").performClick()
+        ui.onNodeWithTag("ai-detail-rename").performClick()
         ui.onNodeWithTag("ai-rename-field").performTextReplacement("新标题")
         ui.onNodeWithText("保存标题").performClick()
         ui.waitForIdle()
@@ -845,117 +848,6 @@ class AiChatScreenTest {
         ui.onAllNodesWithTag("ai-list-rename").assertCountEquals(0)
     }
 
-    private val doc = QuestionOwner("00000000-0000-4000-8000-000000000001", "d".repeat(64), AiOwnerKind.QUICK_NOTE)
-    private var allController: AiDiscussionsController? = null
-    private var backDispatcher: androidx.activity.OnBackPressedDispatcher? = null
-
-    /** The global list with the same opening path as the app, minus the ViewModel lookups. */
-    private fun showAll() {
-        ui.setContent {
-            MaterialTheme {
-                val scope = androidx.compose.runtime.rememberCoroutineScope()
-                val c = androidx.compose.runtime.remember { AiDiscussionsController({ facade }, scope) }
-                allController = c
-                backDispatcher = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
-                AiDiscussionsContent(c) { item, onLeave ->
-                    val chat =
-                        androidx.compose.runtime.remember(item.sessionId) {
-                            AiChatController({ facade }, aiDiscussionSource(item, { null }, { null }, { "m" }, { "" }), scope)
-                        }
-                    AiDiscussionChat(chat, item, onLeave)
-                }
-            }
-        }
-        ui.waitForIdle()
-    }
-
-    @Test
-    fun theGlobalListMixesBothKindsAndOpensTheExactDiscussionThenReturns() {
-        facade.seed(q, "题目讨论", sourceLabel = "中断上下文能否睡眠？\n第二行")
-        facade.seed(doc, "速记讨论", sourceLabel = "Linux 常用命令")
-        facade.seed(q.copy(contentHash = "h0"), "旧版讨论", readOnly = true, sourceLabel = "旧题干")
-        showAll()
-
-        // Newest first, both kinds, each with its source; old versions are marked read only.
-        ui.onAllNodesWithTag("ai-all-row").assertCountEquals(3)
-        assertEquals(listOf("s3", "s2", "s1"), allController!!.items.map { it.sessionId })
-        ui.onNodeWithText("题目 · 中断上下文能否睡眠？").assertIsDisplayed()
-        ui.onNodeWithText("速记 · Linux 常用命令").assertIsDisplayed()
-        ui.onNode(hasTestTag("ai-all-row") and hasText("旧版讨论")).assert(hasText("题目已更新或删除 · 只读"))
-
-        ui.onNode(hasTestTag("ai-all-row") and hasText("速记讨论")).performClick()
-        ui.waitForIdle()
-        ui.onNodeWithTag("ai-title").assertTextEquals("速记讨论")
-        assertEquals("s2", facade.state.value.selectedSessionId)
-        // Opening sends nothing; a document discussion has no question one-tap requests.
-        assertTrue(facade.sends.isEmpty())
-        ui.onAllNodesWithText(AiRequestType.EXPLANATION.label).assertCountEquals(0)
-
-        // Renamed inside the discussion: back shows the list again, with the new name.
-        ui.onNodeWithContentDescription("重命名讨论").performClick()
-        ui.onNodeWithTag("ai-rename-field").performTextReplacement("命令速查")
-        ui.onNodeWithText("保存标题").performClick()
-        ui.waitForIdle()
-        ui.onNodeWithContentDescription("返回讨论列表").performClick()
-        ui.waitForIdle()
-        assertNull(facade.state.value.selectedSessionId)
-        ui.onAllNodesWithTag("ai-all-row").assertCountEquals(3)
-        ui.onNode(hasTestTag("ai-all-row") and hasText("命令速查")).assertExists()
-
-        // A question discussion opens with the question's one-tap requests; an old one is read only.
-        ui.onNode(hasTestTag("ai-all-row") and hasText("题目讨论")).performClick()
-        ui.waitForIdle()
-        ui.onNodeWithTag("ai-title").assertTextEquals("题目讨论")
-        ui.onNodeWithText(AiRequestType.EXPLANATION.label).assertExists()
-        ui.onNodeWithContentDescription("返回讨论列表").performClick()
-        ui.waitForIdle()
-        ui.onNode(hasTestTag("ai-all-row") and hasText("旧版讨论")).performClick()
-        ui.waitForIdle()
-        ui.onNodeWithTag("ai-read-only").assertExists()
-    }
-
-    @Test
-    fun theGlobalListSaysWhenEmpty() {
-        showAll()
-        ui.onNodeWithTag("ai-all-empty").assertIsDisplayed()
-        ui.onAllNodesWithTag("ai-all-row").assertCountEquals(0)
-    }
-
-    @Test
-    fun theGlobalListPagesRenamesAndKeepsTheEditorWhenSavingFails() {
-        repeat(25) { facade.seed(if (it % 2 == 0) q else doc, "讨论 $it") }
-        showAll()
-        val c = allController!!
-        assertEquals(AI_PAGE_SIZE, c.items.size)
-        assertTrue(c.hasMore)
-        ui.onNodeWithTag("ai-all-sessions").performScrollToNode(hasText("加载更多讨论"))
-        ui.onNodeWithText("加载更多讨论").performClick()
-        ui.waitForIdle()
-        assertEquals(25, c.items.size)
-        assertFalse(c.hasMore)
-
-        ui.onNodeWithTag("ai-all-sessions").performScrollToIndex(0)
-        ui.onNodeWithContentDescription("更多操作：讨论 24").performClick()
-        ui.onNodeWithTag("ai-all-rename").performClick()
-        typeListRename("DMA 与 cache")
-        ui.onNodeWithTag("ai-rename-confirm").performClick()
-        ui.waitForIdle()
-        assertEquals("DMA 与 cache", facade.session("s25").title)
-        ui.onNodeWithTag("ai-all-info").assertTextEquals("已重命名为「DMA 与 cache」。")
-        ui.onAllNodesWithTag("ai-all-row").filter(hasText("DMA 与 cache")).assertCountEquals(1)
-
-        facade.renameRejection = Rejection(RejectCode.CAPACITY_EXCEEDED, false, RecoveryAction.NONE)
-        ui.onNodeWithContentDescription("更多操作：DMA 与 cache").performClick()
-        ui.onNodeWithTag("ai-all-rename").performClick()
-        typeListRename("存不下")
-        ui.onNodeWithTag("ai-rename-confirm").performClick()
-        ui.waitForIdle()
-        ui.onNodeWithTag("ai-all-notice").assertExists()
-        ui.onAllNodesWithTag("ai-all-info").assertCountEquals(0)
-        assertEquals("存不下", listRenameText())
-        assertEquals("DMA 与 cache", facade.session("s25").title)
-    }
-
     // ---- PLAN-1.7.3 Leader acceptance: the two returned items ----
 
     /** Leader probe 1, as written: a stale rename of a second-page discussion keeps its target. */
@@ -1055,30 +947,5 @@ class AiChatScreenTest {
         ui.waitForIdle()
         assertEquals("这里输入的名", facade.session(target.sessionId).title)
         ui.onAllNodesWithTag("ai-list-rename").assertCountEquals(0)
-    }
-
-    @Test
-    fun leavingTheGlobalPageWhileADiscussionOpensLeavesNothingSelected() {
-        facade.seed(q, "慢慢打开")
-        facade.seed(q, "随后打开")
-        showAll()
-        facade.setPhase(ServicePhase.INITIALIZING)
-        ui.onNode(hasTestTag("ai-all-row") and hasText("慢慢打开")).performClick()
-        ui.waitForIdle()
-        ui.onNodeWithTag("ai-opening").assertExists()
-        // Back before the service is ready: the list returns at once.
-        ui.runOnIdle { backDispatcher!!.onBackPressed() }
-        ui.waitForIdle()
-        ui.onAllNodesWithTag("ai-all-row").assertCountEquals(2)
-        facade.setPhase(ServicePhase.READY)
-        ui.waitForIdle()
-        assertNull(facade.state.value.selectedSessionId)
-        assertNull(facade.state.value.activeEditorEpoch)
-
-        // The next discussion opens and stays open.
-        ui.onNode(hasTestTag("ai-all-row") and hasText("随后打开")).performClick()
-        ui.waitForIdle()
-        ui.onNodeWithTag("ai-title").assertTextEquals("随后打开")
-        assertEquals("s2", facade.state.value.selectedSessionId)
     }
 }

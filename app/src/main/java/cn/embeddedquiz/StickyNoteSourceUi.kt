@@ -104,13 +104,18 @@ internal fun NoteSourceRow(source: NoteSourceView, opening: Boolean, onOpen: () 
 
 /** The original question, read only: nothing here answers, grades or schedules a review. */
 @Composable
-internal fun SourceQuestionView(open: NoteSourceOpen.Ready, onBack: () -> Unit) {
+internal fun SourceQuestionView(
+    open: NoteSourceOpen.Ready,
+    backLabel: String = "返回便签",
+    changedText: String = "题目在保存便签后已更新，下面是题库中的当前内容。",
+    onBack: () -> Unit,
+) {
     BackHandler(onBack = onBack)
     val q = open.question
     Column(Modifier.fillMaxSize().testTag("source-question"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
-                Icon(AppIcons.Back, contentDescription = "返回便签")
+                Icon(AppIcons.Back, contentDescription = backLabel)
             }
             Text(
                 "原题（只读）",
@@ -120,7 +125,7 @@ internal fun SourceQuestionView(open: NoteSourceOpen.Ready, onBack: () -> Unit) 
         }
         if (open.changed)
             Text(
-                "题目在保存便签后已更新，下面是题库中的当前内容。",
+                changedText,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("source-question-changed"),

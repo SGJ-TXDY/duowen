@@ -80,14 +80,40 @@ internal object AiDeletedCostLedger {
         grouped(db, "SELECT $AI_DELETED_COST_COLUMNS FROM ai_deleted_costs UNION ALL $runs")
 
     suspend fun archiveSession(db: SupportSQLiteDatabase, sessionId: String) {
-        for (row in grouped(db, "$runs AND sessionId=?", arrayOf(sessionId))) {
-            val prior = grouped(db, "SELECT $AI_DELETED_COST_COLUMNS FROM ai_deleted_costs WHERE billingDay=? AND model=? AND currency=?",
-                arrayOf(row.billingDay.toString(), row.model, row.currency)).singleOrNull()
-            val sum = prior?.combine(row) ?: row
-            val values = arrayOf(sum.billingDay, sum.model, sum.currency, sum.knownEstimated, sum.unknownEstimateCalls,
-                sum.unknownUsageCalls, sum.knownInput, sum.knownOutput, sum.networkCalls, sum.cacheHits)
-            db.execSQL("INSERT OR REPLACE INTO ai_deleted_costs ($AI_DELETED_COST_COLUMNS) VALUES (?,?,?,?,?,?,?,?,?,?)", values)
-        }
+        for (row in grouped(db, "$runs AND sessionId=?", arrayOf(sessionId))) accumulate(db, row)
+    }
+
+    // Book an unknown network charge at dispatch so an abrupt process exit still counts the call.
+    // Settlement replaces that contribution under the same Room transaction, without storing IDs or text.
+    suspend fun recordTemporaryCharge(db: SupportSQLiteDatabase, row: AiRunRow) {
+        check(row.networkDispatched || row.source == "CACHE")
+        accumulate(db, temporaryContribution(row))
+    }
+
+    suspend fun settleTemporaryDispatch(db: SupportSQLiteDatabase, row: AiRunRow) {
+        check(row.networkDispatched)
+        val charge = temporaryContribution(row)
+        accumulate(db, charge.copy(unknownEstimateCalls = charge.unknownEstimateCalls - 1,
+            unknownUsageCalls = charge.unknownUsageCalls - 1, networkCalls = 0))
+    }
+
+    private fun temporaryContribution(row: AiRunRow): AiDeletedCostRow {
+        val cache = row.source == "CACHE"
+        return AiDeletedCostRow(row.billingDay, row.model, row.currency, row.estimatedUsd ?: "0",
+            if (!cache && row.estimatedUsd == null) 1 else 0,
+            if (!cache && row.usageStatus != "KNOWN") 1 else 0,
+            if (cache) 0 else row.inputTokens ?: 0, if (cache) 0 else row.outputTokens ?: 0,
+            if (cache) 0 else 1, if (cache) 1 else 0)
+    }
+
+    private suspend fun accumulate(db: SupportSQLiteDatabase, row: AiDeletedCostRow) {
+        val prior = grouped(db, "SELECT $AI_DELETED_COST_COLUMNS FROM ai_deleted_costs WHERE billingDay=? AND model=? AND currency=?",
+            arrayOf(row.billingDay.toString(), row.model, row.currency)).singleOrNull()
+        val sum = prior?.combine(row) ?: row
+        check(sum.unknownEstimateCalls >= 0 && sum.unknownUsageCalls >= 0)
+        val values = arrayOf(sum.billingDay, sum.model, sum.currency, sum.knownEstimated, sum.unknownEstimateCalls,
+            sum.unknownUsageCalls, sum.knownInput, sum.knownOutput, sum.networkCalls, sum.cacheHits)
+        db.execSQL("INSERT OR REPLACE INTO ai_deleted_costs ($AI_DELETED_COST_COLUMNS) VALUES (?,?,?,?,?,?,?,?,?,?)", values)
     }
 
     fun key(row: JSONObject): String = AiJson.canonical(JSONArray(listOf(

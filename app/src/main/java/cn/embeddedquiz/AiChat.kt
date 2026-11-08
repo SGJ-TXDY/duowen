@@ -466,6 +466,22 @@ internal class AiChatController(
     }
 
     /**
+     * Opens [sessionId] and sends [text] as its first message (the temporary chat, PLAN-1.7.4). The
+     * text goes through the draft like any typed follow-up, so a refused send leaves it in the box.
+     */
+    fun openAndSend(sessionId: String, text: String): Job {
+        val generation = ++openGeneration
+        return scope.launch {
+            awaitStarted()
+            openNow(sessionId, generation)
+            if (current()?.sessionId != sessionId || text.isBlank()) return@launch
+            draft = text
+            localVersion++
+            submit(AiRequestType.FOLLOW_UP, useDraft = true)
+        }
+    }
+
+    /**
      * Deletes one discussion from the list (PLAN-1.7.2). A request still running in it is stopped and
      * its cleanup awaited first; on failure the discussion and its draft stay and the reason shows.
      * Saved sticky notes are separate copies and stay readable.
@@ -478,19 +494,46 @@ internal class AiChatController(
             info = null
             try {
                 awaitStarted()
-                val busy = facade.state.value.globalBusy
-                if (busy != null && busy.owner.sessionId == session.sessionId) {
-                    facade.cancel(newId(), busy.owner)
-                    facade.awaitIdle()
-                }
-                var r = facade.deleteSession(session.sessionId, session.question)
-                if (r is ResultOf.Rejected && r.reason.code == RejectCode.BUSY) {
-                    facade.awaitIdle()
-                    r = facade.deleteSession(session.sessionId, session.question)
-                }
-                when (r) {
+                when (val r = aiDeleteDiscussion(facade, newId, session.sessionId, session.question)) {
                     is ResultOf.Ok -> {
                         info = "已删除讨论「${session.title}」。"
+                        loadSessions(reset = true)
+                    }
+                    is ResultOf.Rejected -> notice = "讨论未删除：" + aiRejectionText(r.reason)
+                }
+            } finally {
+                deleting = null
+            }
+        }
+
+    /**
+     * Deletes the discussion that is open (its ⋯ menu, PLAN-1.7.4), in the same order as from the
+     * list: a running request is stopped and cleaned up first. The draft goes with the discussion, so
+     * nothing is saved before; on success the editor is gone and [onDeleted] runs, on failure the
+     * discussion stays open with its text and the reason shows.
+     */
+    fun deleteOpened(onDeleted: () -> Unit = {}) =
+        scope.launch {
+            val s = current() ?: return@launch
+            if (deleting != null) return@launch
+            deleting = s.sessionId
+            notice = null
+            info = null
+            try {
+                quietJob?.cancel()
+                maxJob?.cancel()
+                when (val r = aiDeleteDiscussion(facade, newId, s.sessionId, s.question)) {
+                    is ResultOf.Ok -> {
+                        // The backend dropped the selection with the discussion; a late open of it is void too.
+                        openGeneration++
+                        opened = null
+                        editorEpoch = null
+                        draft = ""
+                        saveError = null
+                        older = emptyList()
+                        olderLoaded = false
+                        info = "已删除讨论「${s.title}」。"
+                        onDeleted()
                         loadSessions(reset = true)
                     }
                     is ResultOf.Rejected -> notice = "讨论未删除：" + aiRejectionText(r.reason)
@@ -737,6 +780,55 @@ internal suspend fun aiRename(
     return facade.rename(commandId, sessionId, expectedRevision, t)
 }
 
+/**
+ * Deletes one discussion (PLAN-1.7.2), shared by the source lists, the open discussion and the
+ * workbench. A request still running in it is stopped and its cleanup awaited first. Saved sticky
+ * notes are separate copies and stay; costs already incurred stay in the cost statistics.
+ */
+internal suspend fun aiDeleteDiscussion(
+    facade: AiConversationFacade,
+    newId: () -> String,
+    sessionId: String,
+    owner: QuestionOwner,
+): ResultOf<Unit> {
+    val busy = facade.state.value.globalBusy
+    if (busy != null && busy.owner.sessionId == sessionId) {
+        facade.cancel(newId(), busy.owner)
+        facade.awaitIdle()
+    }
+    val r = facade.deleteSession(sessionId, owner)
+    if (r is ResultOf.Rejected && r.reason.code == RejectCode.BUSY) {
+        facade.awaitIdle()
+        return facade.deleteSession(sessionId, owner)
+    }
+    return r
+}
+
+/** Confirms one deletion; [source] names where the discussion came from (the workbench shows it). */
+@Composable
+internal fun AiDeleteDialog(title: String, source: String?, running: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("删除讨论？") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("将删除「$title」的全部消息和草稿，无法恢复。")
+                source?.let {
+                    Text("来源：$it", style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("ai-delete-source"))
+                }
+                Text("已经保存到便签的内容仍可查看；已产生的 AI 费用仍计入费用统计。")
+                if (running) Text("这条讨论正在生成回复，会先停止，收尾完成后再删除。", modifier = Modifier.testTag("ai-delete-running"))
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, modifier = Modifier.testTag("ai-delete-confirm")) {
+                Text(if (running) "停止并删除" else "删除")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
 /** [listed]: renamed from a list, which reloads on a stale revision so the next try can succeed. */
 internal fun aiRenameRejectionText(r: Rejection, listed: Boolean): String =
     when {
@@ -839,6 +931,14 @@ internal fun AiChatScreen(
      * shown, and leaving the discussion (after its draft is saved) calls this instead.
      */
     onLeaveSession: (() -> Unit)? = null,
+    /** Shown under the title of the open discussion in place of the source's own context card. */
+    sourceHeader: (@Composable (SessionView) -> Unit)? = null,
+    /** Names the source in the delete confirmation. */
+    deleteSource: String? = null,
+    /** Runs after the open discussion was deleted from its ⋯ menu; the source list shows otherwise. */
+    onDeleted: (() -> Unit)? = null,
+    /** False for a temporary chat: nothing to rename or delete, it is discarded on leaving. */
+    manageable: Boolean = true,
 ) {
     val state by controller.facade.state.collectAsState()
     val session = controller.current(state)
@@ -863,7 +963,13 @@ internal fun AiChatScreen(
         }
         controller.info?.let { InlineNote(it, Modifier.testTag("ai-info")) }
         when {
-            session != null -> AiSessionPane(controller, state, session, Modifier.weight(1f), onOpenNote, leaveSession)
+            session != null ->
+                AiSessionPane(
+                    controller, state, session, Modifier.weight(1f), onOpenNote, leaveSession, sourceHeader, deleteSource, onDeleted,
+                    // Shown alone under a page bar (更多 › AI 讨论), whose back already leaves the discussion.
+                    showBack = onLeaveSession == null,
+                    manageable = manageable,
+                )
             onLeaveSession != null ->
                 // Still opening, or opening was refused (the notice above says why).
                 if (controller.notice == null) InlineNote("正在打开讨论…", Modifier.testTag("ai-opening"))
@@ -894,29 +1000,10 @@ private fun AiSessionList(
     var renameTarget by remember { mutableStateOf<String?>(null) }
     confirmDelete?.let { target ->
         val running = state.globalBusy?.owner?.sessionId == target.sessionId
-        AlertDialog(
-            onDismissRequest = { confirmDelete = null },
-            title = { Text("删除讨论？") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("将删除「${target.title}」的全部消息和草稿，无法恢复。")
-                    Text("已经保存到便签的内容仍可查看；已产生的 AI 费用仍计入费用统计。")
-                    if (running) Text("这条讨论正在生成回复，会先停止，收尾完成后再删除。", modifier = Modifier.testTag("ai-delete-running"))
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        controller.delete(target)
-                        confirmDelete = null
-                    },
-                    modifier = Modifier.testTag("ai-delete-confirm"),
-                ) {
-                    Text(if (running) "停止并删除" else "删除")
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("取消") } },
-        )
+        AiDeleteDialog(target.title, null, running, onDismiss = { confirmDelete = null }) {
+            controller.delete(target)
+            confirmDelete = null
+        }
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1119,13 +1206,33 @@ private fun AiSessionPane(
     modifier: Modifier,
     onOpenNote: ((StickyNote) -> Unit)?,
     onBack: () -> Unit,
+    sourceHeader: (@Composable (SessionView) -> Unit)?,
+    deleteSource: String?,
+    onDeleted: (() -> Unit)?,
+    showBack: Boolean = true,
+    manageable: Boolean = true,
 ) {
     var renaming by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val deleting = controller.deleting == session.sessionId
+    if (confirmDelete)
+        AiDeleteDialog(
+            session.title,
+            deleteSource,
+            state.globalBusy?.owner?.sessionId == session.sessionId,
+            onDismiss = { confirmDelete = false },
+        ) {
+            confirmDelete = false
+            controller.deleteOpened { onDeleted?.invoke() }
+        }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
-                Icon(AppIcons.Back, contentDescription = "返回讨论列表")
-            }
+            if (showBack)
+                IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
+                    Icon(AppIcons.Back, contentDescription = "返回讨论列表")
+                }
+            else Spacer(Modifier.width(4.dp))
             Text(
                 session.title,
                 style = MaterialTheme.typography.titleMedium,
@@ -1133,11 +1240,38 @@ private fun AiSessionPane(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).semantics { heading() }.testTag("ai-title"),
             )
-            if (!renaming)
-                IconButton(onClick = { renaming = true }, modifier = Modifier.size(48.dp)) {
-                    Icon(AppIcons.Pencil, contentDescription = "重命名讨论")
+            if (manageable) Box {
+                IconButton(
+                    onClick = { menu = true },
+                    enabled = !deleting,
+                    modifier = Modifier.size(48.dp).testTag("ai-detail-menu"),
+                ) {
+                    Icon(AppIcons.MoreVert, contentDescription = "讨论操作")
                 }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("重命名") },
+                        leadingIcon = { Icon(AppIcons.Pencil, contentDescription = null) },
+                        onClick = {
+                            menu = false
+                            renaming = true
+                        },
+                        modifier = Modifier.testTag("ai-detail-rename"),
+                    )
+                    DropdownMenuItem(
+                        text = { Text("删除讨论", color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(AppIcons.Trash, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                        onClick = {
+                            menu = false
+                            confirmDelete = true
+                        },
+                        modifier = Modifier.testTag("ai-detail-delete"),
+                    )
+                }
+            }
         }
+        if (deleting) InlineNote("正在删除…", Modifier.testTag("ai-detail-deleting"))
+        sourceHeader?.invoke(session)
         if (renaming)
             AiRenameEditor(session.title, onDismiss = { renaming = false }) {
                 controller.rename(it)
@@ -1148,7 +1282,7 @@ private fun AiSessionPane(
         val busy = state.globalBusy
         if (busy != null) AiBusyRow(busy, session, controller)
         val canSend = aiCanSend(state, session, controller)
-        controller.source.context?.let { AiSourceContextCard(it) }
+        if (sourceHeader == null) controller.source.context?.let { AiSourceContextCard(it) }
         AiMessageList(controller, state, session, Modifier.weight(1f), canSend, onOpenNote)
         AiQuickRow(controller, canSend)
         AiDraftBox(controller, session, canSend)

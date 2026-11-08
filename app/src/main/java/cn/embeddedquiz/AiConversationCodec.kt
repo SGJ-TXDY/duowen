@@ -53,13 +53,17 @@ internal object AiConversationCodec {
         val commands = d.commands.associateBy { it.commandId }; val assistants = d.runs.associateBy { it.assistantMessageId }
         d.sessions.forEach { s ->
             fields(AiRowCodec.encode(s)); AiJson.uuid(s.sessionId); AiJson.hash(s.contentHash)
-            require(s.questionSnapshotVersion in 1..AiSnapshotCodec.DOCUMENT_VERSION && s.createdAt >= 0 && s.updatedAt >= s.createdAt)
+            require(s.questionSnapshotVersion == s.owner.kind.savedSnapshotVersion && s.createdAt >= 0 && s.updatedAt >= s.createdAt)
             require(s.sessionRevision >= 0 && s.contextRevision >= 0 && s.draftRevision >= 0)
             require(s.title.codePointCount(0, s.title.length) in 1..80)
             require((s.lastEditorEpoch == null) == (s.lastLocalEditVersion == null))
             s.lastEditorEpoch?.let(AiJson::uuid); s.lastLocalEditVersion?.let { require(it >= 0) }
-            if (s.owner.kind == AiOwnerKind.QUICK_NOTE) AiSnapshotCodec.readDocument(s.questionSnapshot, s.owner)
-            else AiSnapshotCodec.readQuestion(s.questionSnapshot, s.owner)
+            when (s.owner.kind) {
+                AiOwnerKind.QUESTION -> AiSnapshotCodec.readQuestion(s.questionSnapshot, s.owner)
+                AiOwnerKind.QUICK_NOTE -> AiSnapshotCodec.readDocument(s.questionSnapshot, s.owner)
+                AiOwnerKind.FREE -> AiFreeSnapshot.read(s.questionSnapshot, s.owner)
+                AiOwnerKind.TEMPORARY -> error("Temporary sessions are not persisted")
+            }
         }
         require(d.messages.map { it.sessionId to it.seq }.toSet().size == d.messages.size) { "DUPLICATE_SEQ" }
         d.messages.forEach { m ->
@@ -88,8 +92,15 @@ internal object AiConversationCodec {
             require(r.cacheKey == DeepSeekClient.hash("${s.questionSnapshotVersion}\n${s.sessionId}\n${s.contentHash}\n${r.contextDigest}"))
             AiSnapshotCodec.validateRequest(r.contextSnapshot, s.owner, r.model, r.requestType)
             val frozenData = JSONObject(r.contextSnapshot).getJSONObject("data")
-            val sourceField = if (s.owner.kind == AiOwnerKind.QUICK_NOTE) "document" else "question"
-            require(AiJson.canonical(frozenData.getJSONObject(sourceField)) == s.questionSnapshot)
+            if (s.owner.kind == AiOwnerKind.FREE) {
+                val reference = AiFreeSnapshot.read(s.questionSnapshot, s.owner).reference
+                val frozenReference = frozenData.optJSONObject("reference")
+                require(if (reference == null) !frozenData.has("reference") else
+                    frozenReference != null && AiJson.canonical(frozenReference) == AiJson.canonical(reference.payload()))
+            } else {
+                val sourceField = if (s.owner.kind == AiOwnerKind.QUICK_NOTE) "document" else "question"
+                require(AiJson.canonical(frozenData.getJSONObject(sourceField)) == s.questionSnapshot)
+            }
             val input = frozenData.getString("input")
             require(u.text == if (input.isBlank()) AiRequestType.valueOf(r.requestType).label else input)
             var previousSeq = -1L

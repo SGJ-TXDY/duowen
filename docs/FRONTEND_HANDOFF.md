@@ -1,5 +1,45 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-09 · 1.7.4 Leader 退回两项的补修（Claude）
+
+详见 `docs/PLAN-1.7.4.md` 末尾“Claude 补修退回两项”。只改了 `AiWorkbench.kt` 和测试。
+
+- **临时对话**：
+  - 新增 `AiWorkbenchController.leavePage()`，由工作台页面的 `DisposableEffect` 在页面卸载时调用。
+  - 用 `temporaryGeneration` 作废还在途中的打开。打开结果迟到时，直接 `closeTemporaryDiscussion`。
+  - 打开和关闭共用 `temporaryLock`，按顺序执行。
+- **引用选择器**：`AiReferenceChoice.next` 记下一页游标，新增 `moreReferences()`，界面上加了「加载更早的对话」按钮。
+- **测试**：`AiWorkbenchTest` 新增 3 项，共 19 项。Leader 探针原样运行通过。
+
+## 2026-11-09 · 1.7.4 AI 讨论工作台：界面与接线（Claude，PLAN-1.7.4）
+
+详见 `docs/PLAN-1.7.4.md` 末尾“Claude 界面交付与接线”。分支 `feat/1.7.4-ai-workbench-ui` 基于 `f2116b4`，尚未提交。分支里包含 GPT 后端 `85de4b5` 的全部文件，内容逐字未改；`AiDiscussions.kt` 两边都改过，已手工合并。
+
+- **新文件 `AiWorkbench.kt`**：`AiWorkbenchController`、工作台、来源卡、自由对话页、引用选择框和临时对话页，都直接调用 GPT 的 facade 方法。入口仍是 `AiDiscussionsScreen(vm)`。
+- **`AiChat.kt`**：
+  - 抽出共用的 `aiDeleteDiscussion` 和 `AiDeleteDialog`。
+  - 新增 `deleteOpened`，用于删除当前打开的讨论；新增 `openAndSend`，用于临时对话的首条消息。
+  - 详情页标题栏改为 ⋯ 菜单，原来的铅笔按钮并入菜单。
+  - `AiChatScreen` 新增参数 `sourceHeader`、`deleteSource`、`onDeleted`、`manageable`。
+- **`AiDiscussions.kt`**：只保留适配器选择和单条讨论视图。1.7.3 的平铺列表已由工作台取代。
+- **其他改动**：
+  - `QuickNotesStateHolder.openFrom`：从其他页面打开速记文档，关闭阅读器后回到原页面。
+  - `SourceQuestionView`：两处文案改为由参数传入。
+  - `QuizViewModel.aiWorkbench`：保存工作台的状态。
+- **图标**：新增 6 个 Lucide 图标，由 `tools/lucide_icons.py` 重新生成，原有图标不变。
+- **测试**：
+  - `FakeAiConversationFacade` 补上 GPT 新增的工作台调用，可以注入 `sourceOf`。
+  - 新增 `AiWorkbenchTest`，共 16 项，覆盖：
+    - 筛选、分组、分组新建；
+    - 删除（含运行中的讨论和删除失败）；
+    - 来源卡的三种状态；
+    - 搜索，包括只出现在旧回复里的词；
+    - 第二页改名冲突、打开中途返回；
+    - 自由对话首发和首发失败、引用选择、临时对话。
+  - `QuickNoteAiWiringUiTest` 的真实后端用例改为走工作台全程，另新增一项真实后端的自由对话和临时对话用例。
+  - `AiChatScreenTest` 删去 1.7.3 平铺列表的 4 项测试，这些场景已迁到新测试；改名入口改为从 ⋯ 菜单进入。
+- **结果**：全量 457/457 通过；Lint 0 个错误，17 个警告（与 1.7.3 相同）；`assembleDebug` 通过。尚未在真机上验证。
+
 ## 2026-11-08 · 1.7.3 Leader 退回两项的修复（Claude）
 
 详见 `docs/PLAN-1.7.3.md` 末尾“Claude 修复退回两项”。只改了 `AiChat.kt`、`AiDiscussions.kt` 和测试，另外给 `FakeAiConversationFacade` 加了测试用的 `openGate`。

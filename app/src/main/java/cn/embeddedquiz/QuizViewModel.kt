@@ -20,6 +20,14 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     val db = QuizDatabase.open(app)
     val repo = QuizRepository(db)
     val aiConversations: AiConversationFacade get() = repo.aiConversations
+
+    /**
+     * 更多 › AI 讨论 (PLAN-1.7.4). Kept here, not in the page, so its filter, open groups, search and
+     * open discussion survive a trip to a source document and back.
+     */
+    internal val aiWorkbench: AiWorkbenchController by lazy {
+        AiWorkbenchController({ aiConversations }, viewModelScope, model = { model })
+    }
     val aiCosts: AiCostsRepository get() = repo.aiCosts
     val aiCostsState: StateFlow<AiCostsUiState> get() = repo.aiCostsState
     private val storageLifecycle = db.aiLifecycle.also { it.health(false) }

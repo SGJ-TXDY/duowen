@@ -51,6 +51,8 @@ internal class AiStore(
         val hash = when (s.owner.kind) {
             AiOwnerKind.QUESTION -> currentQuestion(s.questionId)?.contentHash
             AiOwnerKind.QUICK_NOTE -> quickNotes?.aiSummary(s.questionId)?.contentHash
+            AiOwnerKind.FREE -> s.contentHash
+            AiOwnerKind.TEMPORARY -> refuse(RejectCode.INVALID)
         }
         if (hash != s.contentHash) refuse(RejectCode.READ_ONLY)
     }
@@ -78,7 +80,7 @@ internal class AiStore(
     }
     private data class Change(val data: AiDataset, val sessionId: String, val requestId: String?=null,
         val token: DraftToken?=null, val draftCleared: Boolean=false,val baseline:AiDataset?=null)
-    private suspend fun command(commandId: String, kind: String, args: JSONObject,
+    private suspend fun command(commandId: String, kind: String, args: JSONObject, newSession: Boolean = false,
         action: suspend (AiDataset, Long) -> Change): AiCommandRow = transaction {
         AiJson.uuid(commandId)
         val digest = DeepSeekClient.hash(AiJson.canonical(args.put("kind",kind)))
@@ -87,7 +89,7 @@ internal class AiStore(
             return@transaction it.copy(encodedBytes=0)
         }
         val sid=args.optString("sessionId").takeIf { it.isNotBlank() }
-        val before=if(sid==null) AiDataset() else working(sid,kind,args.optString("requestId").takeIf { it.isNotBlank() })
+        val before=if(sid==null || newSession) AiDataset() else working(sid,kind,args.optString("requestId").takeIf { it.isNotBlank() })
         val acceptedAt = now()
         val change = action(before, acceptedAt); val basis=change.baseline ?: before; val s = session(change.data,change.sessionId)
         val r = change.requestId?.let { rid -> change.data.runs.single { it.requestId==rid } }
@@ -178,7 +180,7 @@ internal class AiStore(
     suspend fun flushDraft(sessionId: String, throughRevision: Long): Long = transaction {
         val s=session(working(sessionId,"SESSION"),sessionId); require(throughRevision in 0..s.draftRevision); s.draftRevision
     }
-    private fun sendArgs(c: SendCommand) = JSONObject().put("sessionId",c.sessionId).put("questionId",c.question.questionId).put("contentHash",c.question.contentHash)
+    private fun sendArgs(c: SendCommand, start: AiFreeDiscussionCommand?) = JSONObject().put("sessionId",c.sessionId).put("questionId",c.question.questionId).put("contentHash",c.question.contentHash)
         .put("contextRevision",c.expectedContextRevision).put("input",c.input).put("choices",org.json.JSONArray(c.choices.sorted()))
         .put("code",c.code).put("requestType",c.requestType.name).put("model",c.model)
         .put("editorEpoch",c.draftToken?.editorEpoch ?: JSONObject.NULL).put("localEditVersion",c.draftToken?.localEditVersion ?: JSONObject.NULL)
@@ -186,6 +188,9 @@ internal class AiStore(
         .apply {
             if (c.question.kind == AiOwnerKind.QUICK_NOTE || c.documentSectionId != null)
                 put("documentSectionId", c.documentSectionId ?: JSONObject.NULL)
+            if (start != null) put("newFreeDiscussion", true)
+                .put("freeGroupId", start.groupId ?: JSONObject.NULL)
+                .put("referenceSessionId", start.referenceSessionId ?: JSONObject.NULL)
         }
 
     private fun JSONObject.withOwnerKind(owner: QuestionOwner): JSONObject = apply {
@@ -200,9 +205,36 @@ internal class AiStore(
             }
     }
     suspend fun acceptedHistory(sessionId: String): List<JSONObject> = transaction { history(working(sessionId,"HISTORY"),sessionId) }
-    suspend fun accept(c: SendCommand): AiCommandRow = command(c.commandId,"SEND",sendArgs(c)) { d, acceptedAt ->
+    suspend fun startFreeDiscussion(start: AiFreeDiscussionCommand): AiCommandRow {
+        val pendingOwner = QuestionOwner(start.groupId ?: start.commandId, "", AiOwnerKind.FREE)
+        val send = SendCommand(start.commandId, start.commandId, pendingOwner, 0, null, null, start.input,
+            emptySet(), "", AiRequestType.FOLLOW_UP, start.model)
+        return accept(send, start)
+    }
+
+    private suspend fun newFreeSession(start: AiFreeDiscussionCommand, acceptedAt: Long): AiSessionRow {
+        if (dao.session(start.commandId) != null) refuse(RejectCode.IDEMPOTENCY_CONFLICT)
+        require(start.input.isNotBlank() && AiJson.utf8(start.input) <= AiSnapshotCodec.INPUT_BYTES)
+        val groupId = start.groupId ?: id()
+        AiJson.uuid(groupId)
+        val existing = start.groupId?.let {
+            dao.latestDiscussionInGroup(AiSnapshotCodec.FREE_VERSION, it) ?: refuse(RejectCode.NOT_FOUND)
+        }
+        require(start.referenceSessionId == null || existing != null)
+        val reference = start.referenceSessionId?.let { dao.freezeDiscussionReference(groupId, it) }
+        val title = boundedAiText(start.input.lineSequence().first { it.isNotBlank() }.trim(), 80)
+        val topic = existing?.let { AiFreeSnapshot.read(it.questionSnapshot, it.owner).topic } ?: title
+        val snapshot = AiFreeSnapshot(groupId, topic, reference).encode()
+        return AiSessionRow(start.commandId, groupId, DeepSeekClient.hash(snapshot), AiSnapshotCodec.FREE_VERSION,
+            snapshot, title, acceptedAt, acceptedAt)
+    }
+
+    suspend fun accept(c: SendCommand, start: AiFreeDiscussionCommand? = null): AiCommandRow = command(
+        c.commandId, "SEND", sendArgs(c, start), newSession = start != null,
+    ) { before, acceptedAt ->
+        val d = if (start == null) before else before.copy(sessions = listOf(newFreeSession(start, acceptedAt)))
         val s=session(d,c.sessionId); writable(s); busy(d)
-        if (c.question != s.owner) refuse(RejectCode.STALE_OWNER)
+        if (start == null && c.question != s.owner) refuse(RejectCode.STALE_OWNER)
         if (s.contextRevision!=c.expectedContextRevision) refuse(RejectCode.STALE_CONTEXT)
         require(c.requestType!=AiRequestType.FOLLOW_UP || c.input.isNotBlank())
         var rounds=if(c.requestType==AiRequestType.FOLLOW_UP) history(d,s.sessionId) else emptyList()
@@ -224,13 +256,19 @@ internal class AiStore(
             require(c.documentSectionId == null)
             null
         }
+        val free = if (s.owner.kind == AiOwnerKind.FREE) {
+            require(c.requestType == AiRequestType.FOLLOW_UP && c.choices.isEmpty() && c.code.isEmpty())
+            AiFreeSnapshot.read(s.questionSnapshot, s.owner)
+        } else null
         // Drop only whole oldest rounds until the frozen local byte budget is satisfied.
         var snapshot: String
         while(true) {
             try {
-                snapshot = if (documentContext != null)
-                    AiSnapshotCodec.documentRequest(s.questionSnapshot, c.model, c.input, rounds, documentContext)
-                else AiSnapshotCodec.request(s.questionSnapshot, c.model, c.requestType, c.input, c.choices, c.code, rounds)
+                snapshot = when {
+                    documentContext != null -> AiSnapshotCodec.documentRequest(s.questionSnapshot, c.model, c.input, rounds, documentContext)
+                    free != null -> AiSnapshotCodec.freeRequest(free.reference, c.model, c.input, rounds)
+                    else -> AiSnapshotCodec.request(s.questionSnapshot, c.model, c.requestType, c.input, c.choices, c.code, rounds)
+                }
                 break
             }
             catch(e:IllegalArgumentException) { if(e.message!="INPUT_LIMIT" || rounds.isEmpty()) throw e; rounds=rounds.drop(1) }
@@ -244,9 +282,9 @@ internal class AiStore(
         val digest=DeepSeekClient.hash(snapshot)
         val run=AiRunRow(id(),c.commandId,s.sessionId,user.messageId,assistant.messageId,c.model,c.requestType.name,epoch,snapshot,digest,
             DeepSeekClient.hash("${s.questionSnapshotVersion}\n${s.sessionId}\n${s.contentHash}\n$digest"),acceptedAt,java.time.Instant.ofEpochMilli(acceptedAt).atZone(zone).toLocalDate().toEpochDay(),zone.id,
-            contextSnapshotVersion = if (documentContext == null) AiSnapshotCodec.VERSION else AiSnapshotCodec.DOCUMENT_REQUEST_VERSION,
+            contextSnapshotVersion = if (documentContext == null) s.questionSnapshotVersion else AiSnapshotCodec.DOCUMENT_REQUEST_VERSION,
             effectiveParameters=AiJson.canonical(JSONObject(snapshot).getJSONObject("parameters")),reservedBytes=AiConversationCodec.RUN_RESERVE)
-        cached(d,Change(withSession(d,next).copy(messages=d.messages+user+assistant,runs=d.runs+run),s.sessionId,run.requestId,c.draftToken,clear),run)
+        cached(before,Change(withSession(d,next).copy(messages=d.messages+user+assistant,runs=d.runs+run),s.sessionId,run.requestId,c.draftToken,clear),run)
     }
     private suspend fun nextSeq(d: AiDataset, sessionId: String) = Math.addExact(dao.maxSeq(sessionId),1L)
     suspend fun retry(commandId: String, owner: RunOwner): AiCommandRow = command(commandId,"RETRY",JSONObject().put("sessionId",owner.sessionId)

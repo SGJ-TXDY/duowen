@@ -95,6 +95,18 @@ class QuickNoteAiWiringUiTest {
         }
     }
 
+    /**
+     * Calls the backend from another thread while the main looper keeps running. Blocking the main
+     * thread here can deadlock with a UI action (delete, leave) that holds the backend and has to
+     * resume on the main thread.
+     */
+    private fun <T> backend(block: suspend () -> T): T {
+        val result = java.util.concurrent.atomic.AtomicReference<Result<T>?>(null)
+        Thread { result.set(runCatching { runBlocking { block() } }) }.start()
+        await { result.get() != null }
+        return result.get()!!.getOrThrow()
+    }
+
     private fun exists(matcher: SemanticsMatcher) = ui.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
 
     private fun back() {
@@ -176,63 +188,141 @@ class QuickNoteAiWiringUiTest {
         assertTrue(vm.progress.isEmpty())
     }
 
-    /** PLAN-1.7.3 on the real backend: 更多 › AI 讨论 lists both kinds, renames, and opens the exact discussion. */
+    /**
+     * PLAN-1.7.4 on the real backend: 更多 › AI 讨论 groups both kinds by source, renames in place,
+     * opens the exact discussion under its source, goes to the original and back, and deletes.
+     */
     @Test
-    fun aiDiscussionsListsBothKindsRenamesAndOpensTheExactDiscussion() {
+    fun theAiWorkbenchGroupsOpensGoesToTheSourceAndDeletesOnTheRealBackend() {
         ui.runOnIdle { vm.quickNotes.importPackage(linux) }
         await { !vm.quickNotes.state.working && vm.quickNotes.state.documents.isNotEmpty() }
         val doc = vm.quickNotes.state.documents.single()
         val q = vm.questions.single { it.id == "sw-q" }
         val facade = vm.aiConversations
         await { facade.state.value.phase == ServicePhase.READY }
-        val asked = runBlocking { facade.createSession(java.util.UUID.randomUUID().toString(), QuestionOwner(q.id, q.contentHash)) }
+        val asked = backend { facade.createSession(java.util.UUID.randomUUID().toString(), QuestionOwner(q.id, q.contentHash)) }
         val questionSession = (asked as ResultOf.Ok).value.session
-        val read = runBlocking { facade.createDocumentSession(java.util.UUID.randomUUID().toString(), doc) }
+        val read = backend { facade.createDocumentSession(java.util.UUID.randomUUID().toString(), doc) }
         val docSession = (read as ResultOf.Ok).value.session
 
         ui.onNodeWithContentDescription("导航到更多").performClick()
         await { vm.page == Page.MORE }
         ui.onNodeWithTag("more-list").performScrollToNode(hasText("AI 费用估算"))
-        // The new row sits right above the cost estimate.
+        // The entry sits right above the cost estimate.
         assertTrue(ui.onNodeWithText("AI 讨论").fetchSemanticsNode().boundsInRoot.bottom <=
             ui.onNode(hasText("AI 费用估算") and hasClickAction()).fetchSemanticsNode().boundsInRoot.top + 0.5f)
         ui.onNodeWithText("AI 讨论").performClick()
-        await { vm.page == Page.AI_DISCUSSIONS && ui.onAllNodesWithTag("ai-all-row").fetchSemanticsNodes().size == 2 }
+        await { vm.page == Page.AI_DISCUSSIONS && ui.onAllNodesWithTag("ai-group").fetchSemanticsNodes().size == 2 }
         ui.onNodeWithTag("sub-page-bar").assertExists()
         assertFalse(exists(hasContentDescription("导航到首页")))
-        ui.onNodeWithText("题目 · 中断上下文能否睡眠？").assertExists()
-        ui.onNodeWithText("速记 · " + doc.title).assertExists()
+        ui.onAllNodesWithTag("ai-recent-card").assertCountEquals(2)
+        val questionGroup = hasTestTag("ai-group-head") and hasText("中断上下文能否睡眠？")
+        val docGroup = hasTestTag("ai-group-head") and hasText(doc.title)
+        ui.onNode(questionGroup).assert(hasText("题目 · 1 条讨论"))
+        ui.onNode(docGroup).assert(hasText("速记 · 1 条讨论"))
 
-        // Rename the question's discussion from the global list; the original entry sees the same name.
-        ui.onNode(hasTestTag("ai-all-menu") and hasAnyAncestor(hasText("题目 · 中断上下文能否睡眠？"))).performClick()
-        ui.onNodeWithTag("ai-all-rename").performClick()
+        // Rename inside the group; the original entry sees the same name.
+        ui.onNode(questionGroup).performClick()
+        await { exists(hasTestTag("ai-child")) }
+        ui.onNodeWithContentDescription("更多操作：" + questionSession.title).performClick()
+        ui.onNodeWithTag("ai-child-rename").performClick()
         ui.onNodeWithTag("ai-list-rename-field").performTextReplacement("  中断里能睡吗  ")
         ui.onNodeWithTag("ai-rename-confirm").performClick()
         await { exists(hasTestTag("ai-all-info")) }
-        val listed = runBlocking { facade.sessions(q.id, true, null, 20) } as ResultOf.Ok
+        val listed = backend { facade.sessions(q.id, true, null, 20) } as ResultOf.Ok
         assertEquals("中断里能睡吗", listed.value.items.single { it.sessionId == questionSession.sessionId }.title)
 
-        // The exact discussion opens on this page; no practice starts and nothing is sent.
-        ui.onNode(hasTestTag("ai-all-row") and hasText("中断里能睡吗")).performClick()
+        // The exact discussion opens on this page under its source; no practice starts and nothing is sent.
+        ui.onNode(hasTestTag("ai-child") and hasText("中断里能睡吗")).performClick()
         await { exists(hasTestTag("ai-title")) && facade.state.value.selectedSessionId == questionSession.sessionId }
-        ui.onNodeWithTag("ai-title").assertTextEquals("中断里能睡吗")
+        ui.onNodeWithTag("ai-source-title").assertTextEquals("中断上下文能否睡眠？")
         assertEquals(Page.AI_DISCUSSIONS, vm.page)
         assertTrue(vm.queue.isEmpty())
-        back() // discussion -> AI 讨论
-        await { exists(hasTestTag("ai-all-row")) && facade.state.value.selectedSessionId == null }
-        assertEquals(Page.AI_DISCUSSIONS, vm.page)
-        back() // AI 讨论 -> 更多
+        // The original opens read only from the bank, over the discussion.
+        ui.onNodeWithTag("ai-source-open").performClick()
+        await { exists(hasTestTag("source-question")) }
+        back() // original -> discussion
+        await { !exists(hasTestTag("source-question")) && exists(hasTestTag("ai-title")) }
+        assertEquals(questionSession.sessionId, facade.state.value.selectedSessionId)
+        assertTrue(vm.queue.isEmpty())
+        back() // discussion -> workbench
+        await { exists(hasTestTag("ai-group")) && facade.state.value.selectedSessionId == null }
+        back() // workbench -> 更多
         await { vm.page == Page.MORE }
 
-        // A 速记 discussion opens the same way, without the reader.
+        // Coming back keeps the open group; a 速记 discussion goes to its document and comes back.
         ui.onNodeWithTag("more-list").performScrollToNode(hasText("AI 讨论"))
         ui.onNodeWithText("AI 讨论").performClick()
-        await { vm.page == Page.AI_DISCUSSIONS && exists(hasTestTag("ai-all-row")) }
-        ui.onNode(hasTestTag("ai-all-row") and hasText("速记 · " + doc.title)).performClick()
+        await { vm.page == Page.AI_DISCUSSIONS && exists(hasTestTag("ai-child") and hasText("中断里能睡吗")) }
+        ui.onNode(docGroup).performClick()
+        await { exists(hasTestTag("ai-child") and hasText(docSession.title)) }
+        ui.onNode(hasTestTag("ai-child") and hasText(docSession.title)).performClick()
         await { exists(hasTestTag("ai-title")) && facade.state.value.selectedSessionId == docSession.sessionId }
-        assertFalse(vm.quickNotes.state.visible)
-        ui.onNodeWithContentDescription("返回讨论列表").performClick()
-        await { exists(hasTestTag("ai-all-row")) && facade.state.value.selectedSessionId == null }
+        ui.onNodeWithTag("ai-source-open").assert(hasText("原文")).performClick()
+        await { vm.quickNotes.state.reader?.summary?.id == doc.id && exists(hasTestTag("quick-note-reader")) }
+        assertNull(facade.state.value.selectedSessionId)
+        back() // reader -> the same discussion
+        await { !vm.quickNotes.state.visible && exists(hasTestTag("ai-title")) && facade.state.value.selectedSessionId == docSession.sessionId }
         assertEquals(Page.AI_DISCUSSIONS, vm.page)
+
+        // Delete it from its own menu: back on the workbench without it or its now empty source.
+        ui.onNodeWithContentDescription("讨论操作").performClick()
+        ui.onNodeWithTag("ai-detail-delete").performClick()
+        ui.onNodeWithTag("ai-delete-source").assertTextEquals("来源：速记 · " + doc.title)
+        ui.onNodeWithTag("ai-delete-confirm").performClick()
+        await { exists(hasTestTag("ai-workbench")) && ui.onAllNodesWithTag("ai-group").fetchSemanticsNodes().size == 1 }
+        val left = backend { facade.documentSessions(doc, true, null, 20) } as ResultOf.Ok
+        assertTrue(left.value.items.isEmpty())
+        assertNull(facade.state.value.selectedSessionId)
+        assertEquals(Page.AI_DISCUSSIONS, vm.page)
+    }
+
+    /** PLAN-1.7.4 trial path 4 on the real backend: a free conversation is saved and reopens; a temporary chat leaves nothing. */
+    @Test
+    fun freeConversationsAreSavedAndTemporaryChatsLeaveNoHistoryOnTheRealBackend() {
+        val facade = vm.aiConversations
+        await { facade.state.value.phase == ServicePhase.READY }
+        ui.onNodeWithContentDescription("导航到更多").performClick()
+        await { vm.page == Page.MORE }
+        ui.onNodeWithTag("more-list").performScrollToNode(hasText("AI 讨论"))
+        ui.onNodeWithText("AI 讨论").performClick()
+        await { vm.page == Page.AI_DISCUSSIONS && exists(hasTestTag("ai-workbench")) }
+
+        // The right ＋: saved on the first send (no API key here, so the reply fails visibly).
+        ui.onNodeWithContentDescription("新建自由对话").performClick()
+        await { exists(hasTestTag("ai-new-free-pane")) }
+        ui.onNodeWithTag("ai-free-field").performTextInput("RTOS 选型怎么考虑？")
+        ui.onNodeWithTag("ai-free-send").performClick()
+        await { exists(hasTestTag("ai-title")) && facade.state.value.selectedSessionId != null }
+        val free = facade.state.value.selectedSessionId!!
+        await { lastReply()?.run?.status == RunStatus.FAILED }
+        back() // discussion -> workbench
+        await { exists(hasTestTag("ai-workbench")) && facade.state.value.selectedSessionId == null }
+        ui.onNodeWithTag("ai-filter-FREE").performClick()
+        await { exists(hasTestTag("ai-group-head") and hasText("RTOS 选型怎么考虑？")) }
+        ui.onNode(hasTestTag("ai-group-head") and hasText("RTOS 选型怎么考虑？")).performClick()
+        await { exists(hasTestTag("ai-child")) }
+        ui.onNode(hasTestTag("ai-child") and hasText("RTOS 选型怎么考虑？")).performClick()
+        await { exists(hasTestTag("ai-title")) && facade.state.value.selectedSessionId == free }
+        ui.onNodeWithTag("ai-source-hint").assertTextEquals("自由对话 · 未关联题目或速记")
+        back()
+        await { exists(hasTestTag("ai-workbench")) && facade.state.value.selectedSessionId == null }
+
+        // The middle box: a temporary chat that is gone after leaving.
+        ui.onNodeWithTag("ai-temp-field").performTextInput("一句临时的话")
+        ui.onNodeWithTag("ai-temp-send").performClick()
+        await { exists(hasTestTag("ai-temp-chat")) && facade.state.value.selectedSessionId != null }
+        val temp = facade.state.value.selectedSessionId!!
+        await { lastReply()?.run?.status == RunStatus.FAILED }
+        back() // temporary chat -> workbench, discarded
+        await { exists(hasTestTag("ai-workbench")) && facade.state.value.selectedSessionId == null }
+        val recent = backend { facade.recentDiscussions(null, null, 50) } as ResultOf.Ok
+        assertTrue(recent.value.items.any { it.discussion.sessionId == free })
+        assertTrue(recent.value.items.none { it.discussion.sessionId == temp })
+        val gone = backend { facade.searchDiscussions("一句临时", null, 20) } as ResultOf.Ok
+        assertTrue(gone.value.items.isEmpty())
+        val kept = backend { facade.searchDiscussions("RTOS", null, 20) } as ResultOf.Ok
+        assertEquals(listOf(free), kept.value.items.map { it.summary.discussion.sessionId })
+        assertTrue(backend { facade.open(temp) } is ResultOf.Rejected)
     }
 }

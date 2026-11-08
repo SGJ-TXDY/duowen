@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import java.math.BigDecimal
 
-enum class AiOwnerKind { QUESTION, QUICK_NOTE }
+enum class AiOwnerKind { QUESTION, QUICK_NOTE, FREE, TEMPORARY }
 data class QuestionOwner(val questionId: String, val contentHash: String, val kind: AiOwnerKind = AiOwnerKind.QUESTION)
 data class RunOwner(val question: QuestionOwner, val sessionId: String, val requestId: String)
 data class DraftToken(val editorEpoch: String, val localEditVersion: Long)
@@ -51,6 +51,39 @@ data class AiDiscussionListItem(
     val sourceLabel: String,
     val readOnly: Boolean,
 )
+/** Use null for the workbench's “全部” filter. Programming is a presentation type of question owner. */
+enum class AiDiscussionType { QUESTION, PROGRAMMING, QUICK_NOTE, FREE, TEMPORARY }
+enum class AiSourceStatus { CURRENT, UPDATED, DELETED, INDEPENDENT }
+
+data class AiDiscussionGroupId(val ownerKind: AiOwnerKind, val sourceId: String)
+data class AiDiscussionReference(val sessionId: String, val title: String, val partial: Boolean)
+data class AiDiscussionSource(
+    val groupId: AiDiscussionGroupId,
+    val type: AiDiscussionType,
+    val label: String,
+    val status: AiSourceStatus,
+    val currentOwner: QuestionOwner?,
+    val reference: AiDiscussionReference? = null,
+)
+data class AiDiscussionGroup(
+    val source: AiDiscussionSource,
+    val sessionCount: Int,
+    val lastActivityAt: Long,
+)
+data class AiDiscussionSummary(
+    val discussion: AiDiscussionListItem,
+    val source: AiDiscussionSource,
+    val lastMessageAt: Long?,
+)
+data class AiDiscussionSearchHit(val summary: AiDiscussionSummary, val snippet: String)
+data class AiFreeDiscussionCommand(
+    val commandId: String,
+    val input: String,
+    val model: String,
+    val groupId: String? = null,
+    val referenceSessionId: String? = null,
+)
+
 // limit 1..100；cursor 含 datasetEpoch/query/sort 绑定，恢复后失效；不使用裸 offset。
 sealed interface HistoryFilter {
     data class Exact(val question: QuestionOwner) : HistoryFilter
@@ -121,6 +154,30 @@ interface AiConversationFacade {
         ResultOf.Rejected(Rejection(RejectCode.INVALID, false, RecoveryAction.NONE))
     suspend fun deselect(): ResultOf<Unit> // 先由 UI 保存/flush 草稿，再退出选择。
     suspend fun allSessions(cursor: PageCursor?, limit: Int): ResultOf<AiPage<AiDiscussionListItem>>
+
+    suspend fun discussionGroups(type: AiDiscussionType?, cursor: PageCursor?, limit: Int): ResultOf<AiPage<AiDiscussionGroup>> =
+        unsupportedWorkbench()
+    suspend fun groupDiscussions(groupId: AiDiscussionGroupId, cursor: PageCursor?, limit: Int): ResultOf<AiPage<AiDiscussionSummary>> =
+        unsupportedWorkbench()
+    suspend fun recentDiscussions(type: AiDiscussionType?, cursor: PageCursor?, limit: Int): ResultOf<AiPage<AiDiscussionSummary>> =
+        unsupportedWorkbench()
+    suspend fun discussionSource(sessionId: String): ResultOf<AiDiscussionSource> = unsupportedWorkbench()
+    /** Search all saved discussions. The trimmed query accepts 1–120 Unicode code points. */
+    suspend fun searchDiscussions(query: String, cursor: PageCursor?, limit: Int): ResultOf<AiPage<AiDiscussionSearchHit>> =
+        unsupportedWorkbench()
+    /** Start a question/programming/note discussion with the source's current version. */
+    suspend fun createGroupDiscussion(commandId: String, groupId: AiDiscussionGroupId): ResultOf<CreateReceipt> =
+        unsupportedWorkbench()
+    /** Preview a same-group reference. Start freezes up to four turns within an 8 KiB budget. */
+    suspend fun previewDiscussionReference(groupId: String, sessionId: String): ResultOf<AiDiscussionReference> =
+        unsupportedWorkbench()
+    /** First send atomically creates the saved discussion. Open the accepted owner by session ID. */
+    suspend fun startFreeDiscussion(command: AiFreeDiscussionCommand): ResultOf<AcceptedReceipt> = unsupportedWorkbench()
+    /** The returned session uses the same draft, send, message and stop operations as saved discussions. */
+    suspend fun openTemporaryDiscussion(): ResultOf<OpenReceipt> = unsupportedWorkbench()
+    /** Cancel and drain this temporary session before returning. Its content is then discarded. */
+    suspend fun closeTemporaryDiscussion(sessionId: String): ResultOf<Unit> = unsupportedWorkbench()
+
     suspend fun sessions(questionId: String, includeArchived: Boolean,
         cursor: PageCursor?, limit: Int): ResultOf<AiPage<SessionView>>
     suspend fun documentSessions(document: QuickNoteSummary, includeArchived: Boolean,
@@ -141,5 +198,7 @@ interface AiConversationFacade {
     fun shutdown() // 幂等、立即关闭 admission；不阻塞 UI，不依赖 viewModelScope。
     suspend fun awaitClosed(): ClosedReport // 所有任务退出；失败报告不等于仍有活跃 writer。
 }
+private fun unsupportedWorkbench() = ResultOf.Rejected(Rejection(RejectCode.INVALID, false, RecoveryAction.NONE))
+
 // initialize/replacement lease 由 GPT 生命周期内部接口调用，不暴露 UI/DAO。
 

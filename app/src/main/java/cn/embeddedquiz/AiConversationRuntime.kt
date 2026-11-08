@@ -3,6 +3,7 @@ package cn.embeddedquiz
 import androidx.room.withTransaction
 import java.time.ZoneId
 import java.util.UUID
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
@@ -55,9 +56,11 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
     @Volatile private var fault:StorageFault?=null
     @Volatile private var active:Slot?=null
     private var datasetEpoch=id()
+    private var workbenchGeneration = 0L
     private var coordinatorEpoch=id()
     private var store=newStore()
     private val pages=AiPageReader(dao,repo) { datasetEpoch }
+    private var temporary: AiTemporaryDiscussion? = null
     private var selected:String?=null
     private var editor:String?=null
     private var activated=false
@@ -81,7 +84,7 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
     // still be able to settle its existing row before replacement/close; it cannot accept commands.
     private fun newStore()=AiStore(db,dao,repo::question,config.now,config.zone,coordinatorEpoch,
         beforeCommit=config.beforeCommit,ownedByCoordinator=true,useCache=true)
-    private class Slot(val owner:RunOwner,val epoch:String) {
+    private class Slot(val owner: RunOwner, val epoch: String, val memory: AiTemporaryDiscussion?) {
         private val monitor=Any()
         private var accepting=true
         private var outcome:Pair<Long,AiChatResult>?=null
@@ -132,7 +135,13 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
     private suspend fun publish(release:Slot?=null) {
         val sid=selected
         if(sid==null || phase!=ServicePhase.READY) { if(release!=null && owns(release)) active=null;metadata();return }
-        val data=db.withTransaction {
+        val busy = active != null && release == null
+        val memory = temporaryFor(sid)
+        val data = if (memory != null) {
+            val row = requireNotNull(memory.dao.session(sid))
+            val first = memory.messages(null, 20, busy)
+            Triple(memory.view(row), first, first.items.lastOrNull()?.run)
+        } else db.withTransaction {
             val row=dao.session(sid) ?: return@withTransaction null
             val stored=pages.session(row)
             val visible=pending[sid]?.command?.let { stored.copy(draft=stored.draft.copy(text=it.text,pending=true)) } ?: stored
@@ -173,16 +182,20 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
     }
     private fun refuse(code:RejectCode):Nothing=throw AiStoreFailure(code)
     private fun invalidCode(e:Exception)=if(e.message in setOf("CAPACITY_EXCEEDED","MESSAGE_LIMIT","RESERVATION_EXCEEDED")) RejectCode.CAPACITY_EXCEEDED else RejectCode.INVALID
-    private suspend fun <T> action(terminalRequest:String?=null,work:suspend ()->T):ResultOf<T> {
+    private suspend fun <T> action(
+        terminalRequest: String? = null, cancellable: Boolean = false, work: suspend () -> T,
+    ): ResultOf<T> {
         phaseRejection()?.let { return ResultOf.Rejected(rejection(it)) }
         return try { life.operation {
             actor.withLock {
                 phaseRejection()?.let { return@withLock ResultOf.Rejected(rejection(it)) }
                 // Once a command is accepted, caller cancellation must not orphan its persisted run.
-                withContext(NonCancellable) {
+                withContext(if (cancellable) EmptyCoroutineContext else NonCancellable) {
                     try { ResultOf.Ok(work()) }
                     catch(e:AiStoreFailure) {
-                        val terminal=if(e.code==RejectCode.ALREADY_TERMINAL) terminalRequest?.let { dao.run(it)?.status?.let(RunStatus::valueOf) } else null
+                        val terminal = if (e.code == RejectCode.ALREADY_TERMINAL) terminalRequest?.let {
+                            (temporary?.dao?.run(it) ?: dao.run(it))?.status?.let(RunStatus::valueOf)
+                        } else null
                         ResultOf.Rejected(rejection(e.code,terminal))
                     } catch(e:IllegalArgumentException) { ResultOf.Rejected(rejection(invalidCode(e))) }
                     catch(e:ArithmeticException) { ResultOf.Rejected(rejection(RejectCode.INVALID)) }
@@ -196,7 +209,10 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
     private fun receipt(row:AiCommandRow)=JSONObject(row.receiptJson)
     private suspend fun session(sid:String)=dao.session(sid) ?: refuse(RejectCode.NOT_FOUND)
     private fun question(s:AiSessionRow)=s.owner
-    override suspend fun createSession(commandId:String,question:QuestionOwner)=action {
+    override suspend fun createSession(commandId: String, question: QuestionOwner) =
+        action { createQuestion(commandId, question) }
+
+    private suspend fun createQuestion(commandId: String, question: QuestionOwner): CreateReceipt {
         require(question.kind == AiOwnerKind.QUESTION)
         // Replay uses the immutable snapshot even if the current bank question changed.
         val prior=dao.command(commandId)
@@ -208,11 +224,14 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
             val current=repo.question(question.questionId) ?: refuse(RejectCode.NOT_FOUND)
             if(current.contentHash!=question.contentHash) refuse(RejectCode.READ_ONLY);current
         }
-        creationReceipt(store.create(commandId, q))
+        return creationReceipt(store.create(commandId, q), prior != null)
     }
 
     override suspend fun createDocumentSession(commandId: String, document: QuickNoteSummary) = action {
-        val owner = QuestionOwner(document.id, document.contentHash, AiOwnerKind.QUICK_NOTE)
+        createDocument(commandId, QuestionOwner(document.id, document.contentHash, AiOwnerKind.QUICK_NOTE))
+    }
+
+    private suspend fun createDocument(commandId: String, owner: QuestionOwner): CreateReceipt {
         AiJson.uuid(owner.questionId)
         AiJson.hash(owner.contentHash)
         val prior = dao.command(commandId)
@@ -226,15 +245,45 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
             if (summary.contentHash != owner.contentHash) refuse(RejectCode.STALE_OWNER)
             AiSnapshotCodec.document(summary)
         }
-        creationReceipt(store.createDocument(commandId, owner, snapshot))
+        return creationReceipt(store.createDocument(commandId, owner, snapshot), prior != null)
     }
 
-    private suspend fun creationReceipt(row: AiCommandRow): CreateReceipt {
+    override suspend fun createGroupDiscussion(commandId: String, groupId: AiDiscussionGroupId) = action {
+        val prior = dao.command(commandId)
+        val replayOwner = prior?.let {
+            if (it.kind != "CREATE") refuse(RejectCode.IDEMPOTENCY_CONFLICT)
+            val owner = session(requireNotNull(it.sessionId)).owner
+            if (owner.kind != groupId.ownerKind || owner.questionId != groupId.sourceId)
+                refuse(RejectCode.IDEMPOTENCY_CONFLICT)
+            owner
+        }
+        when (groupId.ownerKind) {
+            AiOwnerKind.QUESTION -> {
+                val owner = replayOwner ?: repo.question(groupId.sourceId)?.let { QuestionOwner(it.id, it.contentHash) }
+                    ?: refuse(RejectCode.NOT_FOUND)
+                createQuestion(commandId, owner)
+            }
+            AiOwnerKind.QUICK_NOTE -> {
+                val owner = replayOwner ?: db.quickNotesRepository.aiSummary(groupId.sourceId)?.let {
+                    QuestionOwner(it.id, it.contentHash, AiOwnerKind.QUICK_NOTE)
+                } ?: refuse(RejectCode.NOT_FOUND)
+                createDocument(commandId, owner)
+            }
+            AiOwnerKind.FREE, AiOwnerKind.TEMPORARY -> refuse(RejectCode.INVALID)
+        }
+    }
+
+    private suspend fun creationReceipt(row: AiCommandRow, replay: Boolean): CreateReceipt {
+        if (!replay) workbenchGeneration++
         val json=receipt(row);val s=session(requireNotNull(row.sessionId))
         return CreateReceipt(pages.session(s.copy(title=json.getString("title"),sessionRevision=0,contextRevision=0,
             draftRevision=0,draftText="",lastEditorEpoch=null,lastLocalEditVersion=null)))
     }
     override suspend fun open(sessionId:String)=action {
+        temporary?.let {
+            if (it.sessionId != sessionId) refuse(RejectCode.BUSY)
+            return@action openMemory(it)
+        }
         val old=selected;val oldEditor=editor
         if(old!=null && old!=sessionId) flushPending(old,propagate=true)
         flushPending(sessionId,propagate=true);val token=store.openEditor(sessionId)
@@ -242,7 +291,64 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
         selected=sessionId;editor=token;publish()
         OpenReceipt(requireNotNull(mutable.value.selected),token)
     }
+    private fun temporaryFor(sessionId: String) = temporary?.takeIf { it.sessionId == sessionId }
+
+    override suspend fun openTemporaryDiscussion() = action {
+        temporary?.let { return@action openMemory(it) }
+        selected?.let { sid ->
+            flushPending(sid, propagate = true)
+            editor?.let { store.revokeEditor(sid, it) }
+        }
+        val memory = AiTemporaryDiscussion.open(repo, id(), coordinatorEpoch, config) { datasetEpoch }
+        temporary = memory
+        openMemory(memory)
+    }
+
+    private suspend fun openMemory(memory: AiTemporaryDiscussion): OpenReceipt {
+        val token = memory.store.openEditor(memory.sessionId)
+        selected = memory.sessionId
+        editor = token
+        publish()
+        return OpenReceipt(requireNotNull(mutable.value.selected), token)
+    }
+
+    private data class TemporaryClosing(val memory: AiTemporaryDiscussion, val job: Job?) {
+        suspend fun finish() = withContext(NonCancellable + Dispatchers.IO) {
+            job?.join()
+            memory.close()
+        }
+    }
+
+    private suspend fun detachTemporary(): TemporaryClosing? {
+        val memory = temporary ?: return null
+        val slot = active?.takeIf { it.memory === memory }
+        if (slot != null) {
+            try { if (fault == null) settleReceived(slot) }
+            catch (_: Exception) { storageFault() }
+            finally {
+                slot.cutoff()
+                slot.transport = TransportPhase.CLEANING
+                slot.exchange?.cancel()
+                slot.job.cancel()
+            }
+        }
+        temporary = null
+        if (selected == memory.sessionId) clearSelection()
+        return TemporaryClosing(memory, slot?.job)
+    }
+
+    override suspend fun closeTemporaryDiscussion(sessionId: String): ResultOf<Unit> = withContext(NonCancellable) {
+        val closing = actor.withLock {
+            if (temporary != null && temporaryFor(sessionId) == null)
+                return@withContext ResultOf.Rejected(rejection(RejectCode.STALE_OWNER))
+            detachTemporary()
+        }
+        closing?.finish()
+        ResultOf.Ok(Unit)
+    }
+
     override suspend fun deleteSession(sessionId: String, owner: QuestionOwner) = action {
+        if (owner.kind == AiOwnerKind.TEMPORARY) refuse(RejectCode.INVALID)
         AiJson.uuid(sessionId)
         val row = dao.session(sessionId) ?: return@action
         if (row.owner != owner) refuse(RejectCode.STALE_OWNER)
@@ -258,13 +364,50 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
         }
     }
 
-    override suspend fun deselect()=action {
-        selected?.let { sid-> flushPending(sid,propagate=true);editor?.let { store.revokeEditor(sid,it) } }
-        clearSelection()
+    override suspend fun deselect(): ResultOf<Unit> = withContext(NonCancellable) {
+        when (val result = action {
+            if (temporary != null) return@action detachTemporary()
+            selected?.let { sid -> flushPending(sid, propagate = true); editor?.let { store.revokeEditor(sid, it) } }
+            clearSelection()
+            null
+        }) {
+            is ResultOf.Ok -> {
+                result.value?.finish()
+                ResultOf.Ok(Unit)
+            }
+            is ResultOf.Rejected -> result
+        }
     }
     override suspend fun allSessions(cursor: PageCursor?, limit: Int) = action {
         db.withTransaction { pages.allSessions(cursor, limit) }
     }
+    override suspend fun discussionGroups(type: AiDiscussionType?, cursor: PageCursor?, limit: Int) = action(cancellable = true) {
+        db.withTransaction { pages.discussionGroups(type, cursor, limit, workbenchGeneration) }
+    }
+
+    override suspend fun groupDiscussions(groupId: AiDiscussionGroupId, cursor: PageCursor?, limit: Int) = action(cancellable = true) {
+        db.withTransaction { pages.groupDiscussions(groupId, cursor, limit, workbenchGeneration) }
+    }
+
+    override suspend fun recentDiscussions(type: AiDiscussionType?, cursor: PageCursor?, limit: Int) = action(cancellable = true) {
+        db.withTransaction { pages.recentDiscussions(type, cursor, limit, workbenchGeneration) }
+    }
+
+    override suspend fun discussionSource(sessionId: String) = action(cancellable = true) {
+        if (temporaryFor(sessionId) != null) {
+            AiDiscussionSource(AiDiscussionGroupId(AiOwnerKind.TEMPORARY, sessionId), AiDiscussionType.TEMPORARY,
+                "临时对话", AiSourceStatus.INDEPENDENT, null)
+        } else db.withTransaction { pages.discussionSource(session(sessionId)) }
+    }
+
+    override suspend fun searchDiscussions(query: String, cursor: PageCursor?, limit: Int) = action(cancellable = true) {
+        db.withTransaction { pages.searchDiscussions(query, cursor, limit, workbenchGeneration) }
+    }
+
+    override suspend fun previewDiscussionReference(groupId: String, sessionId: String) = action(cancellable = true) {
+        db.withTransaction { dao.freezeDiscussionReference(groupId, sessionId).summary }
+    }
+
     override suspend fun sessions(questionId:String,includeArchived:Boolean,cursor:PageCursor?,limit:Int)=action {
         db.withTransaction { pages.sessions(questionId,includeArchived,cursor,limit) }
     }
@@ -275,13 +418,17 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
         db.withTransaction { pages.sessions(owner, includeArchived, cursor, limit) }
     }
     override suspend fun messages(sessionId:String,cursor:PageCursor?,limit:Int)=action {
-        db.withTransaction { pages.messages(sessionId,cursor,limit,active!=null) }
+        temporaryFor(sessionId)?.messages(cursor, limit, active != null)
+            ?: db.withTransaction { pages.messages(sessionId,cursor,limit,active!=null) }
     }
     override suspend fun legacy(filter:HistoryFilter,cursor:PageCursor?,limit:Int)=action {
         db.withTransaction { pages.legacy(filter,cursor,limit) }
     }
     override suspend fun rename(commandId:String,sessionId:String,expectedSessionRevision:Long,title:String)=action {
-        val j=receipt(store.rename(commandId,sessionId,expectedSessionRevision,title));publish()
+        val replay = dao.command(commandId) != null
+        val j=receipt(store.rename(commandId,sessionId,expectedSessionRevision,title))
+        if (!replay) workbenchGeneration++
+        publish()
         RenameReceipt(j.getString("sessionId"),j.getLong("sessionRevision"),j.getString("title"))
     }
     private fun draftReceipt(row:AiCommandRow):DraftReceipt = receipt(row).let {
@@ -291,6 +438,11 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
         val queued=action {
             AiJson.uuid(command.commandId);AiJson.uuid(command.token.editorEpoch)
             require(command.token.localEditVersion>=0 && AiJson.utf8(command.text)<=AiConversationCodec.TEXT_BYTES)
+            temporaryFor(command.sessionId)?.let {
+                val receipt = draftReceipt(it.store.saveDraft(command))
+                publish()
+                return@action CompletableDeferred<ResultOf<DraftReceipt>>(ResultOf.Ok(receipt))
+            }
             if(dao.command(command.commandId)!=null) return@action CompletableDeferred<ResultOf<DraftReceipt>>(ResultOf.Ok(draftReceipt(store.saveDraft(command))))
             pending.values.firstOrNull { it.command.commandId==command.commandId }?.let {
                 if(it.command!=command) refuse(RejectCode.IDEMPOTENCY_CONFLICT)
@@ -331,6 +483,9 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
     }
     override suspend fun flushDraft(sessionId:String,throughDraftRevision:Long)=action {
         require(throughDraftRevision>=0)
+        temporaryFor(sessionId)?.let {
+            return@action FlushReceipt(sessionId, it.store.flushDraft(sessionId, throughDraftRevision))
+        }
         val actual=session(sessionId).draftRevision
         require(throughDraftRevision<=actual || pending[sessionId]!=null && throughDraftRevision==Math.addExact(actual,1))
         flushPending(sessionId,propagate=true)
@@ -339,6 +494,14 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
     override suspend fun send(command:SendCommand):ResultOf<AcceptedReceipt> {
         val frozen=command.copy(choices=command.choices.toSet())
         return action {
+            val memory = temporaryFor(frozen.sessionId)
+            if (memory != null) {
+                if (memory.owner != frozen.question) refuse(RejectCode.STALE_OWNER)
+                val replay = memory.dao.command(frozen.commandId) != null
+                if (!replay && active != null) refuse(RejectCode.BUSY)
+                return@action accepted(memory.store.accept(frozen.copy(question = memory.storedOwner)), replay, memory)
+            }
+            if (frozen.question.kind == AiOwnerKind.TEMPORARY) refuse(RejectCode.NOT_FOUND)
             val replay=dao.command(frozen.commandId)!=null
             if(!replay) {
                 if(active!=null) refuse(RejectCode.BUSY)
@@ -348,24 +511,50 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
             accepted(store.accept(frozen),replay)
         }
     }
+    override suspend fun startFreeDiscussion(command: AiFreeDiscussionCommand) = action {
+        val replay = dao.command(command.commandId) != null
+        if (!replay && active != null) refuse(RejectCode.BUSY)
+        accepted(store.startFreeDiscussion(command), replay)
+    }
+
     override suspend fun retry(command:RetryCommand)=action(command.owner.requestId) {
+        val memory = temporaryFor(command.owner.sessionId)
+        if (memory != null) {
+            if (memory.owner != command.owner.question) refuse(RejectCode.STALE_OWNER)
+            val replay = memory.dao.command(command.commandId) != null
+            if (!replay && active != null) refuse(RejectCode.BUSY)
+            val stored = command.owner.copy(question = memory.storedOwner)
+            return@action accepted(memory.store.retry(command.commandId, stored), replay, memory)
+        }
+        if (command.owner.question.kind == AiOwnerKind.TEMPORARY) refuse(RejectCode.NOT_FOUND)
         val replay=dao.command(command.commandId)!=null
         if(!replay) { if(active!=null) refuse(RejectCode.BUSY);session(command.owner.sessionId) }
         accepted(store.retry(command.commandId,command.owner),replay)
     }
-    private suspend fun accepted(row:AiCommandRow,replay:Boolean):AcceptedReceipt {
-        val r=requireNotNull(dao.run(requireNotNull(row.requestId)));val s=session(r.sessionId);val j=receipt(row)
-        val runOwner=RunOwner(question(s),s.sessionId,r.requestId)
+    private suspend fun accepted(row: AiCommandRow, replay: Boolean, memory: AiTemporaryDiscussion? = null): AcceptedReceipt {
+        val targetDao = memory?.dao ?: dao
+        val r = requireNotNull(targetDao.run(requireNotNull(row.requestId)))
+        val s = requireNotNull(targetDao.session(r.sessionId))
+        val j = receipt(row)
+        val runOwner = RunOwner(memory?.owner ?: question(s), s.sessionId, r.requestId)
         val token=if(j.isNull("editorEpoch")) null else DraftToken(j.getString("editorEpoch"),j.getLong("localEditVersion"))
-        if(!replay && r.status=="PREPARING") {
-            val slot=Slot(runOwner,coordinatorEpoch);active=slot
-            slot.job=scope.launch(start=CoroutineStart.ATOMIC) { execute(slot,r) }
+        if (!replay) {
+            if (memory == null) workbenchGeneration++
+            if (r.status == "PREPARING") {
+                val slot = Slot(runOwner, coordinatorEpoch, memory)
+                active = slot
+                slot.job = scope.launch(start = CoroutineStart.ATOMIC) { execute(slot, r) }
+            } else if (memory != null && r.source == "CACHE") {
+                db.withTransaction { AiDeletedCostLedger.recordTemporaryCharge(db.openHelper.writableDatabase, r) }
+            }
         }
         publish()
         return AcceptedReceipt(row.commandId,runOwner,r.userMessageId,r.assistantMessageId,j.getLong("contextRevision"),j.getLong("draftRevision"),token,j.getBoolean("draftCleared"))
     }
     private fun owns(slot:Slot)=active===slot && slot.epoch==coordinatorEpoch
     private suspend fun execute(slot:Slot,row:AiRunRow) {
+        val targetDao = slot.memory?.dao ?: dao
+        val targetStore = slot.memory?.store ?: store
         var price=AiUsageEvidence()
         try {
             currentCoroutineContext().ensureActive()
@@ -380,7 +569,16 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
                 if(!owns(slot) || phase!=ServicePhase.READY || life.token()==null || fault!=null) false
                 else {
                     slot.exchange=exchange;price=config.price(row.model)
-                    slot.dispatched(store.dispatched(row.requestId,price));slot.transport=TransportPhase.CONNECTING;publish();true
+                    withContext(NonCancellable) {
+                        slot.dispatched(targetStore.dispatched(row.requestId, price))
+                        if (slot.memory != null) {
+                            val dispatched = requireNotNull(targetDao.run(row.requestId))
+                            db.withTransaction { AiDeletedCostLedger.recordTemporaryCharge(db.openHelper.writableDatabase, dispatched) }
+                        }
+                        slot.transport = TransportPhase.CONNECTING
+                        publish()
+                    }
+                    true
                 }
             }
             if(!started) { exchange.cancel();return }
@@ -396,7 +594,7 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
                 slot.exchange?.awaitClosed()
                 actor.withLock {
                     if(owns(slot)) {
-                        try { if(fault==null && dao.run(row.requestId)?.status in setOf("PREPARING","GENERATING")) finishWithoutReply(slot,"REQUEST_INTERRUPTED",RunStatus.CANCELLED) }
+                        try { if(fault==null && targetDao.run(row.requestId)?.status in setOf("PREPARING","GENERATING")) finishWithoutReply(slot,"REQUEST_INTERRUPTED",RunStatus.CANCELLED) }
                         catch(_:Exception) { storageFault() }
                         // Do not publish idle until response exit and the final Room read are done.
                         try { publish(release=slot) } catch(_:Exception) { storageFault();active=null;metadata() }
@@ -407,37 +605,52 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
     }
     private suspend fun settleReceived(slot:Slot,price:AiUsageEvidence?=null) {
         val (seq,value)=slot.cutoff() ?: return
-        val row=requireNotNull(dao.run(slot.owner.requestId))
+        val targetDao = slot.memory?.dao ?: dao
+        val targetStore = slot.memory?.store ?: store
+        val row=requireNotNull(targetDao.run(slot.owner.requestId))
         if(row.status !in setOf("PREPARING","GENERATING")) return
         val usage=value.usage.copy(priceVersion=price?.priceVersion ?: row.priceVersion,missRate=price?.missRate ?: row.missRate,
             hitRate=price?.hitRate ?: row.hitRate,outputRate=price?.outputRate ?: row.outputRate)
-        store.checkpoint(row.requestId,seq,value.text,if(value.complete) RunStatus.COMPLETED else RunStatus.FAILED,usage,
-            errorCode=value.error,finishReason=value.finish,providerResponseId=value.responseId)
+        withContext(NonCancellable) {
+            targetStore.checkpoint(row.requestId,seq,value.text,if(value.complete) RunStatus.COMPLETED else RunStatus.FAILED,usage,
+                errorCode=value.error,finishReason=value.finish,providerResponseId=value.responseId)
+            if (slot.memory == null) workbenchGeneration++ else {
+                val settled = requireNotNull(targetDao.run(row.requestId))
+                db.withTransaction { AiDeletedCostLedger.settleTemporaryDispatch(db.openHelper.writableDatabase, settled) }
+            }
+        }
         slot.transport=TransportPhase.CLEANING;metadata();publish()
     }
     private suspend fun finishWithoutReply(slot:Slot,code:String,status:RunStatus) {
-        val row=requireNotNull(dao.run(slot.owner.requestId))
+        val targetDao = slot.memory?.dao ?: dao
+        val targetStore = slot.memory?.store ?: store
+        val row=requireNotNull(targetDao.run(slot.owner.requestId))
         if(row.status !in setOf("PREPARING","GENERATING")) return
-        val message=requireNotNull(dao.message(row.assistantMessageId))
-        store.checkpoint(row.requestId,slot.closingSeq(),message.text,status,errorCode=code)
+        val message=requireNotNull(targetDao.message(row.assistantMessageId))
+        targetStore.checkpoint(row.requestId,slot.closingSeq(),message.text,status,errorCode=code)
         slot.transport=TransportPhase.CLEANING;metadata();publish()
     }
     override suspend fun cancel(commandId:String,owner:RunOwner)=action(owner.requestId) {
-        val existing=dao.command(commandId)
+        val memory = temporaryFor(owner.sessionId)
+        if (memory != null && owner.question != memory.owner) refuse(RejectCode.STALE_OWNER)
+        val targetDao = memory?.dao ?: dao
+        val targetStore = memory?.store ?: store
+        val storedOwner = memory?.let { owner.copy(question = it.storedOwner) } ?: owner
+        val existing=targetDao.command(commandId)
         if(existing!=null) {
-            val old=store.cancel(commandId,owner)
+            val old=targetStore.cancel(commandId,storedOwner)
             return@action CancelReceipt(owner,RunStatus.valueOf(receipt(old).getString("status")),true)
         }
         AiJson.uuid(commandId)
-        val s=dao.session(owner.sessionId) ?: refuse(RejectCode.STALE_OWNER)
-        val row=dao.run(owner.requestId) ?: refuse(RejectCode.STALE_OWNER)
-        if(question(s)!=owner.question || row.sessionId!=s.sessionId) refuse(RejectCode.STALE_OWNER)
+        val s=targetDao.session(owner.sessionId) ?: refuse(RejectCode.STALE_OWNER)
+        val row=targetDao.run(owner.requestId) ?: refuse(RejectCode.STALE_OWNER)
+        if(question(s)!=storedOwner.question || row.sessionId!=s.sessionId) refuse(RejectCode.STALE_OWNER)
         if(row.status !in setOf("PREPARING","GENERATING")) refuse(RejectCode.ALREADY_TERMINAL)
         val slot=active?.takeIf { it.owner==owner && owns(it) } ?: refuse(RejectCode.STALE_OWNER)
         slot.transport=TransportPhase.CLEANING;metadata()
         try {
             settleReceived(slot)
-            store.cancel(commandId,owner);publish()
+            targetStore.cancel(commandId,storedOwner);publish()
             CancelReceipt(owner,RunStatus.CANCELLED,true)
         } catch(e:AiStoreFailure) { throw e }
         catch(_:Exception) { storageFault();refuse(RejectCode.STORAGE_FAILED) }
@@ -448,17 +661,19 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
         val blocked=phaseRejection();return if(blocked!=null) ResultOf.Rejected(rejection(blocked)) else ResultOf.Ok(IdleReceipt(state.value.datasetEpoch))
     }
     private suspend fun stopWork(reason:String) {
-        val job=actor.withLock {
+        val (job, closing) = actor.withLock {
             pending.keys.toList().forEach { flushPending(it) }
-            active?.let { slot ->
+            val activeJob = active?.let { slot ->
                 slot.transport=TransportPhase.CLEANING;metadata()
                 try { if(fault==null) { settleReceived(slot);finishWithoutReply(slot,reason,RunStatus.CANCELLED) } }
                 catch(_:Exception) { storageFault() }
                 finally { slot.cutoff();slot.exchange?.cancel();slot.job.cancel() }
                 slot.job
             }
+            activeJob to detachTemporary()
         }
         job?.join()
+        closing?.finish()
     }
     private suspend fun pauseForReplacement() {
         if(phase==ServicePhase.CLOSING || phase==ServicePhase.CLOSED) { awaitClosed();return }

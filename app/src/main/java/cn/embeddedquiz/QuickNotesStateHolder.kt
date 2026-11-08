@@ -31,13 +31,41 @@ class QuickNotesStateHolder(
     init { reload() }
 
     fun enter() { state = state.copy(visible = true) }
+
+    /** Set while the reader was opened from elsewhere (AI 讨论's source card): closing it goes back there. */
+    private var returnAfterReader: (() -> Unit)? = null
+
+    /**
+     * Opens one document straight in the reader from another page (PLAN-1.7.4). Closing the reader
+     * then hides 速记 again and runs [onClosed], so back returns to where the user came from.
+     */
+    fun openFrom(id: String, onClosed: () -> Unit) {
+        returnAfterReader = onClosed
+        state = state.copy(visible = true)
+        work {
+            positions.flush()
+            try {
+                state = state.copy(reader = repository.openDocument(id))
+            } catch (e: Exception) {
+                returnAfterReader = null
+                throw e
+            }
+        }
+    }
     fun leave(onLeft: () -> Unit = {}) = work {
         positions.flush()
+        returnAfterReader = null
         pendingImport = null
         state = state.copy(visible = false, conflict = emptyList())
         onLeft()
     }
-    fun closeDocument() = work { positions.flush(); state = state.copy(reader = null) }
+    fun closeDocument() = work {
+        positions.flush()
+        val back = returnAfterReader
+        returnAfterReader = null
+        state = state.copy(reader = null, visible = state.visible && back == null)
+        back?.invoke()
+    }
 
     fun reload() {
         if (state.working) return

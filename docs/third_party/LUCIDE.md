@@ -54,3 +54,9 @@ path、circle、rect、line 等元素全部转换为路径；保持 24 单位视
 | `AppIcons.Import` | [download](https://lucide.dev/icons/download) | 导入 |
 | `AppIcons.Person` | [user](https://lucide.dev/icons/user) | 头像占位 |
 | `AppIcons.Flame` | [flame](https://lucide.dev/icons/flame) | 连续学习 |
+| `AppIcons.Plus` | [plus](https://lucide.dev/icons/plus) | AI 讨论 来源分组新建 |
+| `AppIcons.SquarePen` | [square-pen](https://lucide.dev/icons/square-pen) | AI 讨论 新建自由对话 |
+| `AppIcons.FileText` | [file-text](https://lucide.dev/icons/file-text) | AI 讨论 题目来源 |
+| `AppIcons.MessagesSquare` | [messages-square](https://lucide.dev/icons/messages-square) | AI 讨论 自由对话 |
+| `AppIcons.Sparkles` | [sparkles](https://lucide.dev/icons/sparkles) | AI 讨论 临时问 AI |
+| `AppIcons.ArrowUpRight` | [arrow-up-right](https://lucide.dev/icons/arrow-up-right) | AI 讨论 打开来源 |
