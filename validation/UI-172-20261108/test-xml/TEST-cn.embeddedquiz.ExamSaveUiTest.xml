@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.ExamSaveUiTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-08T10:26:52" hostname="LAPTOP-0JLS131B" time="3.87">
+  <properties/>
+  <testcase name="failedFlushKeepsTheUserOnThePaperUntilAnExplicitRetrySucceeds" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.411"/>
+  <testcase name="saveBarrierFailureFreezesTheSubmitAndRetriesWithTheFrozenPaper" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.492"/>
+  <testcase name="committedCleanupFailureSurvivesRestartWithItsResultAndRecordsOnce" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.64"/>
+  <testcase name="savingDoesNotBlockAnsweringAndSavedAppearsOnlyForTheLatestVersion" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.376"/>
+  <testcase name="notificationDuringLeaveWinsWhenTheFlushSucceedsBeforeTheNextFrame" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.407"/>
+  <testcase name="leavingWaitsForTheFlushAndFreezesInputUntilItLands" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.401"/>
+  <testcase name="saveErrorStaysVisibleWhileAnsweringAndOnlyAnExplicitRetrySavesIt" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.345"/>
+  <testcase name="notificationDuringLeaveWinsAndNoStaleDialogWhenTheFlushFails" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.451"/>
+  <testcase name="saveFailureIsReadableAndReachableOnASmallScreenWithLargeText" classname="cn.embeddedquiz.ExamSaveUiTest" time="0.346"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

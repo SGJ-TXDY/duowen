@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.MascotTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-08T10:27:18" hostname="LAPTOP-0JLS131B" time="0.006">
+  <properties/>
+  <testcase name="spriteRowsAreEvenAndSymmetric" classname="cn.embeddedquiz.MascotTest" time="0.0"/>
+  <testcase name="everyPoseIsMirroredApartFromTheHighlightAndFitsTheGrid" classname="cn.embeddedquiz.MascotTest" time="0.006"/>
+  <testcase name="idleMostlyRestsWithOneBlinkAndOneStretch" classname="cn.embeddedquiz.MascotTest" time="0.0"/>
+  <testcase name="jumpRisesWithHappyFaceAndSettlesBack" classname="cn.embeddedquiz.MascotTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

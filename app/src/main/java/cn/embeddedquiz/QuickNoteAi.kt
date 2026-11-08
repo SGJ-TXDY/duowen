@@ -70,9 +70,24 @@ internal class DocumentAiSource(
         )
     }
 
+    // Only paragraphs actually given to the model are listed; with none, the answer stands on its own.
     override fun citation(message: MessageView): String? =
         message.run?.documentReferences?.takeIf { it.isNotEmpty() }?.let(::quickNoteReferenceText)
+
+    override fun coverageNote(message: MessageView): String? = message.run?.documentCoverage?.let(::quickNoteCoverageText)
 }
+
+/** How much of the document a request was given; null when the excerpts speak for themselves. */
+internal fun quickNoteCoverageText(coverage: QuickNoteAiCoverage): String? =
+    when (coverage.scope) {
+        QuickNoteAiScope.WHOLE_DOCUMENT ->
+            if (coverage.partial)
+                "整份文档较长：本次使用目录和代表性摘录，覆盖 ${coverage.includedSections}/${coverage.totalSections} 节，可能有遗漏。"
+            else "本次提供了整份文档（共 ${coverage.totalSections} 节）。"
+        QuickNoteAiScope.SECTION -> if (coverage.partial) "本节较长，只提供了其中一部分段落。" else null
+        QuickNoteAiScope.SEARCH ->
+            if (coverage.partial) "只提供了与问题最相关的部分段落，涉及 ${coverage.includedSections} 节。" else null
+    }
 
 /** "「进程」第 2～3 段；「调度」第 1 段", merging adjacent ranges of the same heading. */
 internal fun quickNoteReferenceText(references: List<QuickNoteAiReference>): String =
@@ -97,15 +112,16 @@ internal fun quickNoteAiContext(
     section: QuickNoteHeading?,
     preview: ResultOf<QuickNoteAiContext>? = null,
 ): AiSourceContext {
-    val base =
-        if (section != null) "以当前章节「${section.title}」为主，按需引用相关段落；只在你发送时提交。"
-        else "从文档开头起按需引用相关段落；只在你发送时提交。"
+    val base = "可以追问文档里的内容，也可以继续了解相关概念。文档内容只在你发送时提交。"
+    // The reading position only resolves "this section" and similar; the question decides the scope.
+    val where = section?.let { "当前阅读「${it.title}」：问“这一节”时以它为准。" }
     val detail =
         when (preview) {
             null -> null
             is ResultOf.Ok ->
-                preview.value.references.takeIf { it.isNotEmpty() }?.let { "预计引用：" + quickNoteReferenceText(it) + "（发送时按问题再选取）" }
-                    ?: "这一节没有可引用的正文段落。"
+                preview.value.references.takeIf { it.isNotEmpty() }?.let {
+                    "预计提供：" + quickNoteReferenceText(it) + "（发送时按你的问题重新选取）"
+                } ?: "这里没有找到直接相关的段落，也可以照常提问。"
             is ResultOf.Rejected ->
                 when (preview.reason.code) {
                     RejectCode.STALE_OWNER -> "文档内容已更新，请返回列表重新打开后再提问。"
@@ -113,7 +129,7 @@ internal fun quickNoteAiContext(
                     else -> aiRejectionText(preview.reason)
                 }
         }
-    return AiSourceContext("文档：" + document.summary.title, listOfNotNull(base, detail).joinToString("\n"))
+    return AiSourceContext("文档：" + document.summary.title, listOfNotNull(base, where, detail).joinToString("\n"))
 }
 
 /** Adds the reader's document and section to a source; the preview fills in once it arrives. */

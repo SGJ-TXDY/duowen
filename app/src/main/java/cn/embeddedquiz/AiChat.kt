@@ -93,8 +93,11 @@ internal interface AiChatSource {
     /** True for a discussion of this source's current version, the only kind a one-tap request may use. */
     fun current(session: SessionView): Boolean
     suspend fun send(facade: AiConversationFacade, request: AiSendRequest): ResultOf<AcceptedReceipt>
-    /** The chapters or paragraphs a reply cited, when the backend reports them. */
+    /** The chapters or paragraphs a reply cited, when the backend reports them; null hides the block. */
     fun citation(message: MessageView): String? = null
+
+    /** How much of the source the reply was given (e.g. outline and excerpts of a long document). */
+    fun coverageNote(message: MessageView): String? = null
 }
 
 /** The 1.7.0 question discussions, unchanged. */
@@ -214,6 +217,14 @@ internal class AiChatController(
 
     /** Text of the last rejected action; cleared by the next action. */
     var notice by mutableStateOf<String?>(null)
+        private set
+
+    /** Confirmation of the last finished action (e.g. a deletion); cleared by the next action. */
+    var info by mutableStateOf<String?>(null)
+        private set
+
+    /** The discussion being deleted, while its stop, cleanup and deletion run. */
+    var deleting by mutableStateOf<String?>(null)
         private set
 
     private val saveLock = Mutex()
@@ -414,6 +425,41 @@ internal class AiChatController(
             openNow(sessionId)
         }
 
+    /**
+     * Deletes one discussion from the list (PLAN-1.7.2). A request still running in it is stopped and
+     * its cleanup awaited first; on failure the discussion and its draft stay and the reason shows.
+     * Saved sticky notes are separate copies and stay readable.
+     */
+    fun delete(session: SessionView) =
+        scope.launch {
+            if (deleting != null) return@launch
+            deleting = session.sessionId
+            notice = null
+            info = null
+            try {
+                awaitStarted()
+                val busy = facade.state.value.globalBusy
+                if (busy != null && busy.owner.sessionId == session.sessionId) {
+                    facade.cancel(newId(), busy.owner)
+                    facade.awaitIdle()
+                }
+                var r = facade.deleteSession(session.sessionId, session.question)
+                if (r is ResultOf.Rejected && r.reason.code == RejectCode.BUSY) {
+                    facade.awaitIdle()
+                    r = facade.deleteSession(session.sessionId, session.question)
+                }
+                when (r) {
+                    is ResultOf.Ok -> {
+                        info = "已删除讨论「${session.title}」。"
+                        loadSessions(reset = true)
+                    }
+                    is ResultOf.Rejected -> notice = "讨论未删除：" + aiRejectionText(r.reason)
+                }
+            } finally {
+                deleting = null
+            }
+        }
+
     /** Saves a finished reply as a sticky note. Taps while saving or after success do nothing more. */
     fun saveToNote(reply: MessageView) =
         scope.launch {
@@ -585,6 +631,7 @@ internal class AiChatController(
 
     fun dismissNotice() {
         notice = null
+        info = null
     }
 }
 
@@ -689,6 +736,7 @@ internal fun AiChatScreen(
         controller.notice?.let { text ->
             Box(Modifier.testTag("ai-notice").clickable { controller.dismissNotice() }) { ErrorNotice(text) }
         }
+        controller.info?.let { InlineNote(it, Modifier.testTag("ai-info")) }
         if (session == null) AiSessionList(controller, state, Modifier.weight(1f), onClose)
         else AiSessionPane(controller, state, session, Modifier.weight(1f), onOpenNote)
     }
@@ -711,6 +759,33 @@ private fun AiSessionList(
     modifier: Modifier,
     onClose: (() -> Unit)?,
 ) {
+    var confirmDelete by remember { mutableStateOf<SessionView?>(null) }
+    confirmDelete?.let { target ->
+        val running = state.globalBusy?.owner?.sessionId == target.sessionId
+        AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text("删除讨论？") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("将删除「${target.title}」的全部消息和草稿，无法恢复。")
+                    Text("已经保存到便签的内容仍可查看；已产生的 AI 费用仍计入费用统计。")
+                    if (running) Text("这条讨论正在生成回复，会先停止，收尾完成后再删除。", modifier = Modifier.testTag("ai-delete-running"))
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        controller.delete(target)
+                        confirmDelete = null
+                    },
+                    modifier = Modifier.testTag("ai-delete-confirm"),
+                ) {
+                    Text(if (running) "停止并删除" else "删除")
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("取消") } },
+        )
+    }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (onClose != null)
@@ -738,7 +813,15 @@ private fun AiSessionList(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(bottom = 24.dp),
         ) {
-            items(controller.sessions, key = { it.sessionId }) { s -> AiSessionRow(s, controller.source) { controller.open(s.sessionId) } }
+            items(controller.sessions, key = { it.sessionId }) { s ->
+                AiSessionRow(
+                    s,
+                    controller.source,
+                    deleting = controller.deleting == s.sessionId,
+                    menuEnabled = controller.deleting == null,
+                    onDelete = { confirmDelete = s },
+                ) { controller.open(s.sessionId) }
+            }
             if (controller.hasMoreSessions)
                 item(key = "more") {
                     TextButton(onClick = { controller.moreSessions() }, modifier = Modifier.heightIn(min = 48.dp)) {
@@ -766,15 +849,28 @@ private fun AiSessionList(
 }
 
 @Composable
-private fun AiSessionRow(s: SessionView, source: AiChatSource, onOpen: () -> Unit) {
+private fun AiSessionRow(
+    s: SessionView,
+    source: AiChatSource,
+    deleting: Boolean,
+    menuEnabled: Boolean,
+    onDelete: () -> Unit,
+    onOpen: () -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
     Surface(
         onClick = onOpen,
+        enabled = !deleting,
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLowest,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("ai-session-row"),
     ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            Modifier.weight(1f).padding(start = 14.dp, top = 10.dp, bottom = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
             Text(s.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             val tags =
                 buildList {
@@ -790,7 +886,29 @@ private fun AiSessionRow(s: SessionView, source: AiChatSource, onOpen: () -> Uni
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            if (deleting) InlineNote("正在删除…", Modifier.testTag("ai-session-deleting"))
         }
+        // Read-only discussions of an older version can be deleted too.
+        Box {
+            IconButton(
+                onClick = { menu = true },
+                enabled = menuEnabled,
+                modifier = Modifier.size(48.dp).testTag("ai-session-menu"),
+            ) {
+                Icon(AppIcons.MoreVert, contentDescription = "更多操作：" + s.title)
+            }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                DropdownMenuItem(
+                    text = { Text("删除讨论") },
+                    onClick = {
+                        menu = false
+                        onDelete()
+                    },
+                    modifier = Modifier.testTag("ai-session-delete"),
+                )
+            }
+        }
+      }
     }
 }
 
@@ -1048,7 +1166,7 @@ private fun AiMessage(m: MessageView, canRetry: Boolean, controller: AiChatContr
         if (m.text.isNotEmpty()) MarkdownContent(m.text)
         if (m.completion == TextState.PARTIAL)
             InlineNote("回复不完整，只保存了已收到的部分。", Modifier.testTag("ai-partial"))
-        controller.source.citation(m)?.let { InlineNote("引用：$it", Modifier.testTag("ai-citation")) }
+        controller.source.citation(m)?.let { AiCitationBlock(it, controller.source.coverageNote(m)) }
         m.run?.let(::aiUsageText)?.let {
             Text(it, style = MaterialTheme.typography.labelSmall, color = aiCostTextColor(MaterialTheme.colorScheme), modifier = Modifier.testTag("ai-usage"))
         }
@@ -1089,6 +1207,26 @@ private fun AiMessage(m: MessageView, canRetry: Boolean, controller: AiChatContr
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+/**
+ * What of the user's own material the reply was given, kept apart from the answer: anything not
+ * listed here came from the model's general knowledge. Hidden when nothing was cited.
+ */
+@Composable
+private fun AiCitationBlock(citation: String, coverage: String?) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth().testTag("ai-citation-block"),
+    ) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("速记依据", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Text(citation, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("ai-citation"))
+            coverage?.let { InlineNote(it, Modifier.testTag("ai-coverage")) }
+        }
     }
 }
 

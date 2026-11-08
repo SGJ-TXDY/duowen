@@ -184,7 +184,7 @@ class QuickNoteReaderAiTest {
         // It names the document and what it will cite before anything is sent.
         ui.onNodeWithTag("ai-source-context").assertIsDisplayed()
         ui.onNodeWithText("文档：" + doc.summary.title).assertIsDisplayed()
-        ui.onNodeWithText("从文档开头起按需引用相关段落；只在你发送时提交。").assertIsDisplayed()
+        ui.onNodeWithText("可以追问文档里的内容，也可以继续了解相关概念。文档内容只在你发送时提交。").assertIsDisplayed()
         assertEquals(listOf(doc.summary.id to null as QuickNoteHeading?), asked)
         assertTrue(facade.sends.isEmpty())
         // The page underneath is the same one, not reloaded.
@@ -221,7 +221,11 @@ class QuickNoteReaderAiTest {
         assertNull(quickNoteSection(doc, "not-a-heading"))
         val context = quickNoteAiContext(doc, heading)
         assertEquals("文档：" + doc.summary.title, context.title)
-        assertTrue(context.scope, context.scope.startsWith("以当前章节「${heading.title}」为主"))
+        assertTrue(context.scope, context.scope.startsWith("可以追问文档里的内容，也可以继续了解相关概念。"))
+        assertTrue(context.scope, context.scope.contains("当前阅读「${heading.title}」：问“这一节”时以它为准。"))
+        // The question decides the scope: with no matching paragraph, asking is still offered.
+        val none = quickNoteAiContext(doc, heading, ResultOf.Ok(QuickNoteAiContext(emptyList())))
+        assertTrue(none.scope, none.scope.endsWith("这里没有找到直接相关的段落，也可以照常提问。"))
     }
 
     @Test
@@ -229,7 +233,7 @@ class QuickNoteReaderAiTest {
         val reference = QuickNoteAiReference("h-intro", "简介", 1, 2)
         openLinux(withAi = true, preview = ResultOf.Ok(QuickNoteAiContext(listOf(QuickNoteAiExcerpt(reference, "正文")))))
         ui.onNodeWithContentDescription("AI 学习助手").performClick()
-        await { exists(hasText("预计引用：「简介」第 1～2 段（发送时按问题再选取）", substring = true)) }
+        await { exists(hasText("预计提供：「简介」第 1～2 段（发送时按你的问题重新选取）", substring = true)) }
         assertTrue(facade.sends.isEmpty())
     }
 

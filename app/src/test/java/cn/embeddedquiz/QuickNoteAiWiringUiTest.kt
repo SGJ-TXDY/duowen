@@ -120,7 +120,7 @@ class QuickNoteAiWiringUiTest {
         ui.onNodeWithContentDescription("AI 学习助手").performClick()
         await { exists(hasTestTag("quick-note-ai-page")) }
         // The backend's own preview of what it would cite.
-        await { exists(hasText("预计引用：", substring = true)) }
+        await { exists(hasText("预计提供：", substring = true) or hasText("这里没有找到直接相关的段落", substring = true)) }
 
         await { exists(hasTestTag("ai-new-session") and isEnabled()) }
         ui.onNodeWithTag("ai-new-session").performClick()
@@ -139,6 +139,14 @@ class QuickNoteAiWiringUiTest {
 
         back() // discussion -> list
         await { exists(hasTestTag("ai-new-session")) }
+        // 1.7.2: the discussion can be deleted on the real backend once its request has settled.
+        ui.onNodeWithContentDescription("更多操作：" + session.title).performClick()
+        ui.onNodeWithTag("ai-session-delete").performClick()
+        ui.onNodeWithTag("ai-delete-confirm").performClick()
+        await { exists(hasTestTag("ai-info")) && !exists(hasTestTag("ai-session-row")) }
+        val left = runBlocking { vm.aiConversations.documentSessions(doc, true, null, 20) }
+        assertEquals(emptyList<SessionView>(), (left as ResultOf.Ok).value.items)
+
         back() // list -> reader
         await { !exists(hasTestTag("quick-note-ai-page")) }
         assertEquals(doc.id, vm.quickNotes.state.reader?.summary?.id)

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiRuntimeTest" tests="21" skipped="0" failures="0" errors="0" timestamp="2026-11-08T10:26:25" hostname="LAPTOP-0JLS131B" time="6.422">
+  <properties/>
+  <testcase name="completedQuestionReplySavesOneMarkdownNoteAndRestoresReadOnlyOrigin" classname="cn.embeddedquiz.AiRuntimeTest" time="0.502"/>
+  <testcase name="costCurrenciesRemainSeparate" classname="cn.embeddedquiz.AiRuntimeTest" time="0.158"/>
+  <testcase name="quickNoteDiscussionSendsBoundedReferencesAndRetriesFrozenPayload" classname="cn.embeddedquiz.AiRuntimeTest" time="2.02"/>
+  <testcase name="closingWaitsForTransportAndPersistsTerminal" classname="cn.embeddedquiz.AiRuntimeTest" time="0.116"/>
+  <testcase name="providerTextLimitAndCredentialRedaction" classname="cn.embeddedquiz.AiRuntimeTest" time="0.052"/>
+  <testcase name="badCredentialsNeverDispatch" classname="cn.embeddedquiz.AiRuntimeTest" time="0.122"/>
+  <testcase name="completionStillOwnsCleaningSlot" classname="cn.embeddedquiz.AiRuntimeTest" time="0.188"/>
+  <testcase name="deletionPreservesFeesAndStickyNoteAcrossBackupAndRejectsBusyOrWrongOwner" classname="cn.embeddedquiz.AiRuntimeTest" time="0.508"/>
+  <testcase name="stopWaitsForExitAndRetryUsesOneUser" classname="cn.embeddedquiz.AiRuntimeTest" time="0.181"/>
+  <testcase name="serverRetryAfterCannotReplayOneShot" classname="cn.embeddedquiz.AiRuntimeTest" time="0.121"/>
+  <testcase name="replacementWaitsAndInvalidatesCursorAndWriter" classname="cn.embeddedquiz.AiRuntimeTest" time="0.292"/>
+  <testcase name="pagingArchiveAndImmutableReceipts" classname="cn.embeddedquiz.AiRuntimeTest" time="0.119"/>
+  <testcase name="partialAndInvalidUsageAreNotFreeOrCompleteCache" classname="cn.embeddedquiz.AiRuntimeTest" time="0.178"/>
+  <testcase name="newestWindowPagesBackwardsWithoutGaps" classname="cn.embeddedquiz.AiRuntimeTest" time="0.377"/>
+  <testcase name="redirectDoesNotSendAgain" classname="cn.embeddedquiz.AiRuntimeTest" time="0.127"/>
+  <testcase name="failedCancelStillStopsAndBlocksNewWork" classname="cn.embeddedquiz.AiRuntimeTest" time="0.12"/>
+  <testcase name="cutoverDrainsLegacyWriterBeforeNewSend" classname="cn.embeddedquiz.AiRuntimeTest" time="0.134"/>
+  <testcase name="udpOnlyDocumentSendsTcpQuestionWithoutCitationsAndKeepsLegacyRetryBytes" classname="cn.embeddedquiz.AiRuntimeTest" time="0.599"/>
+  <testcase name="frozenBodyReplayCacheAndFees" classname="cn.embeddedquiz.AiRuntimeTest" time="0.256"/>
+  <testcase name="draftCoalescesAndFlushesDuringClose" classname="cn.embeddedquiz.AiRuntimeTest" time="0.116"/>
+  <testcase name="deletionFailureRollsBackDiscussionAndCostRollup" classname="cn.embeddedquiz.AiRuntimeTest" time="0.136"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Nov 08, 2026 7:26:27 PM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[55668] connection from /127.0.0.1 didn't make a request
+Nov 08, 2026 7:26:28 PM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[55675] connection from /127.0.0.1 didn't make a request
+Nov 08, 2026 7:26:29 PM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[55680] connection from /127.0.0.1 didn't make a request
+Nov 08, 2026 7:26:30 PM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+WARNING: MockWebServer[55689] connection from /127.0.0.1 didn't make a request
+]]></system-err>
+</testsuite>

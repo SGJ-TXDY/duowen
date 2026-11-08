@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cn.embeddedquiz.AiFoundationTest" tests="36" skipped="0" failures="0" errors="0" timestamp="2026-11-08T10:25:35" hostname="LAPTOP-0JLS131B" time="23.039">
+  <properties/>
+  <testcase name="f1AcceptReadsClockAndZoneExactlyOnceAcrossMidnight" classname="cn.embeddedquiz.AiFoundationTest" time="0.051"/>
+  <testcase name="migrationFailureRollsBackNewTablesAndLeavesV5Readable" classname="cn.embeddedquiz.AiFoundationTest" time="0.581"/>
+  <testcase name="questionSnapshotPreservesRawAndOrderAndRejectsCorruption" classname="cn.embeddedquiz.AiFoundationTest" time="0.015"/>
+  <testcase name="zeroRunDraftRoundTripHasNoQuestionForeignKey" classname="cn.embeddedquiz.AiFoundationTest" time="0.057"/>
+  <testcase name="f1BackendComputesEstimateAndRestoreComparesDecimalValuesNotText" classname="cn.embeddedquiz.AiFoundationTest" time="0.059"/>
+  <testcase name="foreignKeysAndDuplicateSequenceAreEnforcedByDatabase" classname="cn.embeddedquiz.AiFoundationTest" time="0.037"/>
+  <testcase name="acceptReplayIsStableAndDoesNotClearNewerDraft" classname="cn.embeddedquiz.AiFoundationTest" time="0.056"/>
+  <testcase name="restoreRetryChainInReversedInputOrderRespectsImmediateForeignKeys" classname="cn.embeddedquiz.AiFoundationTest" time="0.092"/>
+  <testcase name="f1ForgedBillingDayIsRejectedBeforeAnyTargetWrite" classname="cn.embeddedquiz.AiFoundationTest" time="0.064"/>
+  <testcase name="f1RetryHasNewDayAndKeepsOriginalFrozenRequestAndBilling" classname="cn.embeddedquiz.AiFoundationTest" time="0.066"/>
+  <testcase name="partialAndCancelledRepliesCannotBecomeCacheAndUnknownUsageStaysNull" classname="cn.embeddedquiz.AiFoundationTest" time="0.062"/>
+  <testcase name="f1EstimateRoundsOnlyFinalAmountHalfUpAtTwelveDecimalPlaces" classname="cn.embeddedquiz.AiFoundationTest" time="0.049"/>
+  <testcase name="idempotentCreateAndDraftSurviveStoreRecreationAndConflictingInputIsRejected" classname="cn.embeddedquiz.AiFoundationTest" time="0.039"/>
+  <testcase name="retriesKeepFrozenInputAndProduceOnlyOneSuccessfulContextRound" classname="cn.embeddedquiz.AiFoundationTest" time="0.099"/>
+  <testcase name="explicitZeroUsageHasPriceSnapshotAndMalformedReceiptCannotHideCredentials" classname="cn.embeddedquiz.AiFoundationTest" time="0.052"/>
+  <testcase name="crossSessionReferencesAndRetrySourceCyclesAndForgedReceiptsAreRejected" classname="cn.embeddedquiz.AiFoundationTest" time="0.051"/>
+  <testcase name="refusalAtCapacityDoesNotLeaveReceiptRunOrClearSavedDraft" classname="cn.embeddedquiz.AiFoundationTest" time="0.049"/>
+  <testcase name="runningSnapshotRoundTripCanRecoverInterruptedWithoutExceedingReservation" classname="cn.embeddedquiz.AiFoundationTest" time="0.079"/>
+  <testcase name="usageIsNotErasedByLaterTextOnlyCheckpointAndSnapshotHistoryMustBelongToSession" classname="cn.embeddedquiz.AiFoundationTest" time="0.081"/>
+  <testcase name="realV5MigrationAddsOnlyFiveTablesAndKeepsAllLegacyRowsAndJson" classname="cn.embeddedquiz.AiFoundationTest" time="0.182"/>
+  <testcase name="exactAcceptedCapacityCanCheckpointMaximumEscapedTextAndFinish" classname="cn.embeddedquiz.AiFoundationTest" time="9.454"/>
+  <testcase name="f1MaximumEscapedBodyAndPartialUsageKeepClosingFloorAtFullCapacity" classname="cn.embeddedquiz.AiFoundationTest" time="10.678"/>
+  <testcase name="f1InsufficientClosingFloorIsRejectedButExactFloorRecoversWithoutDroppingText" classname="cn.embeddedquiz.AiFoundationTest" time="0.076"/>
+  <testcase name="f1CheckpointCannotSpendClosingFloorAndCancelReceiptRollbackCanRetry" classname="cn.embeddedquiz.AiFoundationTest" time="0.086"/>
+  <testcase name="f1RetryCapturesChangedBusinessTimezoneWithoutChangingSystemDefaults" classname="cn.embeddedquiz.AiFoundationTest" time="0.053"/>
+  <testcase name="usageOverflowUnknownEnumsAndNonFiniteMoneyAreRejectedBeforeRestore" classname="cn.embeddedquiz.AiFoundationTest" time="0.05"/>
+  <testcase name="textAndMessageLimitsIncludeEscapingAndExactCapacityBoundary" classname="cn.embeddedquiz.AiFoundationTest" time="0.196"/>
+  <testcase name="acceptedDraftClearAndReceiptAreAtomicAndRollbackLeavesNoHalfRound" classname="cn.embeddedquiz.AiFoundationTest" time="0.055"/>
+  <testcase name="f1RejectsForgedZeroReserveBeforeImport" classname="cn.embeddedquiz.AiFoundationTest" time="0.051"/>
+  <testcase name="draftCoalescingUsesTail300msAndMaximum2secondsAndExplicitFlush" classname="cn.embeddedquiz.AiFoundationTest" time="0.036"/>
+  <testcase name="globalSingleInFlightAndCancelAreIdempotentWithoutNetwork" classname="cn.embeddedquiz.AiFoundationTest" time="0.083"/>
+  <testcase name="frozenPayloadSurvivesImmediateQuestionReplacementAndStableChoiceOrder" classname="cn.embeddedquiz.AiFoundationTest" time="0.051"/>
+  <testcase name="newUserClosesOldRetryAndContextUsesLastFourOrderedCompleteRoundsOnly" classname="cn.embeddedquiz.AiFoundationTest" time="0.202"/>
+  <testcase name="staleDraftTokenAndOldEditorNeverOverwriteNewDraft" classname="cn.embeddedquiz.AiFoundationTest" time="0.039"/>
+  <testcase name="f1RejectsFalseKnownEstimate" classname="cn.embeddedquiz.AiFoundationTest" time="0.043"/>
+  <testcase name="capacityReservationConsumptionIsIdempotentAndTransactionFailureRollsBack" classname="cn.embeddedquiz.AiFoundationTest" time="0.063"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

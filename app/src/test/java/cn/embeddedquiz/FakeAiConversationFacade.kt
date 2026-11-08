@@ -267,11 +267,42 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
     override suspend fun cancel(commandId: String, owner: RunOwner): ResultOf<CancelReceipt> {
         cancels += owner
         val busy = _state.value.globalBusy
+        if (busy?.owner == owner && owner.requestId == "r-busy") {
+            _state.value = _state.value.copy(globalBusy = null)
+            return ResultOf.Ok(CancelReceipt(owner, RunStatus.CANCELLED, false))
+        }
         if (busy?.owner != owner) return ResultOf.Rejected(Rejection(RejectCode.ALREADY_TERMINAL, false, RecoveryAction.NONE))
         settle(owner) { it.copy(run = it.run!!.copy(status = RunStatus.CANCELLED, canRetry = true)) }
         return ResultOf.Ok(CancelReceipt(owner, RunStatus.CANCELLED, false))
     }
-    override suspend fun awaitIdle(): ResultOf<IdleReceipt> = ResultOf.Ok(IdleReceipt(_state.value.datasetEpoch))
+    override suspend fun awaitIdle(): ResultOf<IdleReceipt> {
+        awaitIdleCalls++
+        return ResultOf.Ok(IdleReceipt(_state.value.datasetEpoch))
+    }
+
+    // ---- 1.7.2 deletion ----
+    val deletes = mutableListOf<Pair<String, QuestionOwner>>()
+    var deleteRejection: Rejection? = null
+    var awaitIdleCalls = 0
+        private set
+
+    /** A request running in [session] with no message behind it; stopping it just frees the slot. */
+    fun busyOn(session: SessionView) {
+        _state.value = _state.value.copy(globalBusy = BusyRun(RunOwner(session.question, session.sessionId, "r-busy"), TransportPhase.READING))
+    }
+
+    override suspend fun deleteSession(sessionId: String, owner: QuestionOwner): ResultOf<Unit> {
+        deletes += sessionId to owner
+        deleteRejection?.let { return ResultOf.Rejected(it) }
+        val s = sessionsById[sessionId] ?: return ResultOf.Ok(Unit) // repeated delete is fine
+        if (s.question != owner) return reject(RejectCode.STALE_OWNER)
+        if (_state.value.globalBusy?.owner?.sessionId == sessionId) return reject(RejectCode.BUSY)
+        sessionsById.remove(sessionId)
+        messagesBySession.remove(sessionId)
+        if (_state.value.selectedSessionId == sessionId)
+            _state.value = _state.value.copy(selectedSessionId = null, selected = null, firstMessages = AiPage(emptyList(), null))
+        return ResultOf.Ok(Unit)
+    }
     override fun shutdown() = Unit
     override suspend fun awaitClosed(): ClosedReport = ClosedReport(null)
 

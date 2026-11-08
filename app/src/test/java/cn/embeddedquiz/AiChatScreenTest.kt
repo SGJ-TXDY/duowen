@@ -572,7 +572,7 @@ class AiChatScreenTest {
         ui.onNodeWithTag("ai-source-context").assertIsDisplayed()
         facade.finish("进程由 PCB 描述。")
         ui.waitForIdle()
-        ui.onNodeWithTag("ai-messages").performScrollToNode(hasText("引用：「进程」第 2～3 段"))
+        ui.onNodeWithTag("ai-messages").performScrollToNode(hasText("「进程」第 2～3 段"))
         // No saver here: document replies offer no save button.
         ui.onAllNodesWithTag("ai-save-note").assertCountEquals(0)
     }
@@ -667,7 +667,7 @@ class AiChatScreenTest {
             )
         facade.replace(reply.copy(run = reply.run!!.copy(documentReferences = refs)))
         ui.waitForIdle()
-        ui.onNodeWithTag("ai-messages").performScrollToNode(hasText("引用：「进程」第 2～4 段；「线程」第 1 段"))
+        ui.onNodeWithTag("ai-messages").performScrollToNode(hasText("「进程」第 2～4 段；「线程」第 1 段"))
     }
 
     @Test
@@ -676,5 +676,110 @@ class AiChatScreenTest {
             "「进程」第 1 段、第 3～5 段",
             quickNoteReferenceText(listOf(QuickNoteAiReference("p", "进程", 4, 5), QuickNoteAiReference("p", "进程", 1, 1), QuickNoteAiReference("p", "进程", 3, 3))),
         )
+    }
+
+    // ---- 1.7.2: what the reply was given, and deleting discussions ----
+
+    @Test
+    fun citedParagraphsSitApartFromTheAnswerWithTheirCoverageAndVanishWhenNoneWereGiven() {
+        showSource(DocumentAiSource(linuxV2, null) { "doc-model" })
+        ui.onNodeWithTag("ai-new-session").performClick()
+        ui.waitForIdle()
+        type("TCP 和三次握手是什么？")
+        ui.onNodeWithContentDescription("发送追问").performClick()
+        ui.waitForIdle()
+        facade.finish("TCP 是面向连接的可靠传输；握手为 SYN → SYN-ACK → ACK。")
+        ui.waitForIdle()
+        // No paragraph of the notes was relevant: the answer stands alone, no citation block.
+        ui.onNodeWithTag("ai-messages").performScrollToNode(hasText("TCP 是面向连接的可靠传输", substring = true))
+        ui.onAllNodesWithTag("ai-citation-block").assertCountEquals(0)
+
+        type("总结整份文档")
+        ui.onNodeWithContentDescription("发送追问").performClick()
+        ui.waitForIdle()
+        facade.finish("这份笔记讲了 UDP。")
+        val reply = facade.state.value.firstMessages.items.last()
+        facade.replace(
+            reply.copy(
+                run = reply.run!!.copy(
+                    documentReferences = listOf(QuickNoteAiReference("h-udp", "UDP", 1, 2)),
+                    documentCoverage = QuickNoteAiCoverage(QuickNoteAiScope.WHOLE_DOCUMENT, partial = true, includedSections = 3, totalSections = 9),
+                )
+            )
+        )
+        ui.waitForIdle()
+        ui.onNodeWithTag("ai-messages").performScrollToNode(hasTestTag("ai-citation-block"))
+        ui.onNodeWithText("速记依据").assertIsDisplayed()
+        ui.onNodeWithTag("ai-citation").assertTextEquals("「UDP」第 1～2 段")
+        ui.onNodeWithTag("ai-coverage").assertTextEquals("整份文档较长：本次使用目录和代表性摘录，覆盖 3/9 节，可能有遗漏。")
+    }
+
+    @Test
+    fun coverageNotesSayHowMuchOfTheDocumentWasGiven() {
+        assertEquals("本次提供了整份文档（共 4 节）。", quickNoteCoverageText(QuickNoteAiCoverage(QuickNoteAiScope.WHOLE_DOCUMENT, false, 4, 4)))
+        assertEquals("本节较长，只提供了其中一部分段落。", quickNoteCoverageText(QuickNoteAiCoverage(QuickNoteAiScope.SECTION, true, 1, 1)))
+        assertNull(quickNoteCoverageText(QuickNoteAiCoverage(QuickNoteAiScope.SECTION, false, 1, 1)))
+        assertNull(quickNoteCoverageText(QuickNoteAiCoverage(QuickNoteAiScope.SEARCH, false, 2, 2)))
+    }
+
+    private fun openMenuOf(title: String) {
+        ui.onNodeWithContentDescription("更多操作：$title").performClick()
+        ui.onNodeWithTag("ai-session-delete").performClick()
+        ui.waitForIdle()
+    }
+
+    @Test
+    fun aDiscussionIsDeletedOnlyAfterConfirmingAndTheListRefreshes() {
+        val keep = facade.seed(q, "保留")
+        val gone = facade.seed(q.copy(contentHash = "h0"), "旧版待删", readOnly = true)
+        showSource(QuestionAiSource(q))
+
+        // Cancelling changes nothing.
+        openMenuOf("旧版待删")
+        ui.onNodeWithText("将删除「旧版待删」的全部消息和草稿，无法恢复。").assertIsDisplayed()
+        ui.onNodeWithText("已经保存到便签的内容仍可查看；已产生的 AI 费用仍计入费用统计。").assertIsDisplayed()
+        ui.onNodeWithText("取消").performClick()
+        assertTrue(facade.deletes.isEmpty())
+        ui.onAllNodesWithTag("ai-session-row").assertCountEquals(2)
+
+        // Read-only discussions of an older version can be deleted, with their own owner.
+        openMenuOf("旧版待删")
+        ui.onNodeWithTag("ai-delete-confirm").assertTextEquals("删除").performClick()
+        ui.waitForIdle()
+        assertEquals(listOf(gone.sessionId to gone.question), facade.deletes)
+        ui.onAllNodesWithTag("ai-session-row").assertCountEquals(1)
+        ui.onNodeWithText("保留").assertIsDisplayed()
+        ui.onNodeWithTag("ai-info").assertTextEquals("已删除讨论「旧版待删」。")
+        assertNotNull(facade.session(keep.sessionId))
+    }
+
+    @Test
+    fun aRunningDiscussionIsStoppedAndCleanedUpBeforeItIsDeleted() {
+        val s = facade.seed(q, "生成中")
+        showSource(QuestionAiSource(q))
+        facade.busyOn(facade.session(s.sessionId))
+        ui.waitForIdle()
+
+        openMenuOf("生成中")
+        ui.onNodeWithTag("ai-delete-running").assertIsDisplayed()
+        ui.onNodeWithTag("ai-delete-confirm").assertTextEquals("停止并删除").performClick()
+        ui.waitForIdle()
+        assertEquals(listOf(s.sessionId), facade.cancels.map { it.sessionId })
+        assertTrue(facade.awaitIdleCalls >= 1)
+        assertEquals(listOf(s.sessionId), facade.deletes.map { it.first })
+        ui.onAllNodesWithTag("ai-session-row").assertCountEquals(0)
+    }
+
+    @Test
+    fun aFailedDeletionKeepsTheDiscussionAndSaysWhy() {
+        facade.seed(q, "删不掉")
+        facade.deleteRejection = Rejection(RejectCode.STORAGE_FAILED, true, RecoveryAction.NONE)
+        showSource(QuestionAiSource(q))
+        openMenuOf("删不掉")
+        ui.onNodeWithTag("ai-delete-confirm").performClick()
+        ui.waitForIdle()
+        ui.onNodeWithText("讨论未删除：AI 存储写入失败，内容未保存。").assertIsDisplayed()
+        ui.onAllNodesWithTag("ai-session-row").assertCountEquals(1)
+        ui.onAllNodesWithTag("ai-info").assertCountEquals(0)
     }
 }

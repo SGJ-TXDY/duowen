@@ -131,6 +131,20 @@ class QuestionAiEntryUiTest {
         // Back: from the discussion to its list, then to the question.
         systemBack()
         await { exists(hasTestTag("ai-new-session")) }
+
+        // 1.7.2: the settled discussion is deleted on the real backend; the question's progress is untouched.
+        val progressBefore = vm.progress
+        val title = ui.onNodeWithTag("ai-session-row").fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.Text].first().text
+        ui.onNodeWithContentDescription("更多操作：$title").performClick()
+        ui.onNodeWithTag("ai-session-delete").performClick()
+        ui.onNodeWithTag("ai-delete-confirm").performClick()
+        await { exists(hasTestTag("ai-info")) && !exists(hasTestTag("ai-session-row")) }
+        val owner = QuestionOwner("qa-code", vm.questions.single { it.id == "qa-code" }.contentHash)
+        val left = kotlinx.coroutines.runBlocking { vm.aiConversations.sessions(owner.questionId, true, null, 20) }
+        assertEquals(emptyList<SessionView>(), (left as ResultOf.Ok).value.items)
+        assertEquals(progressBefore, vm.progress)
+
         systemBack()
         await { exists(hasTestTag("question-list")) && !exists(hasTestTag("ai-page")) }
         assertEquals(Page.QUESTION, vm.page)
