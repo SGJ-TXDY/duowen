@@ -71,7 +71,7 @@ internal class AiBackupStage private constructor(
                             currentCoroutineContext().ensureActive();val key=reader.nextName();require(seen.add(key)) { "DUPLICATE_SECTION" }
                             when {
                                 key in setOf("schemaVersion","backupVersion","aiConversationVersion") -> headers[key]=readLong(reader)
-                                key in AiLegacyBackupCodec.tables || key in aiSections -> {
+                                key in AiLegacyBackupCodec.tables || key in aiSections || key == AI_DELETED_COST_SECTION -> {
                                     if(key=="learningSettings") {
                                         val row=readValue(reader,0) as? JSONObject ?: error("INVALID_SETTINGS")
                                         database.execSQL("INSERT INTO legacy(section,rowKey,ordinal,wire) VALUES (?,?,?,?)",arrayOf(key,"1",0,row.toString()))
@@ -89,8 +89,14 @@ internal class AiBackupStage private constructor(
                                                 if(table=="ai_runs") { val reserved=AiJson.long(row,"reservedBytes");require(reserved in 0..AiConversationCodec.RUN_RESERVE);reservations=Math.addExact(reservations,reserved) }
                                                 require(Math.addExact(aiBytes,reservations)<=AiConversationCodec.CAPACITY) { "CAPACITY_EXCEEDED" }
                                                 AiSqlAccess.insert(database,table,normalized)
-                                            } else database.execSQL("INSERT INTO legacy(section,rowKey,ordinal,wire) VALUES (?,?,?,?)",
-                                                arrayOf(key,AiLegacyBackupCodec.key(key,row,ordinal),ordinal,row.toString()))
+                                            } else {
+                                                val rowKey = if (key == AI_DELETED_COST_SECTION) {
+                                                    require(ordinal < 100_000) { "COST_LEDGER_LIMIT" }
+                                                    AiDeletedCostLedger.key(row)
+                                                } else AiLegacyBackupCodec.key(key,row,ordinal)
+                                                database.execSQL("INSERT INTO legacy(section,rowKey,ordinal,wire) VALUES (?,?,?,?)",
+                                                    arrayOf(key,rowKey,ordinal,row.toString()))
+                                            }
                                             ordinal=Math.addExact(ordinal,1L);resource(spool.length())
                                         };reader.endArray()
                                     }
@@ -99,13 +105,14 @@ internal class AiBackupStage private constructor(
                             }
                         };reader.endObject();require(reader.peek()==JsonToken.END_DOCUMENT)
                     }
-                    require(headers["schemaVersion"]==1L && headers["backupVersion"] in 1L..5L) { "UNSUPPORTED_BACKUP_VERSION" }
+                    require(headers["schemaVersion"]==1L && headers["backupVersion"] in 1L..6L) { "UNSUPPORTED_BACKUP_VERSION" }
                     val v=headers.getValue("backupVersion").toInt()
                     require(seen.containsAll(setOf("questions","progress","attempts","ai"))) { "MISSING_LEGACY_SECTION" }
                     if(v>=2) require("stickyNotes" in seen)
                     if(v>=3) require(seen.containsAll(setOf("learningSettings","personalAnswers","questionPersonal")))
                     if(v>=4) require(headers["aiConversationVersion"]==1L && seen.containsAll(aiSections.keys)) { "MISSING_AI_SECTION" }
                     else require(headers["aiConversationVersion"]==null && seen.none { it in aiSections }) { "AI_IN_LEGACY_FORMAT" }
+                    require((AI_DELETED_COST_SECTION in seen) == (v >= 6)) { "INVALID_COST_LEDGER_SECTION" }
                     val stage=AiBackupStage(helper,stageFile,v)
                     stage.validateAll(context,now)
                     database.setTransactionSuccessful();v
@@ -150,11 +157,14 @@ internal class AiBackupStage private constructor(
     }
     private suspend fun validateAll(context:Context,now:()->Long) {
         CategoryMap.load(context)
-        for(section in AiLegacyBackupCodec.tables.keys) {
+        val sections = AiLegacyBackupCodec.tables.keys + if (version >= 6) listOf(AI_DELETED_COST_SECTION) else emptyList()
+        for(section in sections) {
             if(version<2 && section=="stickyNotes" || version<3 && section in setOf("learningSettings","personalAnswers","questionPersonal")) continue
             db.query("SELECT rowKey,wire FROM legacy WHERE section=? ORDER BY ordinal",arrayOf(section)).use { c ->
                 while(c.moveToNext()) { currentCoroutineContext().ensureActive()
-                    val row=AiLegacyBackupCodec.validate(section,JSONObject(c.getString(1)),version) { legacy("questions",it) }
+                    val wire = JSONObject(c.getString(1))
+                    val row = if (section == AI_DELETED_COST_SECTION) AiDeletedCostLedger.validate(wire)
+                        else AiLegacyBackupCodec.validate(section,wire,version) { legacy("questions",it) }
                     if (section == "stickyNotes" && !row.isNull("sourceRequestId")) {
                         db.execSQL("INSERT INTO note_sources VALUES (?,?)",
                             arrayOf(row.getString("sourceRequestId"), row.getString("sourceCommandId")))
@@ -165,6 +175,8 @@ internal class AiBackupStage private constructor(
         }
         if (version < 5) require(AiSqlAccess(db).scalar(
             "SELECT COUNT(*) FROM ai_sessions WHERE questionSnapshotVersion<>1") == 0L) { "DOCUMENT_AI_IN_LEGACY_FORMAT" }
+        if (version < 6) require(AiSqlAccess(db).scalar(
+            "SELECT COUNT(*) FROM ai_runs WHERE contextSnapshotVersion>2") == 0L) { "UPDATED_DOCUMENT_AI_IN_LEGACY_FORMAT" }
         AiStorageValidation.verifyAndRecover(db,now)
     }
     override fun close() { if(!closed) { closed=true;try { helper.close() } finally { deleteFiles(file) } } }

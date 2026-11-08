@@ -57,7 +57,7 @@ class AiProductionIntegrationTest {
         repo.dao.putProgress(Progress("c",notes="original notes"))
         repo.dao.putAi(AiEntry("legacy","c",DeepSeekClient.FLASH,"p","keep old ai",10,2,0,0.1,100))
         repo.dao.addExamTermination(ExamTermination("local-exam","ABANDONED",null,null,null,null,null,1,1,null))
-        val backup=repo.backup();assertEquals(5,JSONObject(backup).getInt("backupVersion"))
+        val backup=repo.backup();assertEquals(6,JSONObject(backup).getInt("backupVersion"))
         repo.dao.putProgress(Progress("c",notes="target before fault"));val before=tables(db)
         repo.beforeRestoreCommit={ throw IOException("target transaction failure") }
         assertTrue(runCatching { repo.restoreFrom(input(backup)) }.isFailure);assertEquals(before,tables(db));assertNotNull(db.aiLifecycle.token())
@@ -104,7 +104,7 @@ class AiProductionIntegrationTest {
         var opened=false;var closed=false
         assertTrue(runCatching { repo.backupTo { opened=true;object:ByteArrayOutputStream() { override fun close() { closed=true;throw IOException("provider close") } } } }.isFailure)
         assertTrue(opened);assertTrue(closed)
-        val out=ByteArrayOutputStream();repo.backupTo { out };assertEquals(5,JSONObject(out.toString("UTF-8")).getInt("backupVersion"))
+        val out=ByteArrayOutputStream();repo.backupTo { out };assertEquals(6,JSONObject(out.toString("UTF-8")).getInt("backupVersion"))
     } }
     @Test fun coldValidationRejectsForgedMetadataBeforeAnyProductionStoreWrite()=scoped { db,repo -> call {
         val sid=store(db).create(id(),repo.question("c")!!).sessionId!!
@@ -250,7 +250,7 @@ class AiProductionIntegrationTest {
                 waitFor { vm.ready || vm.startupState is StartupState.Error }
                 assertFalse(vm.ready);assertEquals(StartupStage.DATABASE,(vm.startupState as StartupState.Error).stage)
                 assertEquals(1,call { vm.repo.dao.questionCount() });assertNull(vm.db.aiLifecycle.token())
-                val diagnostic=JSONObject(call { vm.readStartupDiagnostics() });assertEquals(7,diagnostic.getInt("roomVersion"));assertEquals(5,diagnostic.getInt("backupVersion"));assertEquals(1,diagnostic.getInt("aiConversationVersion"))
+                val diagnostic=JSONObject(call { vm.readStartupDiagnostics() });assertEquals(8,diagnostic.getInt("roomVersion"));assertEquals(6,diagnostic.getInt("backupVersion"));assertEquals(1,diagnostic.getInt("aiConversationVersion"))
             } finally { owners.clear();waitFor { vm.examResourcesClosed?.isCompleted==true };app.deleteDatabase("embeddedquiz.db") }
         }
     }

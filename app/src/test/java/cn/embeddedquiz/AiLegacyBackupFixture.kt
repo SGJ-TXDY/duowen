@@ -4,6 +4,7 @@ import org.json.JSONObject
 internal fun JSONObject.asLegacyBackup(version:Int):JSONObject {
     put("backupVersion",version)
     remove("aiConversationVersion")
+    remove(AI_DELETED_COST_SECTION)
     AiBackupStage.aiSections.keys.forEach(::remove)
     return this
 }

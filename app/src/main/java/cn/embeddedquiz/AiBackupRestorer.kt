@@ -11,6 +11,7 @@ internal class AiBackupRestorer(private val host:QuizDatabase,private val resour
         val version=stage.version
         // Old backups contain no new conversations: preserve them, including their usage ledger.
         if(version>=4) {
+            target.execSQL("DELETE FROM ai_deleted_costs")
             target.execSQL("DELETE FROM ai_response_cache");target.execSQL("DELETE FROM ai_commands")
             while(true) {
                 currentCoroutineContext().ensureActive();resource()
@@ -40,6 +41,11 @@ internal class AiBackupRestorer(private val host:QuizDatabase,private val resour
                     currentCoroutineContext().ensureActive();resource();AiSqlAccess.insert(target,table,AiSqlAccess.normalized(table,row))
                 }
             }
+        }
+        if (version >= 6) stage.forLegacy(AI_DELETED_COST_SECTION) {
+            currentCoroutineContext().ensureActive()
+            resource()
+            AiSqlAccess.insert(target, "ai_deleted_costs", it)
         }
         AiStorageValidation.verifyAndRecover(target,resource=resource)
         target.execSQL("UPDATE ai_sessions SET activeEditorEpoch=NULL")

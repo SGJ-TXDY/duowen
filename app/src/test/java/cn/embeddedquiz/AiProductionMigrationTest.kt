@@ -15,7 +15,7 @@ import org.robolectric.annotation.Config
 class AiProductionMigrationTest {
     private val context=ApplicationProvider.getApplicationContext<Context>()
     private fun name()="m-"+UUID.randomUUID().toString().take(8)+".db"
-    @Test fun realProductionFiveToSevenKeepsOldLearningHistoryAndRawJson()=runBlocking {
+    @Test fun realProductionFiveToEightKeepsOldLearningHistoryAndRawJson()=runBlocking {
         val name=name();val old=AiLegacyV5TestDb.open(context,name)
         val raw=""" { "id":"c","kind":"SHORT","stem":"original","source":"fixture" } """
         try {
@@ -36,7 +36,7 @@ class AiProductionMigrationTest {
         }
         val db=QuizDatabase.open(context,name)
         try {
-            StartupStorageCheck.verify(db);assertEquals(7,db.openHelper.readableDatabase.version)
+            StartupStorageCheck.verify(db);assertEquals(8,db.openHelper.readableDatabase.version)
             for((table,expected) in before) {
                 val columns = if (table == "sticky_notes") "id,title,content,created,updated" else "*"
                 db.openHelper.readableDatabase.query("SELECT $columns FROM `$table`").use { c ->
@@ -49,7 +49,7 @@ class AiProductionMigrationTest {
             assertEquals(AiDataset(),AiStore(db,db.ai(),{null}).dataset())
         } finally { db.close();context.deleteDatabase(name) }
     }
-    @Test fun roomSixToSevenPreservesExistingConversationAndAddsNullableNoteSource() = runBlocking {
+    @Test fun roomSixToEightPreservesExistingConversationAndAddsNullableNoteSource() = runBlocking {
         val name = name()
         val old = AiLegacyV5TestDb.open(context, name)
         val raw = """{"id":"q","kind":"SHORT","stem":"original","source":"fixture"}"""
@@ -66,7 +66,7 @@ class AiProductionMigrationTest {
 
         val db = QuizDatabase.open(context, name)
         try {
-            assertEquals(7, db.openHelper.readableDatabase.version)
+            assertEquals(8, db.openHelper.readableDatabase.version)
             assertEquals(listOf(StickyNote("n", "旧便签", "旧正文", 1, 2)), db.dao().allStickyNotes())
             val stored = db.ai().session(session.sessionId)!!
             assertEquals(session, stored.copy(encodedBytes = 0))

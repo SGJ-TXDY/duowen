@@ -26,7 +26,7 @@ class AiFullBackupTest {
     private val context=ApplicationProvider.getApplicationContext<Context>()
     private fun id()=UUID.randomUUID().toString()
     private val bank="""{"schemaVersion":1,"questions":[{"id":"backup-q","kind":"SHORT","stem":"保留原题","source":"fixture","raw":" untouched raw \\n"}]}"""
-    private fun host(name:String):AiFoundationTestDb=Room.databaseBuilder(context,AiFoundationTestDb::class.java,name).allowMainThreadQueries().addMigrations(AiConversationMigration, StickyNoteSourceMigration).build()
+    private fun host(name:String):AiFoundationTestDb=Room.databaseBuilder(context,AiFoundationTestDb::class.java,name).allowMainThreadQueries().addMigrations(AiConversationMigration, StickyNoteSourceMigration, AiDeletedCostMigration).build()
     private suspend fun fixture(name:String):AiFoundationTestDb {
         val old=AiLegacyV5TestDb.open(context,name)
         try {
@@ -104,7 +104,7 @@ class AiFullBackupTest {
         for(version in 1..3) {
             target.openHelper.writableDatabase.execSQL("UPDATE sticky_notes SET title='local title'")
             target.old().putSettings(LearningSettings(dailyGoal=99,notificationPermissionAsked=true))
-            val old=JSONObject(full.toString()).put("backupVersion",version);old.remove("aiConversationVersion")
+            val old=JSONObject(full.toString()).asLegacyBackup(version)
             AiBackupStage.aiSections.keys.forEach(old::remove)
             if(version<2) old.remove("stickyNotes")
             if(version<3) listOf("learningSettings","personalAnswers","questionPersonal").forEach(old::remove)

@@ -1,11 +1,12 @@
 package cn.embeddedquiz
 
-/** Prepare the exact v7 reader columns before publishing Ready. No rows or source data are changed.
+/** Prepare the exact v8 reader columns before publishing Ready. No rows or source data are changed.
  * Room checks its stored identity hash on an already-current DB; that is not a live check that a
- * damaged/deleted dependent table is still present. Keep this list aligned with schema 7.
+ * damaged/deleted dependent table is still present. Keep this list aligned with schema 8.
  */
 internal object StartupStorageCheck {
     private val queries = listOf(
+        "SELECT $AI_DELETED_COST_COLUMNS FROM ai_deleted_costs LIMIT 0",
         "SELECT `id`,`json`,`kind`,`source`,`category`,`normalizedCategory`,`company`,`difficulty`,`reviewRequired`,`stem`,`correctKeys`,`searchText`,`hasAnswer`,`contentHash`,`optionKeys` FROM `questions` LIMIT 0",
         "SELECT `sessionId`,`status`,`total`,`answered`,`unanswered`,`correct`,`score`,`endedAt`,`revision`,`legacyHash` FROM `exam_terminations` LIMIT 0",
         "SELECT `questionId`,`seen`,`correctCount`,`repetitions`,`interval`,`ease`,`due`,`lapses`,`wrong`,`favorite`,`flagged`,`code`,`notes` FROM `progress` LIMIT 0",

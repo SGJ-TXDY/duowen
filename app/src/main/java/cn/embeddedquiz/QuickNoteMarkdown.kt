@@ -150,24 +150,26 @@ class QuickNoteMarkdown {
         return id
     }
 
-    internal fun aiParagraphs(markdown: String): List<QuickNoteAiParagraph> {
+    internal fun aiDocument(markdown: String): QuickNoteAiDocument {
         val used = mutableSetOf<String>()
         val paragraphs = mutableListOf<QuickNoteAiParagraph>()
+        val headings = mutableListOf<QuickNoteHeading>()
         var heading = QuickNoteHeading("", 0, "文档开头")
         var ordinal = 0
-        fun add(text: String) {
-            if (text.isNotBlank()) paragraphs += QuickNoteAiParagraph(heading, ++ordinal, text.trim())
+        fun add(text: String, code: Boolean = false) {
+            if (text.isNotBlank()) paragraphs += QuickNoteAiParagraph(heading, ++ordinal, text.trim(), code)
         }
         fun visit(node: Node) {
             when (node) {
                 is Heading -> {
                     val title = plain(node)
                     heading = QuickNoteHeading(headingId(title, used), node.level, title)
+                    headings += heading
                     ordinal = 0
                 }
                 is Paragraph, is TableBlock -> add(aiPlain(node))
-                is FencedCodeBlock -> add(node.literal)
-                is IndentedCodeBlock -> add(node.literal)
+                is FencedCodeBlock -> add(node.literal, code = true)
+                is IndentedCodeBlock -> add(node.literal, code = true)
                 else -> {
                     var child = node.firstChild
                     while (child != null) { visit(child); child = child.next }
@@ -175,7 +177,7 @@ class QuickNoteMarkdown {
             }
         }
         visit(parser.parse(markdown))
-        return paragraphs
+        return QuickNoteAiDocument(headings, paragraphs)
     }
 
     private fun aiPlain(node: Node): String = buildString {

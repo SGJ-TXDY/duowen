@@ -46,7 +46,7 @@ internal class AiSqlAccess(val db:SupportSQLiteDatabase) : AiRowReader {
             return result
         }
         fun insert(db:SupportSQLiteDatabase,table:String,row:JSONObject) {
-            require(table in keys || table in AiLegacyBackupCodec.tables.values)
+            require(table in keys || table in AiLegacyBackupCodec.tables.values || table == "ai_deleted_costs")
             val columns=row.keys().asSequence().toList()
             require(columns.all { it.matches(Regex("[A-Za-z][A-Za-z0-9_]*")) })
             val values=columns.map { k -> val v=row.get(k);when(v) { JSONObject.NULL -> null;is Boolean -> if(v) 1L else 0L;else -> v } }.toTypedArray()

@@ -242,6 +242,22 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
         selected=sessionId;editor=token;publish()
         OpenReceipt(requireNotNull(mutable.value.selected),token)
     }
+    override suspend fun deleteSession(sessionId: String, owner: QuestionOwner) = action {
+        AiJson.uuid(sessionId)
+        val row = dao.session(sessionId) ?: return@action
+        if (row.owner != owner) refuse(RejectCode.STALE_OWNER)
+        if (active?.owner?.sessionId == sessionId) refuse(RejectCode.BUSY)
+        if (store.deleteSession(sessionId, owner)) {
+            pending.remove(sessionId)?.let { draft ->
+                draft.job?.cancel()
+                draft.reply.complete(ResultOf.Rejected(rejection(RejectCode.NOT_FOUND)))
+            }
+            lastDraftWrite.remove(sessionId)
+            datasetEpoch = id()
+            if (selected == sessionId) clearSelection() else publish()
+        }
+    }
+
     override suspend fun deselect()=action {
         selected?.let { sid-> flushPending(sid,propagate=true);editor?.let { store.revokeEditor(sid,it) } }
         clearSelection()

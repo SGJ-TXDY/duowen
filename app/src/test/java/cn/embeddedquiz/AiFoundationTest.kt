@@ -22,7 +22,7 @@ class AiFoundationTest {
     private fun id()=UUID.randomUUID().toString()
     private val q=Question("q","指针与内存",Kind.MULTIPLE,"test",options=listOf(Option("B","乙"),Option("A","甲")),correct=setOf("A"),raw="  { \"keep\": 1 }\n")
     private fun host(name: String?=null): AiFoundationTestDb = (if(name==null) Room.inMemoryDatabaseBuilder(context,AiFoundationTestDb::class.java)
-        else Room.databaseBuilder(context,AiFoundationTestDb::class.java,name)).allowMainThreadQueries().addMigrations(AiConversationMigration, StickyNoteSourceMigration).build()
+        else Room.databaseBuilder(context,AiFoundationTestDb::class.java,name)).allowMainThreadQueries().addMigrations(AiConversationMigration, StickyNoteSourceMigration, AiDeletedCostMigration).build()
     private suspend fun insert(db:AiFoundationTestDb, question:Question=q) {
         db.old().addQuestions(listOf(QuestionRow(question.id,JSONObject(AiSnapshotCodec.question(question)).getJSONObject("question").toString(),contentHash=question.contentHash)))
     }
@@ -284,13 +284,13 @@ class AiFoundationTest {
             migrated.openHelper.writableDatabase // Room checks every table, column, index and FK against generated entities.
             assertEquals(raw,migrated.old().question("legacy")!!.json)
             val c=migrated.openHelper.readableDatabase.query("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'ai_%'")
-            c.use { assertEquals(5,it.count) }
-            assertEquals(7,migrated.openHelper.readableDatabase.version)
+            c.use { assertEquals(6,it.count) }
+            assertEquals(8,migrated.openHelper.readableDatabase.version)
         } finally { migrated.close() }
         val after=context.openOrCreateDatabase(name,0,null); assertEquals(before,digestRows(after)); after.close()
         context.deleteDatabase(name)
         val productionName="ai-production-${id()}.db"; val production=QuizDatabase.open(context,productionName)
-        try { assertEquals(7,production.openHelper.readableDatabase.version) } finally { production.close(); context.deleteDatabase(productionName) }
+        try { assertEquals(8,production.openHelper.readableDatabase.version) } finally { production.close(); context.deleteDatabase(productionName) }
     }
     @Test fun migrationFailureRollsBackNewTablesAndLeavesV5Readable() {
         val name="ai-fail-${id()}.db"; val old=AiLegacyV5TestDb.open(context,name)

@@ -256,12 +256,13 @@ class QuickNotesRepository(private val directory: File) {
         readIndex().firstOrNull { it.summary.id == id }?.takeIf { markdownFile(it).isFile }?.summary
     }
 
-    internal suspend fun aiContext(id: String, hash: String, sectionId: String?, query: String): QuickNoteAiContext = aiRead {
+    internal suspend fun aiContext(id: String, hash: String, sectionId: String?, query: String,
+        previous: QuickNoteAiTurn? = null): QuickNoteAiContext = aiRead {
         val entry = readIndex().firstOrNull { it.summary.id == id } ?: throw AiStoreFailure(RejectCode.NOT_FOUND)
         if (entry.summary.contentHash != hash) throw AiStoreFailure(RejectCode.STALE_OWNER)
         if (!markdownFile(entry).isFile) throw AiStoreFailure(RejectCode.NOT_FOUND)
-        val paragraphs = renderer.aiParagraphs(QuickNotePaths.utf8(markdown(entry)))
-        selectQuickNoteAiContext(paragraphs, sectionId, query)
+        val document = renderer.aiDocument(QuickNotePaths.utf8(markdown(entry)))
+        selectQuickNoteAiContext(document, sectionId, query, previous)
     }
 
     internal suspend fun previewAiContext(document: QuickNoteSummary, section: QuickNoteHeading?, query: String): ResultOf<QuickNoteAiContext> =

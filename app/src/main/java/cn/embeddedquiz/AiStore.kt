@@ -119,6 +119,35 @@ internal class AiStore(
             Change(d.copy(sessions = d.sessions + s), s.sessionId)
         }
 
+    suspend fun deleteSession(sessionId: String, owner: QuestionOwner): Boolean {
+        val deleted = transaction {
+            val s = dao.session(sessionId) ?: return@transaction false
+            if (s.owner != owner) refuse(RejectCode.STALE_OWNER)
+            val sql = db.openHelper.writableDatabase
+            val args = arrayOf(sessionId)
+            sql.query("SELECT 1 FROM ai_runs WHERE sessionId=? AND status IN ('PREPARING','GENERATING') LIMIT 1", args)
+                .use { if (it.moveToFirst()) refuse(RejectCode.BUSY) }
+            AiDeletedCostLedger.archiveSession(sql, sessionId)
+            sql.execSQL("DELETE FROM ai_response_cache WHERE sourceRequestId IN (SELECT requestId FROM ai_runs WHERE sessionId=?)", args)
+            sql.execSQL("DELETE FROM ai_commands WHERE sessionId=?", args)
+            // Retries and cache hits refer to earlier runs. RESTRICT checks each row at deletion time.
+            while (true) {
+                val runs = sql.query("SELECT r.requestId FROM ai_runs r JOIN ai_messages m ON m.messageId=r.assistantMessageId " +
+                    "WHERE r.sessionId=? ORDER BY m.seq DESC LIMIT 256", args).use { c ->
+                    buildList { while (c.moveToNext()) add(c.getString(0)) }
+                }
+                if (runs.isEmpty()) break
+                runs.forEach { sql.execSQL("DELETE FROM ai_runs WHERE requestId=?", arrayOf(it)) }
+            }
+            sql.execSQL("DELETE FROM ai_messages WHERE sessionId=?", args)
+            sql.execSQL("DELETE FROM ai_sessions WHERE sessionId=?", args)
+            beforeCommit()
+            true
+        }
+        if (deleted) editors.remove(sessionId)
+        return deleted
+    }
+
     suspend fun openEditor(sessionId: String): String = transaction {
         session(working(sessionId,"SESSION"),sessionId)
         id().also { check(dao.grantEditor(sessionId,it)==1);editors[sessionId]=it }
@@ -174,11 +203,17 @@ internal class AiStore(
         if (c.question != s.owner) refuse(RejectCode.STALE_OWNER)
         if (s.contextRevision!=c.expectedContextRevision) refuse(RejectCode.STALE_CONTEXT)
         require(c.requestType!=AiRequestType.FOLLOW_UP || c.input.isNotBlank())
+        var rounds=if(c.requestType==AiRequestType.FOLLOW_UP) history(d,s.sessionId) else emptyList()
         val documentContext = if (s.owner.kind == AiOwnerKind.QUICK_NOTE) {
             require(c.requestType == AiRequestType.FOLLOW_UP && c.choices.isEmpty() && c.code.isEmpty())
             require(c.documentSectionId == null || c.documentSectionId.length in 1..2048)
             try {
-                requireNotNull(quickNotes).aiContext(s.questionId, s.contentHash, c.documentSectionId, c.input)
+                val last = rounds.lastOrNull()
+                val previous = last?.let { turn ->
+                    val run = d.runs.first { it.assistantMessageId == turn.getString("assistantMessageId") }
+                    QuickNoteAiTurn(turn.getString("user"), AiSnapshotCodec.documentReferences(run.contextSnapshot))
+                }
+                requireNotNull(quickNotes).aiContext(s.questionId, s.contentHash, c.documentSectionId, c.input, previous)
             } catch (e: AiStoreFailure) {
                 if (e.code in setOf(RejectCode.NOT_FOUND, RejectCode.STALE_OWNER)) refuse(RejectCode.READ_ONLY)
                 throw e
@@ -188,7 +223,6 @@ internal class AiStore(
             null
         }
         // Drop only whole oldest rounds until the frozen local byte budget is satisfied.
-        var rounds=if(c.requestType==AiRequestType.FOLLOW_UP) history(d,s.sessionId) else emptyList()
         var snapshot: String
         while(true) {
             try {
@@ -208,7 +242,7 @@ internal class AiStore(
         val digest=DeepSeekClient.hash(snapshot)
         val run=AiRunRow(id(),c.commandId,s.sessionId,user.messageId,assistant.messageId,c.model,c.requestType.name,epoch,snapshot,digest,
             DeepSeekClient.hash("${s.questionSnapshotVersion}\n${s.sessionId}\n${s.contentHash}\n$digest"),acceptedAt,java.time.Instant.ofEpochMilli(acceptedAt).atZone(zone).toLocalDate().toEpochDay(),zone.id,
-            contextSnapshotVersion = s.questionSnapshotVersion,
+            contextSnapshotVersion = if (documentContext == null) AiSnapshotCodec.VERSION else AiSnapshotCodec.DOCUMENT_REQUEST_VERSION,
             effectiveParameters=AiJson.canonical(JSONObject(snapshot).getJSONObject("parameters")),reservedBytes=AiConversationCodec.RUN_RESERVE)
         cached(d,Change(withSession(d,next).copy(messages=d.messages+user+assistant,runs=d.runs+run),s.sessionId,run.requestId,c.draftToken,clear),run)
     }

@@ -78,7 +78,10 @@ internal object AiConversationCodec {
             require(u.sessionId == s.sessionId && a.sessionId == s.sessionId && u.role == "USER" && a.role == "ASSISTANT" && a.seq > u.seq)
             val status = RunStatus.valueOf(r.status); val source = RunSource.valueOf(r.source)
             require(r.createdAt >= 0 && r.eventSeq >= 0 && r.reservedBytes in 0..RUN_RESERVE)
-            require(r.contextSnapshotVersion == s.questionSnapshotVersion && r.promptVersion == "1")
+            require(r.promptVersion == "1")
+            require(r.contextSnapshotVersion == s.questionSnapshotVersion ||
+                s.owner.kind == AiOwnerKind.QUICK_NOTE && r.contextSnapshotVersion == AiSnapshotCodec.DOCUMENT_REQUEST_VERSION)
+            require(AiJson.long(JSONObject(r.contextSnapshot), "version") == r.contextSnapshotVersion.toLong())
             require(r.model in AiSnapshotCodec.MODELS_V1); AiRequestType.valueOf(r.requestType)
             AiJson.hash(r.contextDigest); AiJson.hash(r.cacheKey)
             require(DeepSeekClient.hash(r.contextSnapshot) == r.contextDigest)

@@ -179,7 +179,7 @@ class StartupRecoveryTest {
         val raw = app.openOrCreateDatabase("embeddedquiz.db", 0, null)
         try {
             raw.execSQL("DROP TABLE exam_terminations")
-            for (table in listOf("ai_response_cache", "ai_commands", "ai_runs", "ai_messages", "ai_sessions")) {
+            for (table in listOf("ai_response_cache", "ai_commands", "ai_runs", "ai_messages", "ai_sessions", "ai_deleted_costs")) {
                 raw.execSQL("DROP TABLE $table")
             }
             val schema = JSONObject(File("schemas/cn.embeddedquiz.QuizDatabase/4.json").readText()).getJSONObject("database")
@@ -195,7 +195,7 @@ class StartupRecoveryTest {
         } finally { raw.close() }
         val vm = create(); waitFor { vm.ready }
         assertEquals(StartupState.Ready(1, false), vm.startupState)
-        assertEquals(7, vm.db.openHelper.readableDatabase.version)
+        assertEquals(8, vm.db.openHelper.readableDatabase.version)
         assertEquals(oldAttempts, runBlocking { vm.repo.dao.allAttempts() })
         assertEquals(oldProgress, runBlocking { vm.repo.dao.allProgress() })
         assertEquals("original note", runBlocking { vm.repo.dao.allStickyNotes().single().content })

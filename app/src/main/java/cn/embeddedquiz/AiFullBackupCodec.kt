@@ -23,8 +23,9 @@ internal class AiFullBackupCodec(private val context:Context,private val workDir
             database.withTransaction {
                 val sql=database.openHelper.readableDatabase
                 java.io.BufferedWriter(java.io.OutputStreamWriter(temp.outputStream(),Charsets.UTF_8),8192).use { out ->
-                    out.write("{\"schemaVersion\":1,\"backupVersion\":5,\"aiConversationVersion\":1")
-                    for((section,table) in AiLegacyBackupCodec.tables) {
+                    out.write("{\"schemaVersion\":1,\"backupVersion\":6,\"aiConversationVersion\":1")
+                    val tables = AiLegacyBackupCodec.tables + (AI_DELETED_COST_SECTION to "ai_deleted_costs")
+                    for((section,table) in tables) {
                         currentCoroutineContext().ensureActive()
                         out.write(","+JSONObject.quote(section)+":")
                         if(section=="learningSettings") {
@@ -32,8 +33,13 @@ internal class AiFullBackupCodec(private val context:Context,private val workDir
                             out.write(value.toString())
                         } else {
                             out.write("[");var first=true
-                            val order=when(section) { "questions","stickyNotes","attempts" -> "id";"ai" -> "cacheKey";else -> "questionId" }
-                            sql.query("SELECT * FROM `$table` ORDER BY `$order`").use { c -> while(c.moveToNext()) {
+                            val order = when (section) {
+                                "questions", "stickyNotes", "attempts" -> "id"
+                                "ai" -> "cacheKey"
+                                AI_DELETED_COST_SECTION -> "billingDay,model,currency"
+                                else -> "questionId"
+                            }
+                            sql.query("SELECT * FROM `$table` ORDER BY $order").use { c -> while(c.moveToNext()) {
                                 currentCoroutineContext().ensureActive();if(!first) out.write(",");first=false
                                 out.write(AiLegacyBackupCodec.wire(section,AiSqlAccess.record(c)).toString());resource(temp.length())
                             } };out.write("]")

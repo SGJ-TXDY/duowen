@@ -31,6 +31,7 @@ data class RunView(
     val retryOf: String?, val sourceRequestId: String?, val usage: UsageView,
     val errorCode: String?, val canRetry: Boolean,
     val documentReferences: List<QuickNoteAiReference> = emptyList(),
+    val documentCoverage: QuickNoteAiCoverage? = null,
 )
 data class MessageView(
     val messageId: String, val sessionId: String, val seq: Long, val role: MessageRole,
@@ -105,6 +106,8 @@ interface AiConversationFacade {
     val state: StateFlow<AiConversationUiState>
     suspend fun createSession(commandId: String, question: QuestionOwner): ResultOf<CreateReceipt>
     suspend fun open(sessionId: String): ResultOf<OpenReceipt> // 允许打开归档；不发网络。
+    suspend fun deleteSession(sessionId: String, owner: QuestionOwner): ResultOf<Unit> =
+        ResultOf.Rejected(Rejection(RejectCode.INVALID, false, RecoveryAction.NONE))
     suspend fun deselect(): ResultOf<Unit> // 先由 UI 保存/flush 草稿，再退出选择。
     suspend fun sessions(questionId: String, includeArchived: Boolean,
         cursor: PageCursor?, limit: Int): ResultOf<AiPage<SessionView>>

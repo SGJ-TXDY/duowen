@@ -114,7 +114,8 @@ class QuestionAiEntryUiTest {
     fun codeReviewStillSendsAfterTheSwitchAndEndsAsAVisibleRetryableFailure() {
         start("qa-code", "编程练习")
         ui.onNodeWithTag("question-list").performScrollToNode(hasTestTag("code-editor"))
-        ui.onNodeWithTag("code-editor").performTextInput("int main(void) { return 0; }")
+        val code = "int main(void) { return 0; }"
+        ui.onNodeWithTag("code-editor").performTextInput(code)
         ui.onNodeWithTag("question-list").performScrollToNode(hasText("AI 代码审查"))
         ui.onNodeWithText("AI 代码审查").assertIsEnabled().performClick()
 
@@ -133,7 +134,8 @@ class QuestionAiEntryUiTest {
         await { exists(hasTestTag("ai-new-session")) }
 
         // 1.7.2: the settled discussion is deleted on the real backend; the question's progress is untouched.
-        val progressBefore = vm.progress
+        await { vm.progress["qa-code"]?.code == code }
+        val progressBefore = runBlocking { vm.repo.dao.allProgress().associateBy { it.questionId } }
         val title = ui.onNodeWithTag("ai-session-row").fetchSemanticsNode()
             .config[androidx.compose.ui.semantics.SemanticsProperties.Text].first().text
         ui.onNodeWithContentDescription("更多操作：$title").performClick()
@@ -143,7 +145,7 @@ class QuestionAiEntryUiTest {
         val owner = QuestionOwner("qa-code", vm.questions.single { it.id == "qa-code" }.contentHash)
         val left = kotlinx.coroutines.runBlocking { vm.aiConversations.sessions(owner.questionId, true, null, 20) }
         assertEquals(emptyList<SessionView>(), (left as ResultOf.Ok).value.items)
-        assertEquals(progressBefore, vm.progress)
+        assertEquals(progressBefore, runBlocking { vm.repo.dao.allProgress().associateBy { it.questionId } })
 
         systemBack()
         await { exists(hasTestTag("question-list")) && !exists(hasTestTag("ai-page")) }

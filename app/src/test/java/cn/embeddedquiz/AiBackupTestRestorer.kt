@@ -11,6 +11,7 @@ internal class AiBackupTestRestorer(private val host:AiFoundationTestDb,private 
         val version=stage.version
         // Old backups contain no new conversations: preserve them, including their usage ledger.
         if(version>=4) {
+            target.execSQL("DELETE FROM ai_deleted_costs")
             target.execSQL("DELETE FROM ai_response_cache");target.execSQL("DELETE FROM ai_commands")
             while(true) {
                 val batch=target.query("SELECT r.requestId FROM ai_runs r JOIN ai_messages m ON m.messageId=r.assistantMessageId ORDER BY m.seq DESC,r.requestId DESC LIMIT 256").use { c ->
@@ -40,6 +41,7 @@ internal class AiBackupTestRestorer(private val host:AiFoundationTestDb,private 
                 }
             }
         }
+        if (version >= 6) stage.forLegacy(AI_DELETED_COST_SECTION) { AiSqlAccess.insert(target, "ai_deleted_costs", it) }
         beforeCommit()
     }
 }
