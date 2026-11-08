@@ -1,5 +1,53 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-08 · 1.7.3 Leader 退回两项的修复（Claude）
+
+详见 `docs/PLAN-1.7.3.md` 末尾“Claude 修复退回两项”。只改了 `AiChat.kt`、`AiDiscussions.kt` 和测试，另外给 `FakeAiConversationFacade` 加了测试用的 `openGate`。
+
+- **改名冲突**：`AiChatController.renameNow` 遇到 `STALE_SESSION` 时调用 `reloadSessions(keep, include)`，保留已加载的页并确保目标在列表中。全局列表的 `reload` 增加 `include` 参数。
+- **晚到的打开**：`openGeneration` 代次，`back()`、`leave()` 和新的 `open()` 都会递增它。`openNow` 在锁内检查代次；晚到的成功结果若仍被选中就 `deselect()`。打开与 `leaveNow` 的释放共用一把文件级锁 `aiSelectionLock`。
+- **结果**：Leader 两项探针通过；全量 441/441，Lint 0 错误。已生成试装 ZIP。
+
+## 2026-11-08 · 1.7.3 AI 讨论列表、精确打开与列表改名（Claude，PLAN-1.7.3）
+
+基线 `dab8fc2`（v1.7.2），按 GPT 的 `4b720bf`（`feat/1.7.3-ai-discussions-backend`）接线。工作区里与后端相关的 8 个文件（`AiConversationContract/Data/Runtime`、`AiPageReader`、`AiStore`、`AiLocalStoreTest`、`AiRuntimeTest`、`FakeAiConversationFacade`）**原样取自 `4b720bf`**，Claude 没有改动。界面改动单独无法编译，需要与该提交一起合入。
+
+### 改动
+
+- **入口**：「更多」第二组，「AI 费用估算」正上方新增「AI 讨论」（`Page.AI_DISCUSSIONS`，子页面、无底栏，返回到「更多」）。图标为 `AppIcons.Chat`，颜色是新增的 `MoreColors.ai`。
+- **列表**（`AiDiscussions.kt`）：读取 `allSessions`，每行显示讨论名、来源类型和 `sourceLabel`（「题目 · 题干首行」或「速记 · 文档名」）。`readOnly` 的行标「题目/文档已更新或删除 · 只读」。
+  - 有读取中、空列表、读取失败加重试、加载更多几种状态。
+  - 加载更多时遇到 `STALE_CURSOR`，从头重读到原有条数。
+- **精确打开**：点一行在本页打开那条讨论，复用 `AiChatScreen` 和 `AiChatController`，按 `sessionId` 调 `open`。适配器沿用原入口：
+  - 题目：`QuestionAiSource`，有当前题目时用当前版本，编程题有代码审查；代码审查只带该题已保存的代码，不猜选项。
+  - 速记：`DocumentAiSource`，章节为空。
+  - 来源已删除时，用列表项的 owner 和 `sourceLabel` 只读查看。
+  - 打开时不发送，也不进入刷题流程。返回顺序为「讨论 → AI 讨论列表 → 更多」。离开讨论前先保存草稿、释放编辑权。回到列表时保留滚动位置，并按已加载条数刷新名称。
+  - 为此 `AiChatScreen` 新增参数 `onLeaveSession`：只显示单条讨论，不显示来源列表，离开时回调。`AiChatController.leave(then)` 在草稿保存并取消选中后再回调。
+- **改名**：全局列表、题目讨论列表、速记讨论列表的「更多操作」里都有「重命名」，共用 `aiRename` 和同一个编辑框 `AiListRenameEditor`。
+  - 编辑框预填现有名称。去首尾空白后限 1～80 个码点；名称未改时不能保存。保存中按钮显示「正在保存…」，防止重复提交。
+  - 失败时编辑框和输入都保留。遇到 `STALE_SESSION` 会重读列表，编辑框标题显示当前名称，提示「讨论名称已在别处修改……确认后再保存」，用户再点保存时按新版本提交。
+  - 讨论内标题栏的改名不变。
+  - 与任务单的差异：编辑框是列表上方的内联卡片，不是弹窗。理由同标题栏注释：弹窗里的输入框会抢走页面键盘。Robolectric 下，弹窗内的输入框也一直无法空闲（实测 4 项测试卡死 60 秒）。
+
+### 测试
+
+- `AiChatScreenTest` 新增 5 项：
+  - 原列表改名（预填，未改或超长不可保存）；
+  - 过期版本时保留输入、显示当前名称、再次确认后保存；
+  - 全局列表混合两种来源并按顺序排列、只读标记、精确打开（不发送，速记讨论没有题目快捷操作）、讨论内改名后返回列表即显示新名称、旧版讨论只读；
+  - 空列表；
+  - 分页、改名、保存失败保留编辑框。
+- `QuickNoteAiWiringUiTest` 新增 1 项（真实后端）：
+  - 「AI 讨论」入口位于「AI 费用估算」上方，子页无底栏；
+  - 两种讨论都在列表里；全局改名后原入口的 `sessions` 也是新名称；
+  - 点题目讨论在本页打开，不建刷题队列，「讨论 → 列表 → 更多」逐级返回；
+  - 点速记讨论不打开速记阅读器。
+- `PageChromeUiTest`：「更多」子页遍历加入「AI 讨论」，并补了返回目标断言。打开该页会启动 AI 运行时，因此 cleanup 改为等资源关闭后再删库（与 `QuestionAiEntryUiTest` 相同）。
+- 定向 7 类 81 项全部通过：上述 3 类，加上 `QuestionAiEntryUiTest`、`QuickNoteReaderAiTest`，以及 GPT 的 `AiRuntimeTest`、`AiLocalStoreTest`。
+- 已知环境问题：全量运行偶发 1 项「uncaught exceptions before the test started」（Room 失效跟踪器访问已删库的连接）。每次出现在不同的类，单独运行均通过。未改动的 v1.7.2 基线在本机全量运行也出现 1 项同类失败（`PageChromeUiTest.stickyNotes…`）。
+- 未做：真机效果，以及任务单验收中的重启后核对和备份恢复。
+
 ## 2026-11-08 · 1.7.2 速记问答提示、引用范围与删除讨论（Claude，PLAN-1.7.2）
 
 基线为 `3d52f20`，按任务单中“GPT → Claude 接口交接”的接口接线。只改了界面文件：`AiChat.kt`、`QuickNoteAi.kt` 及测试。**依赖 GPT 尚未提交的 1.7.2 后端**（`deleteSession`、`documentCoverage`、Room 8 等），本提交单独无法编译，需要与 GPT 那批一起提交或合并。

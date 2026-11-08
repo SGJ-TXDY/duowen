@@ -79,6 +79,14 @@ class PageChromeUiTest {
     @After
     fun cleanup() {
         ui.runOnUiThread { store.clear() }
+        // 更多 › AI 讨论 starts the AI runtime, which closes asynchronously with the ViewModel; delete
+        // the database only once it is really closed (as QuestionAiEntryUiTest does).
+        val deadline = System.currentTimeMillis() + 20_000
+        while (vm.examResourcesClosed?.isCompleted != true) {
+            check(System.currentTimeMillis() < deadline) { "ViewModel resources did not close within 20s" }
+            shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(25)
+        }
         app.deleteDatabase("embeddedquiz.db")
         File(app.filesDir, "quicknotes-v1").deleteRecursively()
     }
@@ -168,6 +176,7 @@ class PageChromeUiTest {
         }
         assertEquals(Page.MORE, PagePolicy.parent(Page.REVIEW, Page.MORE))
         assertEquals(Page.MORE, PagePolicy.parent(Page.STATISTICS, Page.MORE))
+        assertEquals(Page.MORE, PagePolicy.parent(Page.AI_DISCUSSIONS, Page.MORE))
         assertEquals(Page.SETTINGS, PagePolicy.parent(Page.ERROR_LOG, Page.MORE))
         assertEquals(Page.SETTINGS, PagePolicy.parent(Page.COSTS, Page.SETTINGS))
         assertEquals(Page.MORE, PagePolicy.parent(Page.COSTS, Page.MORE))
@@ -212,6 +221,7 @@ class PageChromeUiTest {
                 Triple("全局标签 / 便签", Page.NOTES, "全局标签"),
                 Triple("待核对工作台", Page.WORKBENCH, "待核对工作台"),
                 Triple("历史统计", Page.STATISTICS, "学习统计与历史"),
+                Triple("AI 讨论", Page.AI_DISCUSSIONS, "AI 讨论"),
                 Triple("AI 费用估算", Page.COSTS, "AI 费用估算"),
                 Triple("设置", Page.SETTINGS, "设置"),
             )

@@ -175,4 +175,64 @@ class QuickNoteAiWiringUiTest {
         // Reading a source writes no answer or review record.
         assertTrue(vm.progress.isEmpty())
     }
+
+    /** PLAN-1.7.3 on the real backend: 更多 › AI 讨论 lists both kinds, renames, and opens the exact discussion. */
+    @Test
+    fun aiDiscussionsListsBothKindsRenamesAndOpensTheExactDiscussion() {
+        ui.runOnIdle { vm.quickNotes.importPackage(linux) }
+        await { !vm.quickNotes.state.working && vm.quickNotes.state.documents.isNotEmpty() }
+        val doc = vm.quickNotes.state.documents.single()
+        val q = vm.questions.single { it.id == "sw-q" }
+        val facade = vm.aiConversations
+        await { facade.state.value.phase == ServicePhase.READY }
+        val asked = runBlocking { facade.createSession(java.util.UUID.randomUUID().toString(), QuestionOwner(q.id, q.contentHash)) }
+        val questionSession = (asked as ResultOf.Ok).value.session
+        val read = runBlocking { facade.createDocumentSession(java.util.UUID.randomUUID().toString(), doc) }
+        val docSession = (read as ResultOf.Ok).value.session
+
+        ui.onNodeWithContentDescription("导航到更多").performClick()
+        await { vm.page == Page.MORE }
+        ui.onNodeWithTag("more-list").performScrollToNode(hasText("AI 费用估算"))
+        // The new row sits right above the cost estimate.
+        assertTrue(ui.onNodeWithText("AI 讨论").fetchSemanticsNode().boundsInRoot.bottom <=
+            ui.onNode(hasText("AI 费用估算") and hasClickAction()).fetchSemanticsNode().boundsInRoot.top + 0.5f)
+        ui.onNodeWithText("AI 讨论").performClick()
+        await { vm.page == Page.AI_DISCUSSIONS && ui.onAllNodesWithTag("ai-all-row").fetchSemanticsNodes().size == 2 }
+        ui.onNodeWithTag("sub-page-bar").assertExists()
+        assertFalse(exists(hasContentDescription("导航到首页")))
+        ui.onNodeWithText("题目 · 中断上下文能否睡眠？").assertExists()
+        ui.onNodeWithText("速记 · " + doc.title).assertExists()
+
+        // Rename the question's discussion from the global list; the original entry sees the same name.
+        ui.onNode(hasTestTag("ai-all-menu") and hasAnyAncestor(hasText("题目 · 中断上下文能否睡眠？"))).performClick()
+        ui.onNodeWithTag("ai-all-rename").performClick()
+        ui.onNodeWithTag("ai-list-rename-field").performTextReplacement("  中断里能睡吗  ")
+        ui.onNodeWithTag("ai-rename-confirm").performClick()
+        await { exists(hasTestTag("ai-all-info")) }
+        val listed = runBlocking { facade.sessions(q.id, true, null, 20) } as ResultOf.Ok
+        assertEquals("中断里能睡吗", listed.value.items.single { it.sessionId == questionSession.sessionId }.title)
+
+        // The exact discussion opens on this page; no practice starts and nothing is sent.
+        ui.onNode(hasTestTag("ai-all-row") and hasText("中断里能睡吗")).performClick()
+        await { exists(hasTestTag("ai-title")) && facade.state.value.selectedSessionId == questionSession.sessionId }
+        ui.onNodeWithTag("ai-title").assertTextEquals("中断里能睡吗")
+        assertEquals(Page.AI_DISCUSSIONS, vm.page)
+        assertTrue(vm.queue.isEmpty())
+        back() // discussion -> AI 讨论
+        await { exists(hasTestTag("ai-all-row")) && facade.state.value.selectedSessionId == null }
+        assertEquals(Page.AI_DISCUSSIONS, vm.page)
+        back() // AI 讨论 -> 更多
+        await { vm.page == Page.MORE }
+
+        // A 速记 discussion opens the same way, without the reader.
+        ui.onNodeWithTag("more-list").performScrollToNode(hasText("AI 讨论"))
+        ui.onNodeWithText("AI 讨论").performClick()
+        await { vm.page == Page.AI_DISCUSSIONS && exists(hasTestTag("ai-all-row")) }
+        ui.onNode(hasTestTag("ai-all-row") and hasText("速记 · " + doc.title)).performClick()
+        await { exists(hasTestTag("ai-title")) && facade.state.value.selectedSessionId == docSession.sessionId }
+        assertFalse(vm.quickNotes.state.visible)
+        ui.onNodeWithContentDescription("返回讨论列表").performClick()
+        await { exists(hasTestTag("ai-all-row")) && facade.state.value.selectedSessionId == null }
+        assertEquals(Page.AI_DISCUSSIONS, vm.page)
+    }
 }

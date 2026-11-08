@@ -32,16 +32,54 @@ internal class AiPageReader(private val dao:AiConversationDao,private val repo:Q
     fun session(row:AiSessionRow,hash:String?)=SessionView(row.sessionId,row.owner,row.title,
         row.sessionRevision,row.contextRevision,DraftView(row.draftText,row.draftRevision,false,token(row)),
         row.contentHash!=hash,row.questionSnapshotVersion,row.questionSnapshot)
-    private suspend fun currentHash(owner: QuestionOwner): String? = when (owner.kind) {
-        AiOwnerKind.QUESTION -> repo.question(owner.questionId)?.contentHash
+    private data class CurrentSource(val hash: String, val label: String)
+
+    private suspend fun currentSource(owner: QuestionOwner): CurrentSource? = when (owner.kind) {
+        AiOwnerKind.QUESTION -> repo.question(owner.questionId)?.let { CurrentSource(it.contentHash, it.stem) }
         AiOwnerKind.QUICK_NOTE -> try {
-            repo.db.quickNotesRepository.aiSummary(owner.questionId)?.contentHash
+            repo.db.quickNotesRepository.aiSummary(owner.questionId)?.let { CurrentSource(it.contentHash, it.title) }
         } catch (e: AiStoreFailure) {
             if (e.code != RejectCode.STORAGE_FAILED) throw e
             null
         }
     }
+
+    private suspend fun currentHash(owner: QuestionOwner): String? = currentSource(owner)?.hash
+
     suspend fun session(row:AiSessionRow)=session(row,currentHash(row.owner))
+
+    suspend fun allSessions(after: PageCursor?, limit: Int): AiPage<AiDiscussionListItem> {
+        require(limit in 1..100)
+        val query = filter("discussions-created-desc")
+        val boundary = boundary(query, after)
+        val rows = dao.discussionPage(boundary?.at, boundary?.tie.orEmpty(), limit + 1)
+        val page = rows.take(limit)
+        val sources = mutableMapOf<Pair<AiOwnerKind, String>, CurrentSource?>()
+        val items = page.map { row ->
+            val owner = row.owner
+            val key = owner.kind to owner.questionId
+            if (key !in sources) sources[key] = currentSource(owner)
+            val current = sources[key]?.takeIf { it.hash == owner.contentHash }
+            val label = current?.label ?: snapshotLabel(row, owner.kind)
+            AiDiscussionListItem(
+                row.sessionId, owner, row.title, row.sessionRevision, row.createdAt,
+                if (owner.kind == AiOwnerKind.QUESTION) boundedAiText(label.trim(), 160) else label,
+                readOnly = current == null,
+            )
+        }
+        val next = if (rows.size > limit) page.last().let {
+            cursor(query, Boundary(it.createdAt, it.sessionId))
+        } else null
+        return AiPage(items, next)
+    }
+
+    private fun snapshotLabel(row: AiSessionRow, kind: AiOwnerKind): String {
+        val snapshot = JSONObject(row.questionSnapshot)
+        return when (kind) {
+            AiOwnerKind.QUESTION -> snapshot.getJSONObject("question").getString("stem")
+            AiOwnerKind.QUICK_NOTE -> snapshot.getString("title")
+        }
+    }
     suspend fun sessions(qid:String,archived:Boolean,after:PageCursor?,limit:Int):AiPage<SessionView> =
         sessions(QuestionOwner(qid, ""),archived,after,limit)
     suspend fun sessions(owner:QuestionOwner,archived:Boolean,after:PageCursor?,limit:Int):AiPage<SessionView> {

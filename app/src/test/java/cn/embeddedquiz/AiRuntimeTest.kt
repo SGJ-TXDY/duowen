@@ -162,10 +162,17 @@ class AiRuntimeTest {
             rejected(RejectCode.STALE_OWNER, service.createDocumentSession(id(), document))
             rejected(RejectCode.READ_ONLY, service.send(command.copy(commandId = id(), expectedContextRevision = 1)))
             rejected(RejectCode.READ_ONLY, service.retry(RetryCommand(id(), accepted.owner)))
-            rejected(RejectCode.READ_ONLY, service.rename(id(), s.sessionId, s.sessionRevision, "旧讨论"))
+            val archived = ok(service.allSessions(null, 10)).items.single { it.sessionId == s.sessionId }
+            assertEquals(document.title, archived.sourceLabel)
+            assertTrue(archived.readOnly)
+            assertEquals("旧讨论", ok(service.rename(id(), s.sessionId, s.sessionRevision, " 旧讨论 ")).title)
+            val renamed = ok(service.documentSessions(revised, true, null, 10)).items.single()
+            assertEquals("旧讨论", renamed.title)
+            assertTrue(renamed.readOnly)
 
             val full = repo.backup()
             repo.restore(full)
+            assertEquals("旧讨论", ok(service.open(s.sessionId)).session.title)
             assertEquals(preview.references, ok(service.messages(s.sessionId, null, 10)).items.last().run!!.documentReferences)
             assertEquals(3, server.requestCount)
         }
@@ -574,6 +581,142 @@ class AiRuntimeTest {
         assertTrue(ok(service.sessions("q",false,null,10)).items.isEmpty());assertEquals(2,ok(service.sessions("q",true,null,10)).items.size)
         rejected(RejectCode.READ_ONLY,service.saveDraft(draft.copy(commandId=id(),expectedDraftRevision=1)))
     } }
+    @Test fun globalDiscussionPagesMixSourcesAndKeepCreationOrder() = runBlocking {
+        val clock = AtomicLong(now - 1000)
+        fixture(configure = { it.copy(now = clock::get) }) {
+            assertEquals(AiPage<AiDiscussionListItem>(emptyList(), null), ok(service.allSessions(null, 1)))
+            rejected(RejectCode.INVALID, service.allSessions(null, 0))
+            rejected(RejectCode.INVALID, service.allSessions(null, 101))
+            val older = ok(service.createSession(id(), question)).session
+            clock.set(now)
+            val docs = db.quickNotesRepository
+            val doc = (docs.importDocument(QuickNotePackage("list.md", "list.md",
+                "# 速记来源".toByteArray())) as QuickNoteImportResult.Imported).document
+            val note = ok(service.createDocumentSession(id(), doc)).session
+            val newer = ok(service.createSession(id(), question)).session
+            repo.dao.putAi(AiEntry("a", "q", DeepSeekClient.FLASH, "old", "legacy", 0, 0, 0, 0.0, now))
+
+            val page = ok(service.allSessions(null, 1))
+            val cursor = requireNotNull(page.next)
+            val expected = listOf(note, newer).sortedByDescending { it.sessionId } + older
+            assertEquals(expected.first().sessionId, page.items.single().sessionId)
+            assertEquals(now, page.items.single().createdAt)
+            assertNull(service.state.value.selected)
+            val current = ok(service.allSessions(null, 10)).items.associateBy { it.owner.kind }
+            assertEquals(q.stem, current.getValue(AiOwnerKind.QUESTION).sourceLabel)
+            assertEquals(doc.title, current.getValue(AiOwnerKind.QUICK_NOTE).sourceLabel)
+            assertTrue(current.values.none { it.readOnly })
+            rejected(RejectCode.STALE_CURSOR, service.sessions("q", true, cursor, 1))
+
+            clock.set(now + 1000)
+            val opened = ok(service.open(older.sessionId))
+            ok(service.saveDraft(DraftCommand(id(), older.sessionId, 0, DraftToken(opened.editorEpoch, 1), "draft")))
+            server.enqueue(response())
+            ok(service.send(send(opened.session)))
+            request()
+            idle()
+            val renamed = ok(service.rename(id(), older.sessionId, 0, "oldest renamed"))
+            val second = ok(service.allSessions(cursor, 1))
+            val third = ok(service.allSessions(requireNotNull(second.next), 1))
+            val all = page.items + second.items + third.items
+            assertEquals(expected.map { it.sessionId }, all.map { it.sessionId })
+            assertEquals(expected.map { it.question }, all.map { it.owner })
+            assertEquals(now - 1000, all.last().createdAt)
+            assertEquals(renamed.title, all.last().title)
+            assertEquals(renamed.sessionRevision, all.last().sessionRevision)
+            assertNull(third.next)
+
+            repo.dao.updateQuestions(BankCodec.parseBank(bank.replace("original", "revised")))
+            docs.deleteDocument(doc.id)
+            val archived = ok(service.allSessions(null, 10)).items.associateBy { it.sessionId }
+            assertTrue(archived.values.all { it.readOnly })
+            assertEquals(q.stem, archived.getValue(older.sessionId).sourceLabel)
+            assertEquals(doc.title, archived.getValue(note.sessionId).sourceLabel)
+            assertTrue(ok(service.open(note.sessionId)).session.readOnly)
+            assertEquals("answer", ok(service.messages(older.sessionId, null, 10)).items.last().text)
+
+            val backup = repo.backup()
+            ok(service.deleteSession(older.sessionId, older.question))
+            rejected(RejectCode.STALE_CURSOR, service.allSessions(cursor, 1))
+            val afterDelete = ok(service.allSessions(null, 1))
+            val afterDeleteCursor = requireNotNull(afterDelete.next)
+            repo.restore(backup)
+            rejected(RejectCode.STALE_CURSOR, service.allSessions(afterDeleteCursor, 1))
+            assertEquals(expected.map { it.sessionId }, ok(service.allSessions(null, 10)).items.map { it.sessionId })
+
+            repo.dao.clearQuestions()
+            val missingQuestion = ok(service.allSessions(null, 10)).items.single { it.sessionId == older.sessionId }
+            assertEquals(q.stem, missingQuestion.sourceLabel)
+            assertTrue(missingQuestion.readOnly)
+        }
+    }
+
+    @Test fun archivedDiscussionsCanBeRenamedWithoutChangingHistory() = runBlocking {
+        fixture {
+            val session = opened()
+            server.enqueue(response())
+            ok(service.send(send(session)))
+            request()
+            idle()
+            val reopened = ok(service.open(session.sessionId))
+            val draft = DraftCommand(id(), session.sessionId, reopened.session.draft.revision,
+                DraftToken(reopened.editorEpoch, 1), "keep this draft")
+            ok(service.saveDraft(draft))
+            ok(service.deselect())
+
+            val docs = db.quickNotesRepository
+            val doc = (docs.importDocument(QuickNotePackage("rename.md", "rename.md",
+                "# 旧速记".toByteArray())) as QuickNoteImportResult.Imported).document
+            val note = ok(service.createDocumentSession(id(), doc)).session
+            docs.deleteDocument(doc.id)
+            repo.dao.putProgress(Progress(q.id, seen = 1, notes = "学习记录"))
+            repo.dao.updateQuestions(BankCodec.parseBank(bank.replace("original", "revised")))
+
+            val before = ok(service.open(session.sessionId)).session
+            assertTrue(before.readOnly)
+            val messages = ok(service.messages(session.sessionId, null, 10)).items
+            val runs = db.ai().allRuns()
+            val costs = withTimeout(8000) { repo.aiCosts.observe().first { it.months.singleOrNull()?.networkCalls == 1L } }
+            val progress = repo.dao.allProgress()
+            val attempts = repo.dao.allAttempts()
+            assertEquals("keep this draft", before.draft.text)
+            val title = "😀".repeat(80)
+            rejected(RejectCode.INVALID, service.rename(id(), session.sessionId, before.sessionRevision, " \t\n "))
+            rejected(RejectCode.INVALID, service.rename(id(), session.sessionId, before.sessionRevision, title + "字"))
+            val renameId = id()
+            val rename = ok(service.rename(renameId, session.sessionId, before.sessionRevision, "  ${title}\u3000"))
+            assertEquals(RenameReceipt(session.sessionId, before.sessionRevision + 1, title), rename)
+            assertEquals(rename, ok(service.rename(renameId, session.sessionId, before.sessionRevision, "  ${title}\u3000")))
+            rejected(RejectCode.STALE_SESSION, service.rename(id(), session.sessionId, before.sessionRevision, "过期标题"))
+            assertEquals(before.copy(title = title, sessionRevision = rename.sessionRevision), service.state.value.selected)
+            rejected(RejectCode.READ_ONLY, service.saveDraft(draft.copy(commandId = id(),
+                expectedDraftRevision = before.draft.revision)))
+            rejected(RejectCode.READ_ONLY, service.send(send(before)))
+            assertEquals(messages, ok(service.messages(session.sessionId, null, 10)).items)
+            assertEquals(runs, db.ai().allRuns())
+            assertEquals(costs, repo.aiCosts.observe().first())
+            assertEquals(progress, repo.dao.allProgress())
+            assertEquals(attempts, repo.dao.allAttempts())
+            assertEquals(1, server.requestCount)
+
+            val noteRename = ok(service.rename(id(), note.sessionId, note.sessionRevision, " 速记归档 "))
+            assertEquals("速记归档", noteRename.title)
+            assertEquals(title, ok(service.sessions(q.id, true, null, 10)).items.single().title)
+            assertEquals(noteRename.title, ok(service.documentSessions(doc, true, null, 10)).items.single().title)
+            val titles = mapOf(session.sessionId to title, note.sessionId to noteRename.title)
+            assertEquals(titles, ok(service.allSessions(null, 10)).items.associate { it.sessionId to it.title })
+
+            val backup = repo.backup()
+            ok(service.rename(id(), session.sessionId, rename.sessionRevision, "再改一次"))
+            repo.restore(backup)
+            assertEquals(titles, ok(service.allSessions(null, 10)).items.associate { it.sessionId to it.title })
+            assertEquals(before.copy(title = title, sessionRevision = rename.sessionRevision),
+                ok(service.open(session.sessionId)).session)
+            assertEquals(messages, ok(service.messages(session.sessionId, null, 10)).items)
+            assertTrue(ok(service.open(note.sessionId)).session.readOnly)
+        }
+    }
+
     @Test fun redirectDoesNotSendAgain()=runBlocking { fixture {
         server.enqueue(MockResponse().setResponseCode(307).addHeader("Location",server.url("/redirect")))
         val s=opened();val accepted=ok(service.send(send(s)));request();idle()

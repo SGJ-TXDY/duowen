@@ -224,6 +224,7 @@ private fun QuizLayout(vm: QuizViewModel) {
                             Page.NOTES -> StickyNotesScreen(vm, remember(vm) { stickyNoteSources(vm) })
                             Page.MORE -> MoreScreen(vm, today)
                             Page.WORKBENCH -> AnswerWorkbench(vm)
+                            Page.AI_DISCUSSIONS -> AiDiscussionsScreen(vm)
                             Page.COSTS -> CostsScreen(vm)
                             Page.ERROR_LOG -> ErrorLogScreen(vm)
                         }

@@ -40,6 +40,17 @@ data class MessageView(
 enum class MessageRole { USER, ASSISTANT }
 data class PageCursor(val opaque: String)
 data class AiPage<T>(val items: List<T>, val next: PageCursor?)
+
+// readOnly describes message and draft permissions. Archived discussions can still be renamed.
+data class AiDiscussionListItem(
+    val sessionId: String,
+    val owner: QuestionOwner,
+    val title: String,
+    val sessionRevision: Long,
+    val createdAt: Long,
+    val sourceLabel: String,
+    val readOnly: Boolean,
+)
 // limit 1..100；cursor 含 datasetEpoch/query/sort 绑定，恢复后失效；不使用裸 offset。
 sealed interface HistoryFilter {
     data class Exact(val question: QuestionOwner) : HistoryFilter
@@ -109,6 +120,7 @@ interface AiConversationFacade {
     suspend fun deleteSession(sessionId: String, owner: QuestionOwner): ResultOf<Unit> =
         ResultOf.Rejected(Rejection(RejectCode.INVALID, false, RecoveryAction.NONE))
     suspend fun deselect(): ResultOf<Unit> // 先由 UI 保存/flush 草稿，再退出选择。
+    suspend fun allSessions(cursor: PageCursor?, limit: Int): ResultOf<AiPage<AiDiscussionListItem>>
     suspend fun sessions(questionId: String, includeArchived: Boolean,
         cursor: PageCursor?, limit: Int): ResultOf<AiPage<SessionView>>
     suspend fun documentSessions(document: QuickNoteSummary, includeArchived: Boolean,

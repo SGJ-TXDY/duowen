@@ -262,6 +262,9 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
         selected?.let { sid-> flushPending(sid,propagate=true);editor?.let { store.revokeEditor(sid,it) } }
         clearSelection()
     }
+    override suspend fun allSessions(cursor: PageCursor?, limit: Int) = action {
+        db.withTransaction { pages.allSessions(cursor, limit) }
+    }
     override suspend fun sessions(questionId:String,includeArchived:Boolean,cursor:PageCursor?,limit:Int)=action {
         db.withTransaction { pages.sessions(questionId,includeArchived,cursor,limit) }
     }

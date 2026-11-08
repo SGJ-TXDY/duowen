@@ -84,10 +84,17 @@ class AiLocalStoreTest {
         val name="ai-local-${id()}.db";var db=host(name=name)
         val s=store(db);val sid=s.create(id(),q).sessionId!!;val editor=s.openEditor(sid)
         val c=DraftCommand(id(),sid,0,DraftToken(editor,1),"durable")
-        val receipt=s.saveDraft(c);val expected=s.dataset();db.close()
+        val receipt=s.saveDraft(c)
+        val renameId = id()
+        val rename = s.rename(renameId, sid, 0, " durable title ")
+        val expected=s.dataset();db.close()
         db=host(name=name)
         try {
             val reopened=store(db);assertEquals(expected,reopened.dataset());assertEquals(receipt,reopened.saveDraft(c))
+            val persisted = requireNotNull(db.ai().session(sid))
+            assertEquals("durable title", persisted.title)
+            assertEquals(1L, persisted.sessionRevision)
+            assertEquals(rename, reopened.rename(renameId, sid, 0, " durable title "))
             assertTrue(runCatching { reopened.saveDraft(c.copy(commandId=id(),expectedDraftRevision=1,token=DraftToken(editor,2))) }.isFailure)
             check(db,reopened)
         } finally { db.close();context.deleteDatabase(name) }

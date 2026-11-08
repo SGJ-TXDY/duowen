@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
  */
 internal object PagePolicy {
     /** Opened from 更多 (the notes list also from a question): each has a top bar and no tab bar. */
-    val subPages = setOf(Page.REVIEW, Page.NOTES, Page.WORKBENCH, Page.STATISTICS, Page.COSTS, Page.SETTINGS, Page.ERROR_LOG)
+    val subPages = setOf(Page.REVIEW, Page.NOTES, Page.WORKBENCH, Page.STATISTICS, Page.AI_DISCUSSIONS, Page.COSTS, Page.SETTINGS, Page.ERROR_LOG)
 
     fun isSubPage(page: Page) = page in subPages
 
@@ -60,6 +60,7 @@ internal object PagePolicy {
             Page.REVIEW,
             Page.WORKBENCH,
             Page.STATISTICS,
+            Page.AI_DISCUSSIONS,
             Page.SETTINGS,
             Page.NOTES -> Page.MORE
         }

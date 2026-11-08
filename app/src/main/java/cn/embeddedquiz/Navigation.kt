@@ -13,6 +13,7 @@ enum class Page(val label: String) {
     SETTINGS("设置"),
     MORE("更多"),
     WORKBENCH("待核对工作台"),
+    AI_DISCUSSIONS("AI 讨论"),
     COSTS("AI 费用估算"),
     ERROR_LOG("本地错误记录"),
 }

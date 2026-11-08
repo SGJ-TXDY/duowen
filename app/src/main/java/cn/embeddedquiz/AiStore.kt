@@ -159,9 +159,11 @@ internal class AiStore(
     suspend fun rename(commandId: String, sessionId: String, revision: Long, title: String): AiCommandRow = command(commandId,"RENAME",
         JSONObject().put("sessionId",sessionId).put("revision",revision).put("title",title)) { d, acceptedAt ->
         val s=session(d,sessionId); if (s.sessionRevision!=revision) refuse(RejectCode.STALE_SESSION)
-        if (s.owner.kind == AiOwnerKind.QUICK_NOTE) writable(s)
-        require(title.codePointCount(0,title.length) in 1..80)
-        Change(withSession(d,s.copy(title=title,sessionRevision=Math.addExact(revision,1),updatedAt=maxOf(s.updatedAt,acceptedAt))),sessionId)
+        val normalizedTitle = title.trim()
+        require(normalizedTitle.codePointCount(0, normalizedTitle.length) in 1..80)
+        val renamed = s.copy(title = normalizedTitle, sessionRevision = Math.addExact(revision, 1),
+            updatedAt = maxOf(s.updatedAt, acceptedAt))
+        Change(withSession(d, renamed), sessionId)
     }
     suspend fun saveDraft(c: DraftCommand): AiCommandRow = command(c.commandId,"DRAFT",JSONObject().put("sessionId",c.sessionId)
         .put("revision",c.expectedDraftRevision).put("editorEpoch",c.token.editorEpoch).put("localEditVersion",c.token.localEditVersion).put("text",c.text)) { d, acceptedAt ->

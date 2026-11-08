@@ -53,6 +53,13 @@ internal const val AI_PAGE_SIZE = 20
 
 internal enum class DraftSave { SAVED, SAVING, FAILED }
 
+/**
+ * The backend selects one discussion for the whole app. Every page's open, and every release of a
+ * selection, goes through this lock, so a late open that has to be released cannot clear the
+ * discussion another page selected in between.
+ */
+private val aiSelectionLock = Mutex()
+
 /** What a send freezes from the question page at the moment the user asks. */
 internal data class AiSendContext(val choices: Set<String>, val code: String, val model: String)
 
@@ -228,6 +235,13 @@ internal class AiChatController(
         private set
 
     private val saveLock = Mutex()
+
+    /**
+     * Each open takes a new generation; leaving (back, leave) and any newer open move it on. An open
+     * still waiting for the service when that happens gives up, and one that already reached the
+     * backend releases what it selected, so it keeps no editor right after the page is gone.
+     */
+    private var openGeneration = 0L
     private var quietJob: Job? = null
     private var maxJob: Job? = null
 
@@ -275,6 +289,30 @@ internal class AiChatController(
     }
 
     fun moreSessions() = scope.launch { loadSessions(reset = false) }
+
+    /**
+     * Rereads the list from the top until it holds at least [keep] discussions and [include] (or
+     * nothing more is left). On failure the current list stays as it is.
+     */
+    private suspend fun reloadSessions(keep: Int, include: String?) {
+        var list = emptyList<SessionView>()
+        var cursor: PageCursor? = null
+        do {
+            when (val r = source.sessions(facade, cursor, AI_PAGE_SIZE)) {
+                is ResultOf.Ok -> {
+                    list = (list + r.value.items).distinctBy { it.sessionId }
+                    cursor = r.value.next
+                }
+                is ResultOf.Rejected -> {
+                    notice = aiRejectionText(r.reason)
+                    return
+                }
+            }
+        } while (cursor != null && (list.size < keep || (include != null && list.none { it.sessionId == include })))
+        sessions = list
+        sessionsNext = cursor
+        hasMoreSessions = cursor != null
+    }
 
     /** Old single-turn records of this question (every version), read only; documents have none. */
     suspend fun loadLegacy(reset: Boolean) {
@@ -419,11 +457,13 @@ internal class AiChatController(
             }
         }
 
-    fun open(sessionId: String) =
-        scope.launch {
+    fun open(sessionId: String): Job {
+        val generation = ++openGeneration
+        return scope.launch {
             awaitStarted()
-            openNow(sessionId)
+            openNow(sessionId, generation)
         }
+    }
 
     /**
      * Deletes one discussion from the list (PLAN-1.7.2). A request still running in it is stopped and
@@ -477,10 +517,19 @@ internal class AiChatController(
             noteSaves = noteSaves + (reply.messageId to outcome)
         }
 
-    private suspend fun openNow(sessionId: String) {
+    private suspend fun openNow(sessionId: String, generation: Long = ++openGeneration) {
+        if (generation != openGeneration) return
         notice = null
         if (opened != null && !leaveNow()) return
-        when (val r = facade.open(sessionId)) {
+        aiSelectionLock.withLock {
+            if (generation != openGeneration) return
+            val r = facade.open(sessionId)
+            if (generation != openGeneration) {
+                // Left (or another discussion was asked for) while this open was on its way.
+                if (r is ResultOf.Ok && facade.state.value.selectedSessionId == sessionId) facade.deselect()
+                return
+            }
+            when (r) {
             is ResultOf.Ok -> {
                 val s = r.value.session
                 editorEpoch = r.value.editorEpoch
@@ -495,12 +544,23 @@ internal class AiChatController(
                 opened = s
             }
             is ResultOf.Rejected -> notice = aiRejectionText(r.reason)
+            }
         }
     }
 
     // ---- open session ----
 
-    fun back() = scope.launch { leaveNow() }
+    /** Leaves the open discussion; an open still under way is abandoned and released. */
+    fun back(): Job {
+        openGeneration++
+        return scope.launch { leaveNow() }
+    }
+
+    /** Leaves the open discussion, then [then] once its draft is saved and it is deselected. */
+    fun leave(then: () -> Unit): Job {
+        openGeneration++
+        return scope.launch { if (leaveNow()) then() }
+    }
 
     /**
      * Leaving saves the current text, waits for it to be durable, then deselects. If either step
@@ -520,15 +580,15 @@ internal class AiChatController(
                 }
             }
         }
-        // Another question page may already have opened its own discussion; leave that one alone.
-        if (facade.state.value.selectedSessionId == s.sessionId)
-            when (val r = facade.deselect()) {
-                is ResultOf.Ok -> Unit
-                is ResultOf.Rejected -> {
-                    notice = aiRejectionText(r.reason)
-                    return false
-                }
+        // Another page may already have opened its own discussion; leave that one alone.
+        val released =
+            aiSelectionLock.withLock {
+                if (facade.state.value.selectedSessionId == s.sessionId) facade.deselect() else ResultOf.Ok(Unit)
             }
+        if (released is ResultOf.Rejected) {
+            notice = aiRejectionText(released.reason)
+            return false
+        }
         opened = null
         editorEpoch = null
         older = emptyList()
@@ -584,26 +644,51 @@ internal class AiChatController(
             }
         }
 
+    /** Renames the open discussion (the pencil in its title bar). */
     fun rename(title: String) =
         scope.launch {
             notice = null
             val s = current() ?: return@launch
-            val t = title.trim()
-            if (t.codePointCount(0, t.length) !in 1..AI_TITLE_MAX) {
-                notice = "标题需为 1～$AI_TITLE_MAX 个字。"
-                return@launch
+            renameNow(s, title, listed = false)
+        }
+
+    /** True while a rename from the list is being saved; the editor takes no second tap. */
+    var renaming by mutableStateOf(false)
+        private set
+
+    /**
+     * Renames a discussion from the list without opening it. [onDone] runs only on success, so a
+     * failed rename leaves the editor open with what was typed. A stale revision reloads the list:
+     * the editor then shows the current name, and saving again uses the new revision.
+     */
+    fun rename(sessionId: String, title: String, onDone: () -> Unit) =
+        scope.launch {
+            if (renaming) return@launch
+            renaming = true
+            notice = null
+            info = null
+            try {
+                awaitStarted()
+                val target = current()?.takeIf { it.sessionId == sessionId } ?: sessions.firstOrNull { it.sessionId == sessionId }
+                if (target != null && renameNow(target, title, listed = true)) onDone()
+            } finally {
+                renaming = false
             }
-            when (val r = facade.rename(newId(), s.sessionId, s.sessionRevision, t)) {
-                is ResultOf.Ok -> {
-                    opened = opened?.copy(title = r.value.title, sessionRevision = r.value.sessionRevision)
-                    sessions =
-                        sessions.map {
-                            if (it.sessionId == s.sessionId)
-                                it.copy(title = r.value.title, sessionRevision = r.value.sessionRevision)
-                            else it
-                        }
-                }
-                is ResultOf.Rejected -> notice = aiRejectionText(r.reason)
+        }
+
+    private suspend fun renameNow(s: SessionView, title: String, listed: Boolean): Boolean =
+        when (val r = aiRename(facade, newId(), s.sessionId, s.sessionRevision, title)) {
+            is ResultOf.Ok -> {
+                opened = opened?.renamed(r.value)
+                sessions = sessions.map { it.renamed(r.value) }
+                true
+            }
+            is ResultOf.Rejected -> {
+                notice = aiRenameRejectionText(r.reason, listed)
+                // Renamed elsewhere (e.g. from 更多 › AI 讨论) since this list was read: fetch the current
+                // title without dropping the pages already read, so the editor keeps its target.
+                if (listed && r.reason.code == RejectCode.STALE_SESSION) reloadSessions(keep = sessions.size, include = s.sessionId)
+                false
             }
         }
 
@@ -634,6 +719,34 @@ internal class AiChatController(
         info = null
     }
 }
+
+/**
+ * One rename, shared by a discussion's own title bar, its list and 更多 › AI 讨论. The title is
+ * trimmed and checked here; a title out of range is rejected as INVALID without calling the backend.
+ */
+internal suspend fun aiRename(
+    facade: AiConversationFacade,
+    commandId: String,
+    sessionId: String,
+    expectedRevision: Long,
+    title: String,
+): ResultOf<RenameReceipt> {
+    val t = title.trim()
+    if (t.codePointCount(0, t.length) !in 1..AI_TITLE_MAX)
+        return ResultOf.Rejected(Rejection(RejectCode.INVALID, false, RecoveryAction.EDIT))
+    return facade.rename(commandId, sessionId, expectedRevision, t)
+}
+
+/** [listed]: renamed from a list, which reloads on a stale revision so the next try can succeed. */
+internal fun aiRenameRejectionText(r: Rejection, listed: Boolean): String =
+    when {
+        r.code == RejectCode.INVALID -> "标题需为 1～$AI_TITLE_MAX 个字。"
+        listed && r.code == RejectCode.STALE_SESSION -> "讨论名称已在别处修改，上方已显示当前名称；确认后再保存。"
+        else -> aiRejectionText(r)
+    }
+
+internal fun SessionView.renamed(r: RenameReceipt): SessionView =
+    if (sessionId == r.sessionId) copy(title = r.title, sessionRevision = r.sessionRevision) else this
 
 internal fun aiRejectionText(r: Rejection): String =
     when (r.code) {
@@ -721,12 +834,24 @@ internal fun AiChatScreen(
     onClose: (() -> Unit)? = null,
     /** Opens a note saved from a reply; null hides the link (the saved message still shows). */
     onOpenNote: ((StickyNote) -> Unit)? = null,
+    /**
+     * Set when the page shows one discussion by itself (更多 › AI 讨论): its source's list is not
+     * shown, and leaving the discussion (after its draft is saved) calls this instead.
+     */
+    onLeaveSession: (() -> Unit)? = null,
 ) {
     val state by controller.facade.state.collectAsState()
     val session = controller.current(state)
-    LaunchedEffect(controller) { controller.refresh() }
-    BackHandler(enabled = session != null || onClose != null) {
-        if (session != null) controller.back() else onClose?.invoke()
+    LaunchedEffect(controller) { if (onLeaveSession == null) controller.refresh() }
+    val leaveSession: () -> Unit = {
+        if (onLeaveSession != null) controller.leave(onLeaveSession) else controller.back()
+    }
+    BackHandler(enabled = session != null || onClose != null || onLeaveSession != null) {
+        when {
+            session != null -> leaveSession()
+            onLeaveSession != null -> onLeaveSession()
+            else -> onClose?.invoke()
+        }
     }
     Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         aiPhaseText(state.phase)?.let { InlineNote(it, Modifier.testTag("ai-phase")) }
@@ -737,8 +862,14 @@ internal fun AiChatScreen(
             Box(Modifier.testTag("ai-notice").clickable { controller.dismissNotice() }) { ErrorNotice(text) }
         }
         controller.info?.let { InlineNote(it, Modifier.testTag("ai-info")) }
-        if (session == null) AiSessionList(controller, state, Modifier.weight(1f), onClose)
-        else AiSessionPane(controller, state, session, Modifier.weight(1f), onOpenNote)
+        when {
+            session != null -> AiSessionPane(controller, state, session, Modifier.weight(1f), onOpenNote, leaveSession)
+            onLeaveSession != null ->
+                // Still opening, or opening was refused (the notice above says why).
+                if (controller.notice == null) InlineNote("正在打开讨论…", Modifier.testTag("ai-opening"))
+                else TextButton(onClick = onLeaveSession, modifier = Modifier.heightIn(min = 48.dp)) { Text("返回列表") }
+            else -> AiSessionList(controller, state, Modifier.weight(1f), onClose)
+        }
     }
 }
 
@@ -760,6 +891,7 @@ private fun AiSessionList(
     onClose: (() -> Unit)?,
 ) {
     var confirmDelete by remember { mutableStateOf<SessionView?>(null) }
+    var renameTarget by remember { mutableStateOf<String?>(null) }
     confirmDelete?.let { target ->
         val running = state.globalBusy?.owner?.sessionId == target.sessionId
         AlertDialog(
@@ -806,6 +938,11 @@ private fun AiSessionList(
             }
         }
         controller.source.context?.let { AiSourceContextCard(it) }
+        renameTarget?.let { id -> controller.sessions.firstOrNull { it.sessionId == id } }?.let { target ->
+            AiListRenameEditor(target.sessionId, target.title, controller.renaming, onDismiss = { renameTarget = null }) {
+                controller.rename(target.sessionId, it) { renameTarget = null }
+            }
+        }
         if (controller.sessions.isEmpty())
             InlineNote("还没有讨论。点“新建讨论”开始。", Modifier.testTag("ai-sessions-empty"))
         LazyColumn(
@@ -819,6 +956,7 @@ private fun AiSessionList(
                     controller.source,
                     deleting = controller.deleting == s.sessionId,
                     menuEnabled = controller.deleting == null,
+                    onRename = { renameTarget = s.sessionId },
                     onDelete = { confirmDelete = s },
                 ) { controller.open(s.sessionId) }
             }
@@ -854,6 +992,7 @@ private fun AiSessionRow(
     source: AiChatSource,
     deleting: Boolean,
     menuEnabled: Boolean,
+    onRename: () -> Unit,
     onDelete: () -> Unit,
     onOpen: () -> Unit,
 ) {
@@ -898,6 +1037,14 @@ private fun AiSessionRow(
                 Icon(AppIcons.MoreVert, contentDescription = "更多操作：" + s.title)
             }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                DropdownMenuItem(
+                    text = { Text("重命名") },
+                    onClick = {
+                        menu = false
+                        onRename()
+                    },
+                    modifier = Modifier.testTag("ai-session-rename"),
+                )
                 DropdownMenuItem(
                     text = { Text("删除讨论") },
                     onClick = {
@@ -971,11 +1118,12 @@ private fun AiSessionPane(
     session: SessionView,
     modifier: Modifier,
     onOpenNote: ((StickyNote) -> Unit)?,
+    onBack: () -> Unit,
 ) {
     var renaming by remember { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { controller.back() }, modifier = Modifier.size(48.dp)) {
+            IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
                 Icon(AppIcons.Back, contentDescription = "返回讨论列表")
             }
             Text(
@@ -1303,6 +1451,59 @@ private fun AiDraftBox(controller: AiChatController, session: SessionView, canSe
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.testTag("ai-draft-status"),
                 )
+        }
+    }
+}
+
+/**
+ * Renames a discussion picked from a list, inline above the list like the title bar's editor (a
+ * text field in a dialog window would take the keyboard away from the page). Back closes it.
+ */
+@Composable
+internal fun AiListRenameEditor(
+    sessionId: String,
+    /** The current name; refreshed after a stale rename while the typed text stays. */
+    title: String,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    BackHandler(onBack = onDismiss)
+    var text by remember(sessionId) { mutableStateOf(title) }
+    val length = text.trim().let { it.codePointCount(0, it.length) }
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth().testTag("ai-list-rename"),
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Text(
+                "重命名「$title」",
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                label = { Text("讨论标题") },
+                supportingText = { Text("$length / $AI_TITLE_MAX") },
+                isError = length > AI_TITLE_MAX,
+                modifier = Modifier.fillMaxWidth().testTag("ai-list-rename-field"),
+            )
+            Row(Modifier.align(Alignment.End)) {
+                TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) { Text("取消") }
+                TextButton(
+                    onClick = { onSave(text) },
+                    // An unchanged title is not offered: it would only bump the revision.
+                    enabled = !saving && length in 1..AI_TITLE_MAX && text.trim() != title,
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("ai-rename-confirm"),
+                ) {
+                    Text(if (saving) "正在保存…" else "保存标题")
+                }
+            }
         }
     }
 }

@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.StateFlow
 class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationFacade {
     private val sessionsById = LinkedHashMap<String, SessionView>()
     private val messagesBySession = HashMap<String, MutableList<MessageView>>()
+    private val sourceLabels = mutableMapOf<String, String>()
+    private var discussionGeneration = 0
     private var nextId = 0
     private var activeEpoch: String? = null
 
@@ -23,6 +25,8 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
     var deselects = 0
         private set
     var renameRejection: Rejection? = null
+    /** When set, the next open waits for it inside the backend (PLAN-1.7.3 late-open check). */
+    var openGate: CompletableDeferred<Unit>? = null
     var saveRejection: Rejection? = null
     var flushRejection: Rejection? = null
     /** When set, the next saveDraft waits for it before answering. */
@@ -50,7 +54,10 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
         _state.value = _state.value.copy(phase = phase)
     }
 
-    fun seed(question: QuestionOwner, title: String, readOnly: Boolean = false, draft: String = ""): SessionView {
+    fun seed(
+        question: QuestionOwner, title: String, readOnly: Boolean = false, draft: String = "",
+        sourceLabel: String = question.questionId,
+    ): SessionView {
         val id = "s${++nextId}"
         val s =
             SessionView(
@@ -58,6 +65,7 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
                 readOnly, 1, "{}",
             )
         sessionsById[id] = s
+        sourceLabels[id] = sourceLabel
         messagesBySession[id] = mutableListOf()
         return s
     }
@@ -99,6 +107,10 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
         ResultOf.Ok(CreateReceipt(seed(question, "新讨论 ${sessionsById.size + 1}")))
 
     override suspend fun open(sessionId: String): ResultOf<OpenReceipt> {
+        openGate?.let {
+            openGate = null
+            it.await()
+        }
         val s = sessionsById[sessionId] ?: return reject(RejectCode.NOT_FOUND)
         val epoch = "e${++nextId}"
         activeEpoch = epoch
@@ -121,6 +133,26 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
         return ResultOf.Ok(Unit)
     }
 
+    override suspend fun allSessions(cursor: PageCursor?, limit: Int): ResultOf<AiPage<AiDiscussionListItem>> {
+        if (limit !in 1..100) return reject(RejectCode.INVALID)
+        val prefix = "discussions:$discussionGeneration:"
+        val before = if (cursor == null) Int.MAX_VALUE else {
+            if (!cursor.opaque.startsWith(prefix)) return reject(RejectCode.STALE_CURSOR)
+            cursor.opaque.removePrefix(prefix).toIntOrNull() ?: return reject(RejectCode.STALE_CURSOR)
+        }
+        val rows = sessionsById.values.toList().asReversed().asSequence()
+            .map { it to it.sessionId.removePrefix("s").toInt() }
+            .filter { (_, createdAt) -> createdAt < before }
+            .take(limit + 1)
+            .toList()
+        val items = rows.take(limit).map { (s, createdAt) ->
+            AiDiscussionListItem(s.sessionId, s.question, s.title, s.sessionRevision, createdAt.toLong(),
+                sourceLabels.getValue(s.sessionId), s.readOnly)
+        }
+        val next = if (rows.size > limit) PageCursor(prefix + items.last().createdAt) else null
+        return ResultOf.Ok(AiPage(items, next))
+    }
+
     override suspend fun sessions(questionId: String, includeArchived: Boolean, cursor: PageCursor?, limit: Int): ResultOf<AiPage<SessionView>> {
         val all = sessionsById.values.filter { it.question.questionId == questionId && (includeArchived || !it.readOnly) }
         val from = cursor?.opaque?.removePrefix("at:")?.toInt() ?: 0
@@ -136,7 +168,7 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
         sessions(document.id, includeArchived, cursor, limit)
 
     override suspend fun createDocumentSession(commandId: String, document: QuickNoteSummary): ResultOf<CreateReceipt> =
-        ResultOf.Ok(CreateReceipt(seed(documentOwner(document), "新讨论 ${sessionsById.size + 1}")))
+        ResultOf.Ok(CreateReceipt(seed(documentOwner(document), "新讨论 ${sessionsById.size + 1}", sourceLabel = document.title)))
 
     override suspend fun messages(sessionId: String, cursor: PageCursor?, limit: Int): ResultOf<AiPage<MessageView>> {
         val list = messagesBySession[sessionId] ?: return reject(RejectCode.NOT_FOUND)
@@ -160,11 +192,12 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
         renameRejection?.let { return ResultOf.Rejected(it) }
         val s = sessionsById[sessionId] ?: return reject(RejectCode.NOT_FOUND)
         if (s.sessionRevision != expectedSessionRevision) return reject(RejectCode.STALE_SESSION)
-        if (title.codePointCount(0, title.length) !in 1..80) return reject(RejectCode.INVALID)
-        val updated = s.copy(title = title, sessionRevision = s.sessionRevision + 1)
+        val normalizedTitle = title.trim()
+        if (normalizedTitle.codePointCount(0, normalizedTitle.length) !in 1..80) return reject(RejectCode.INVALID)
+        val updated = s.copy(title = normalizedTitle, sessionRevision = s.sessionRevision + 1)
         sessionsById[sessionId] = updated
         publish()
-        return ResultOf.Ok(RenameReceipt(sessionId, updated.sessionRevision, title))
+        return ResultOf.Ok(RenameReceipt(sessionId, updated.sessionRevision, normalizedTitle))
     }
 
     override suspend fun saveDraft(command: DraftCommand): ResultOf<DraftReceipt> {
@@ -298,7 +331,9 @@ class FakeAiConversationFacade(private val pageSize: Int = 20) : AiConversationF
         if (s.question != owner) return reject(RejectCode.STALE_OWNER)
         if (_state.value.globalBusy?.owner?.sessionId == sessionId) return reject(RejectCode.BUSY)
         sessionsById.remove(sessionId)
+        sourceLabels.remove(sessionId)
         messagesBySession.remove(sessionId)
+        discussionGeneration++
         if (_state.value.selectedSessionId == sessionId)
             _state.value = _state.value.copy(selectedSessionId = null, selected = null, firstMessages = AiPage(emptyList(), null))
         return ResultOf.Ok(Unit)

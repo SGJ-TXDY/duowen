@@ -153,6 +153,7 @@ fun MoreScreen(vm: QuizViewModel, today: LocalDate) {
             ),
             listOf(
                 MoreEntry(Page.STATISTICS, Page.STATISTICS.label, AppIcons.BarChart, colors.stats),
+                MoreEntry(Page.AI_DISCUSSIONS, Page.AI_DISCUSSIONS.label, AppIcons.Chat, colors.ai),
                 MoreEntry(Page.COSTS, Page.COSTS.label, AppIcons.Coin, colors.cost, state.costHint),
             ),
             listOf(MoreEntry(Page.SETTINGS, Page.SETTINGS.label, AppIcons.Settings, colors.settings)),

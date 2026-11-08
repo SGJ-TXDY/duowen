@@ -143,6 +143,12 @@ interface AiConversationDao : AiRowReader {
 
     @Query("SELECT * FROM ai_sessions WHERE questionId=:qid AND questionSnapshotVersion=:version AND (:archived OR contentHash=:hash) AND (:at IS NULL OR updatedAt<:at OR (updatedAt=:at AND sessionId<:tie)) ORDER BY updatedAt DESC,sessionId DESC LIMIT :limit")
     suspend fun sessionPage(qid:String,hash:String,archived:Boolean,at:Long?,tie:String,limit:Int,version:Int=1):List<AiSessionRow>
+    @Query("""
+        SELECT * FROM ai_sessions
+        WHERE :at IS NULL OR createdAt < :at OR (createdAt = :at AND sessionId < :tie)
+        ORDER BY createdAt DESC, sessionId DESC LIMIT :limit
+    """)
+    suspend fun discussionPage(at: Long?, tie: String, limit: Int): List<AiSessionRow>
     @Query("SELECT * FROM ai_messages WHERE sessionId=:sid AND (:seq IS NULL OR seq<:seq) ORDER BY seq DESC LIMIT :limit")
     suspend fun messagePage(sid:String,seq:Long?,limit:Int):List<AiMessageRow>
     @Query("SELECT * FROM ai WHERE questionId=:qid AND (:mode=2 OR (:mode=1 AND contentHash='') OR (:mode=0 AND contentHash=:hash)) AND (:at IS NULL OR created<:at OR (created=:at AND cacheKey<:tie)) ORDER BY created DESC,cacheKey DESC LIMIT :limit")

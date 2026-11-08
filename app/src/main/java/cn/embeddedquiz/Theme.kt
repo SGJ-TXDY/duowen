@@ -207,6 +207,7 @@ data class MoreColors(
     val verify: Color,
     val stats: Color,
     val cost: Color,
+    val ai: Color,
     val settings: Color,
     val mascot: MascotColors,
 )
@@ -245,6 +246,7 @@ fun moreColors(dark: Boolean) =
         verify = Color(0xFF5363D6),
         stats = Color(0xFF1F86DB),
         cost = Color(0xFFE04A4A),
+        ai = Color(0xFF7C4DDB),
         settings = Color(0xFF6B7280),
         mascot = mascotColors(dark),
     )
