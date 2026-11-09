@@ -250,7 +250,7 @@ class AiProductionIntegrationTest {
                 waitFor { vm.ready || vm.startupState is StartupState.Error }
                 assertFalse(vm.ready);assertEquals(StartupStage.DATABASE,(vm.startupState as StartupState.Error).stage)
                 assertEquals(1,call { vm.repo.dao.questionCount() });assertNull(vm.db.aiLifecycle.token())
-                val diagnostic=JSONObject(call { vm.readStartupDiagnostics() });assertEquals(8,diagnostic.getInt("roomVersion"));assertEquals(6,diagnostic.getInt("backupVersion"));assertEquals(1,diagnostic.getInt("aiConversationVersion"))
+                val diagnostic=JSONObject(call { vm.readStartupDiagnostics() });assertEquals(8,diagnostic.getInt("roomVersion"));assertEquals(7,diagnostic.getInt("backupVersion"));assertEquals(1,diagnostic.getInt("aiConversationVersion"))
             } finally { owners.clear();waitFor { vm.examResourcesClosed?.isCompleted==true };app.deleteDatabase("embeddedquiz.db") }
         }
     }

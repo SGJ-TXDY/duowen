@@ -105,7 +105,7 @@ internal class AiBackupStage private constructor(
                             }
                         };reader.endObject();require(reader.peek()==JsonToken.END_DOCUMENT)
                     }
-                    require(headers["schemaVersion"]==1L && headers["backupVersion"] in 1L..7L) { "UNSUPPORTED_BACKUP_VERSION" }
+                    require(headers["schemaVersion"]==1L && headers["backupVersion"] in 1L..AiFullBackupCodec.LATEST_VERSION.toLong()) { "UNSUPPORTED_BACKUP_VERSION" }
                     val v=headers.getValue("backupVersion").toInt()
                     require(seen.containsAll(setOf("questions","progress","attempts","ai"))) { "MISSING_LEGACY_SECTION" }
                     if(v>=2) require("stickyNotes" in seen)
@@ -185,8 +185,8 @@ internal class AiBackupStage private constructor(
         if (version < 7) {
             val builtIns = AiSnapshotCodec.MODELS_V1.joinToString(",") { "'$it'" }
             val access = AiSqlAccess(db)
-            require(access.scalar("SELECT COUNT(*) FROM ai_runs WHERE model NOT IN ($builtIns)") == 0L) {
-                "CUSTOM_AI_REQUIRES_BACKUP_VERSION_7"
+            require(access.scalar("SELECT COUNT(*) FROM ai_runs WHERE model NOT IN ($builtIns) OR contextSnapshotVersion>4") == 0L) {
+                "NEW_AI_REQUIRES_BACKUP_VERSION_7"
             }
         }
         AiStorageValidation.verifyAndRecover(db,now)

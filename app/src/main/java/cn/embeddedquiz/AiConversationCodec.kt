@@ -84,13 +84,14 @@ internal object AiConversationCodec {
             require(r.createdAt >= 0 && r.eventSeq >= 0 && r.reservedBytes in 0..RUN_RESERVE)
             require(r.promptVersion == "1")
             require(r.contextSnapshotVersion == s.questionSnapshotVersion ||
-                s.owner.kind == AiOwnerKind.QUICK_NOTE && r.contextSnapshotVersion == AiSnapshotCodec.DOCUMENT_REQUEST_VERSION)
+                s.owner.kind == AiOwnerKind.QUICK_NOTE && r.contextSnapshotVersion in
+                    setOf(AiSnapshotCodec.DOCUMENT_REQUEST_VERSION, AiSnapshotCodec.DOCUMENT_AGENT_VERSION))
             require(AiJson.long(JSONObject(r.contextSnapshot), "version") == r.contextSnapshotVersion.toLong())
             require(AiModels.validBillingModel(r.model)); AiRequestType.valueOf(r.requestType)
             if (r.model !in AiSnapshotCodec.MODELS_V1)
                 require(listOf(r.priceVersion, r.missRate, r.hitRate, r.outputRate).all { it == null })
             AiJson.hash(r.contextDigest); AiJson.hash(r.cacheKey)
-            require(DeepSeekClient.hash(r.contextSnapshot) == r.contextDigest)
+            require(QuickNoteAgentProtocol.digest(r.contextSnapshot) == r.contextDigest)
             require(r.cacheKey == DeepSeekClient.hash("${s.questionSnapshotVersion}\n${s.sessionId}\n${s.contentHash}\n${r.contextDigest}"))
             AiSnapshotCodec.validateRequest(r.contextSnapshot, s.owner, r.model, r.requestType)
             val frozenData = JSONObject(r.contextSnapshot).getJSONObject("data")
@@ -123,11 +124,21 @@ internal object AiConversationCodec {
             require(terminal || r.reservedBytes >= requiredClosingReserve(r)) { "INSUFFICIENT_CLOSING_RESERVE" }
             require((status == RunStatus.COMPLETED) == (a.completion == "COMPLETE"))
             require(status != RunStatus.COMPLETED || a.text.isNotBlank())
+            if (r.contextSnapshotVersion == AiSnapshotCodec.DOCUMENT_AGENT_VERSION) {
+                if (status == RunStatus.COMPLETED && QuickNoteAgentProtocol.currentPolicy(r.contextSnapshot))
+                    require(!QuickNoteAgentProtocol.planningOnly(a.text)) { "INCOMPLETE_ANSWER" }
+                if (source == RunSource.NETWORK) {
+                    val evidence = QuickNoteAgentProtocol.usage(JSONObject(r.contextSnapshot).getJSONObject("execution"), AiUsageEvidence())
+                    require(r.inputTokens == evidence.input && r.outputTokens == evidence.output &&
+                        r.hitTokens == evidence.hit && r.usageStatus == evidence.state.name) { "AGENT_USAGE_MISMATCH" }
+                }
+            }
             require(status != RunStatus.PREPARING || a.completion == "EMPTY")
             r.usageCutoffSeq?.let { require(it in 0..r.eventSeq) }
             r.retryOf?.let { id ->
                 val prior = requireNotNull(runs[id]); require(prior.sessionId == r.sessionId && prior.userMessageId == r.userMessageId)
-                require(prior.contextSnapshot == r.contextSnapshot && prior.model == r.model && prior.effectiveParameters == r.effectiveParameters)
+                require(QuickNoteAgentProtocol.initial(prior.contextSnapshot) == QuickNoteAgentProtocol.initial(r.contextSnapshot) &&
+                    prior.model == r.model && prior.effectiveParameters == r.effectiveParameters)
                 require(prior.status in setOf("FAILED", "CANCELLED"))
                 require(messages.getValue(prior.assistantMessageId).seq < a.seq)
             }

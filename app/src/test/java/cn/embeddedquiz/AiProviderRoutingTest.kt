@@ -249,6 +249,53 @@ class AiProviderRoutingTest {
         }
     }
 
+    @Test fun customToolsRequireOptInAndStopAtAChangedRouteBetweenHops() = runBlocking {
+        network {
+            val store = store()
+            val profile = store.save(null, "A", a.endpoint("/v1"), "note-model", "fixture-a")
+            val thirdDispatch = CompletableDeferred<Unit>()
+            val resume = CompletableDeferred<Unit>()
+            var hops = 0
+            val config = AiRuntimeConfig({ "" }, AiChatTransport(client = client),
+                beforeDispatch = { if (++hops == 3) { thirdDispatch.complete(Unit); resume.await() } },
+                providers = store, documentToolsEnabled = true)
+            withRuntime(config) { repo, service ->
+                val doc = requireNotNull(repo.db.quickNotesRepository.createDocument(
+                    QuickNoteCreate(id(), "原文", "# 私有章节\n\n只在本机的原文。")))
+                val session = ok(service.createDocumentSession(id(), doc)).session
+                suspend fun send(input: String): AcceptedReceipt {
+                    val s = ok(service.open(session.sessionId)).session
+                    return ok(service.send(SendCommand(id(), s.sessionId, s.question, s.contextRevision, null, null,
+                        input, emptySet(), "", AiRequestType.FOLLOW_UP, profile.model)))
+                }
+                a.enqueue(reply())
+                val plain = send("请查原文")
+                assertFalse(JSONObject(a.request().body.readUtf8()).has("tools"))
+                withTimeout(15000) { ok(service.awaitIdle()) }
+                assertEquals(AiSnapshotCodec.DOCUMENT_REQUEST_VERSION, repo.db.ai().run(plain.owner.requestId)?.contextSnapshotVersion)
+
+                val enabled = store.save(profile.id, profile.name, profile.url, profile.model, "", supportsTools = true)
+                a.enqueue(MockResponse().setBody("""{"choices":[{"index":0,"finish_reason":"stop",
+                    "message":{"role":"assistant","content":null,"tool_calls":[
+                    {"id":"list","type":"function","function":{"name":"list_sections","arguments":"{}"}}]}}],
+                    "usage":{"prompt_tokens":100,"completion_tokens":20,"prompt_cache_hit_tokens":10}}"""))
+                val tool = send("请查全文")
+                assertTrue(JSONObject(a.request().body.readUtf8()).has("tools"))
+                withTimeout(8000) { thirdDispatch.await() }
+                store.save(profile.id, "B", b.endpoint("/v2"), profile.model, "fixture-b", supportsTools = true)
+                resume.complete(Unit)
+                withTimeout(15000) { ok(service.awaitIdle()) }
+                val row = requireNotNull(repo.db.ai().run(tool.owner.requestId))
+                assertEquals("PROVIDER_CHANGED", row.errorCode)
+                assertEquals(AiSnapshotCodec.DOCUMENT_AGENT_VERSION, row.contextSnapshotVersion)
+                assertEquals(enabled.route, AiFrozenRoute.read(JSONObject(row.contextSnapshot)))
+                assertEquals(100L, row.inputTokens)
+                assertEquals(2, a.requestCount)
+                assertEquals(0, b.requestCount)
+            }
+        }
+    }
+
     @Test fun editingAddressBetweenAcceptanceAndDispatchDoesNotSendFrozenText() = runBlocking {
         network {
             val store = store()

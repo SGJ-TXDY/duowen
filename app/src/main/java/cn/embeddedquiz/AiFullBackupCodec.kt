@@ -15,6 +15,10 @@ internal data class AiBackupReceipt(val bytes:Long,val sha256:String)
 
 /** Single-file consistent backup, shared by production streams and compatibility callers. */
 internal class AiFullBackupCodec(private val context:Context,private val workDir:File) {
+    companion object {
+        const val LATEST_VERSION = 7
+    }
+
     suspend fun prepare(input:InputStream,resource:(Long)->Unit={}):AiBackupStage = AiBackupStage.prepare(context,workDir,input,resource)
     suspend fun export(database:RoomDatabase,openNewDestination:()->OutputStream,resource:(Long)->Unit={}):AiBackupReceipt {
         require(workDir.isDirectory || workDir.mkdirs())
@@ -22,8 +26,14 @@ internal class AiFullBackupCodec(private val context:Context,private val workDir
         try {
             database.withTransaction {
                 val sql=database.openHelper.readableDatabase
+                val builtIns = AiSnapshotCodec.MODELS_V1.joinToString(",") { "'$it'" }
+                val requiresNewFormat = sql.query(
+                    "SELECT 1 FROM ai_runs WHERE contextSnapshotVersion>4 OR model NOT IN ($builtIns) " +
+                        "UNION ALL SELECT 1 FROM ai_deleted_costs WHERE model NOT IN ($builtIns) LIMIT 1"
+                ).use { it.moveToFirst() }
+                val version = if (requiresNewFormat) LATEST_VERSION else 6
                 java.io.BufferedWriter(java.io.OutputStreamWriter(temp.outputStream(),Charsets.UTF_8),8192).use { out ->
-                    out.write("{\"schemaVersion\":1,\"backupVersion\":7,\"aiConversationVersion\":1")
+                    out.write("{\"schemaVersion\":1,\"backupVersion\":$version,\"aiConversationVersion\":1")
                     val tables = AiLegacyBackupCodec.tables + (AI_DELETED_COST_SECTION to "ai_deleted_costs")
                     for((section,table) in tables) {
                         currentCoroutineContext().ensureActive()

@@ -18,7 +18,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal data class AiChatResult(val text:String="",val complete:Boolean=false,val error:String?=null,
-    val finish:String?=null,val responseId:String?=null,val usage:AiUsageEvidence=AiUsageEvidence())
+    val finish:String?=null,val responseId:String?=null,val usage:AiUsageEvidence=AiUsageEvidence(),
+    val toolCalls: List<QuickNoteToolCall> = emptyList())
 
 internal object AiChatPrices {
     fun estimatePolicy(model:String):AiUsageEvidence = when(model) {
@@ -35,7 +36,8 @@ internal class AiChatTransport(endpoint:String="https://api.deepseek.com/chat/co
     private val http=(client?.newBuilder() ?: OkHttpClient.Builder().connectTimeout(20,TimeUnit.SECONDS)
         .readTimeout(120,TimeUnit.SECONDS).callTimeout(150,TimeUnit.SECONDS))
         .retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false).build()
-    fun prepare(payload:String,key:String,reading:()->Unit,received:(AiChatResult)->Unit,endpointOverride: String? = null):Exchange {
+    fun prepare(payload:String,key:String,reading:()->Unit,received:(AiChatResult)->Unit,
+        endpointOverride: String? = null, allowTools: Boolean = false):Exchange {
         val frozen=payload.toRequestBody("application/json; charset=utf-8".toMediaType())
         // OkHttp's HTTP follow-up rules (for example 503/Retry-After: 0) are separate
         // from connection retries. A one-shot body disallows reissuing this accepted attempt.
@@ -46,10 +48,10 @@ internal class AiChatTransport(endpoint:String="https://api.deepseek.com/chat/co
             override fun writeTo(sink:BufferedSink)=frozen.writeTo(sink)
         }
         val request=Request.Builder().url(endpointOverride ?: url).header("Authorization","Bearer $key").post(oneShot).build()
-        return Exchange(http.newCall(request),key,reading,received,beforeExit)
+        return Exchange(http.newCall(request),key,reading,received,beforeExit,allowTools)
     }
     internal class Exchange(private val call:Call,private val key:String,private val reading:()->Unit,private val received:(AiChatResult)->Unit,
-        private val beforeExit:()->Unit) {
+        private val beforeExit:()->Unit, private val allowTools: Boolean) {
         private val lock=Any();private var started=false;private var stopped=false
         private val exited=CompletableDeferred<Unit>()
         fun cancel()=synchronized(lock) { stopped=true;call.cancel();if(!started) exited.complete(Unit);Unit }
@@ -67,7 +69,7 @@ internal class AiChatTransport(endpoint:String="https://api.deepseek.com/chat/co
                     try { call.enqueue(object:Callback {
                         override fun onFailure(call:Call,e:IOException)=deliver(AiChatResult(error="NETWORK_FAILED"))
                         override fun onResponse(call:Call,response:Response) {
-                            val result=try { response.use { reading();read(it,key) } }
+                            val result=try { response.use { reading();read(it,key,allowTools) } }
                             catch(_:OutputLimit) { AiChatResult(error="OUTPUT_LIMIT") }
                             catch(_:IOException) { AiChatResult(error="NETWORK_FAILED") }
                             catch(_:Exception) { AiChatResult(error="INVALID_RESPONSE") }
@@ -82,7 +84,7 @@ internal class AiChatTransport(endpoint:String="https://api.deepseek.com/chat/co
     companion object {
         private const val BODY_LIMIT=6*1024*1024+256*1024
         private val finishes=setOf("stop","length","content_filter","tool_calls","insufficient_system_resource","aborted")
-        private fun read(response:Response,key:String):AiChatResult {
+        private fun read(response:Response,key:String,allowTools: Boolean):AiChatResult {
             if(!response.isSuccessful) return AiChatResult(error="HTTP_${response.code}")
             val body=requireNotNull(response.body)
             if(body.contentLength()>BODY_LIMIT) throw OutputLimit()
@@ -93,9 +95,9 @@ internal class AiChatTransport(endpoint:String="https://api.deepseek.com/chat/co
             }
             val text=Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                 .decode(ByteBuffer.wrap(bytes.toByteArray())).toString()
-            return decode(text,key)
+            return decode(text,key,allowTools)
         }
-        internal fun decode(body:String,key:String=""):AiChatResult {
+        internal fun decode(body:String,key:String="",allowTools: Boolean = false):AiChatResult {
             val root=JsonReader(StringReader(body)).use { reader ->
                 reader.isLenient=false;val value=json(reader,0) as JSONObject
                 require(reader.peek()==JsonToken.END_DOCUMENT);value
@@ -111,8 +113,24 @@ internal class AiChatTransport(endpoint:String="https://api.deepseek.com/chat/co
             val raw=message.opt("content") as? String ?: ""
             val safe=if(key.isEmpty()) raw else raw.replace(key,"[已隐藏凭据]")
             val bounded=bound(safe)
+            val wireCalls = message.opt("tool_calls")
+            val hasCalls = wireCalls != null && wireCalls != JSONObject.NULL &&
+                (wireCalls !is JSONArray || wireCalls.length() > 0)
+            val calls = if (hasCalls && allowTools && finish in setOf("tool_calls", "stop")) runCatching {
+                val array = message.getJSONArray("tool_calls")
+                require(array.length() in 1..QuickNoteReadTools.MAX_STEPS)
+                (0 until array.length()).map { QuickNoteAgentProtocol.readCall(array.getJSONObject(it)) }.also { items ->
+                    require(items.map { it.id }.distinct().size == items.size)
+                    require(key.isEmpty() || items.none { call ->
+                        val args = JSONObject(call.arguments)
+                        call.id.contains(key) || args.keys().asSequence().any { (args.opt(it) as? String)?.contains(key) == true }
+                    })
+                }
+            }.getOrNull() else null
             val code=when {
                 bounded.length!=safe.length -> "OUTPUT_LIMIT"
+                calls != null -> null
+                hasCalls -> "INVALID_RESPONSE"
                 finish=="stop" && bounded.isNotBlank() -> null
                 finish=="stop" -> "EMPTY_RESPONSE"
                 finish=="length" -> "OUTPUT_TRUNCATED"
@@ -121,7 +139,7 @@ internal class AiChatTransport(endpoint:String="https://api.deepseek.com/chat/co
                 finish=="aborted" -> "PROVIDER_ABORTED"
                 else -> "INVALID_RESPONSE"
             }
-            return AiChatResult(bounded,code==null,code,finish,id,usage)
+            return AiChatResult(if (hasCalls) "" else bounded,code==null,code,finish,id,usage,calls.orEmpty())
         }
         private fun bound(value:String):String {
             var i=0;var size=0L

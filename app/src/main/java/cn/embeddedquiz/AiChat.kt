@@ -897,8 +897,11 @@ internal fun aiRunStatusText(run: RunView): String? =
         RunStatus.GENERATING -> "正在生成…"
         RunStatus.COMPLETED -> null
         RunStatus.CANCELLED -> "已取消"
-        RunStatus.FAILED -> if (run.errorCode == "PROVIDER_CHANGED") "原 AI 接口已更改，请重新发送"
-            else "失败" + (run.errorCode?.let { "（$it）" } ?: "")
+        RunStatus.FAILED -> when (run.errorCode) {
+            "PROVIDER_CHANGED" -> "原 AI 接口已更改，请重新发送"
+            "INCOMPLETE_ANSWER" -> "模型只返回了查阅计划，请重试"
+            else -> "失败" + (run.errorCode?.let { "（$it）" } ?: "")
+        }
     }
 
 @Composable

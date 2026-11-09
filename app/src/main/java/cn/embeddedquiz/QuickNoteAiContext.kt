@@ -32,8 +32,8 @@ class QuickNoteAiContext internal constructor(
     val references: List<QuickNoteAiReference> get() = excerpts.map { it.reference }
 }
 
-internal data class QuickNoteAiDocument(val headings: List<QuickNoteHeading>, val paragraphs: List<QuickNoteAiParagraph>)
-internal data class QuickNoteAiParagraph(val heading: QuickNoteHeading, val number: Int, val text: String, val code: Boolean)
+internal data class QuickNoteAiDocument(val headings: List<QuickNoteHeading>, val paragraphs: List<QuickNoteAiParagraph>, val headingOffsets: Map<String, IntRange> = emptyMap())
+internal data class QuickNoteAiParagraph(val heading: QuickNoteHeading, val number: Int, val text: String, val code: Boolean, val sourceStart: Int = 0, val sourceEnd: Int = 0)
 internal data class QuickNoteAiTurn(val question: String, val references: List<QuickNoteAiReference>)
 internal data class QuickNoteAiExcerpt(val reference: QuickNoteAiReference, val text: String) {
     fun json(): JSONObject = JSONObject().put("headingId", reference.headingId)

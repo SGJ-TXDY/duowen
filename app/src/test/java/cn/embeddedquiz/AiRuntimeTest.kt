@@ -76,6 +76,113 @@ class AiRuntimeTest {
             db.close();app.deleteDatabase(name);server.shutdown()
         }
     }
+    private fun toolReply(name: String, args: JSONObject, callId: String = "call-1") = MockResponse().setBody(
+        JSONObject().put("choices", JSONArray().put(JSONObject().put("index", 0).put("finish_reason", "stop")
+            .put("message", JSONObject().put("role", "assistant").put("content", "tool narration")
+                .put("tool_calls", JSONArray().put(QuickNoteToolCall(callId, name, args.toString()).json())))))
+            .put("usage", JSONObject().put("prompt_tokens", 100).put("completion_tokens", 20)
+                .put("prompt_cache_hit_tokens", 10)).toString()
+    )
+
+    @Test fun toolPlanAfterDirectoryGetsOneCorrectionThenFailsAndRetriesFromFrozenRequest() = runBlocking {
+        fixture(configure = { it.copy(documentToolsEnabled = true) }) {
+            val docs = db.quickNotesRepository
+            val note = requireNotNull(docs.createDocument(QuickNoteCreate(id(), "DMA", "# 硬件\n\n唯一内容：DMA 搬运数据。")))
+            val session = ok(service.createDocumentSession(id(), note)).session
+            val command = send(session, "请查原文解释 DMA", AiRequestType.FOLLOW_UP).copy(question = session.question)
+            server.enqueue(toolReply("list_sections", JSONObject()))
+            server.enqueue(response("我先去看一下原文。"))
+            server.enqueue(response("我会先查阅相关段落，再给出回答。"))
+            val accepted = ok(service.send(command))
+            val initial = request().body.readUtf8()
+            assertEquals("auto", JSONObject(initial).getString("tool_choice"))
+            assertFalse(initial.contains("唯一内容"))
+            val afterDirectory = request().body.readUtf8()
+            assertTrue(afterDirectory.contains("list_sections"))
+            val correction = request().body.readUtf8()
+            assertTrue(correction.contains("刚才的文字只是查阅计划"))
+            assertFalse(correction.contains("我先去看一下原文"))
+            idle()
+            val failed = requireNotNull(db.ai().run(accepted.owner.requestId))
+            assertEquals("FAILED", failed.status)
+            assertEquals("INCOMPLETE_ANSWER", failed.errorCode)
+            assertEquals(300L, failed.inputTokens)
+            val execution = JSONObject(failed.contextSnapshot).getJSONObject("execution")
+            assertEquals(2, execution.getInt("nudgeAfter"))
+            assertEquals(3, execution.getInt("dispatches"))
+            assertEquals(1, execution.getJSONArray("steps").length())
+            assertTrue(db.ai().allCaches().isEmpty())
+            assertEquals("", ok(service.messages(session.sessionId, null, 10)).items.last().text)
+            assertEquals(3, server.requestCount)
+
+            server.enqueue(toolReply("search_note", JSONObject().put("query", "唯一内容")))
+            server.enqueue(response("原文说明 DMA 搬运数据。"))
+            val retry = ok(service.retry(RetryCommand(id(), accepted.owner)))
+            assertEquals(initial, request().body.readUtf8())
+            assertTrue(request().body.readUtf8().contains("唯一内容"))
+            idle()
+            val completed = requireNotNull(db.ai().run(retry.owner.requestId))
+            assertEquals("COMPLETED", completed.status)
+            assertEquals(200L, completed.inputTokens)
+            val message = ok(service.messages(session.sessionId, null, 10)).items.last()
+            assertEquals("原文说明 DMA 搬运数据。", message.text)
+            assertEquals("硬件", message.run!!.documentReferences.single().headingTitle)
+            val backup = repo.backup()
+            assertEquals(7, JSONObject(backup).getInt("backupVersion"))
+            repo.restore(backup)
+            assertEquals(message, ok(service.messages(session.sessionId, null, 10)).items.last())
+            assertFalse(ok(service.open(session.sessionId)).session.readOnly)
+        }
+    }
+
+    @Test fun toolsAreSelectedByTheQuestionAndDoNotTurnMatchingOlderDiscussionsReadOnly() = runBlocking {
+        fixture(configure = { it.copy(documentToolsEnabled = true) }) {
+            val docs = db.quickNotesRepository
+            val note = requireNotNull(docs.createDocument(QuickNoteCreate(id(), "协议", "# UDP\n\nUDP 是无连接协议。")))
+            val session = ok(service.createDocumentSession(id(), note)).session
+            server.enqueue(response("TCP 通过三次握手建立连接。"))
+            val plain = ok(service.send(send(session, "TCP 的三次握手是什么？", AiRequestType.FOLLOW_UP)
+                .copy(question = session.question)))
+            assertFalse(JSONObject(request().body.readUtf8()).has("tools"))
+            idle()
+            assertEquals(AiSnapshotCodec.DOCUMENT_REQUEST_VERSION, db.ai().run(plain.owner.requestId)?.contextSnapshotVersion)
+
+            val current = ok(service.open(session.sessionId)).session
+            assertFalse(current.readOnly)
+            server.enqueue(toolReply("search_note", JSONObject().put("query", "TCP")))
+            server.enqueue(response("原文说 TCP 有三次握手。"))
+            val tool = ok(service.send(send(current, "只按笔记回答 TCP", AiRequestType.FOLLOW_UP).copy(question = current.question)))
+            assertTrue(JSONObject(request().body.readUtf8()).has("tools"))
+            request()
+            idle()
+            assertEquals(AiSnapshotCodec.DOCUMENT_AGENT_VERSION, db.ai().run(tool.owner.requestId)?.contextSnapshotVersion)
+            val answer = ok(service.messages(session.sessionId, null, 10)).items.last()
+            assertEquals(QuickNoteReadTools.NO_EVIDENCE, answer.text)
+            assertTrue(answer.run!!.documentReferences.isEmpty())
+            assertEquals(3, server.requestCount)
+        }
+    }
+
+    @Test fun cancellingAgentDrainsTheActiveHopAndKeepsOnlyActualToolEvidence() = runBlocking {
+        fixture(configure = { it.copy(documentToolsEnabled = true) }) {
+            val docs = db.quickNotesRepository
+            val note = requireNotNull(docs.createDocument(QuickNoteCreate(id(), "DMA", "# 硬件\n\n唯一内容：DMA 搬运数据。")))
+            val session = ok(service.createDocumentSession(id(), note)).session
+            server.enqueue(toolReply("search_note", JSONObject().put("query", "唯一内容")))
+            server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+            val run = ok(service.send(send(session, "查原文的 DMA", AiRequestType.FOLLOW_UP).copy(question = session.question)))
+            request()
+            request()
+            assertEquals(RunStatus.CANCELLED, ok(service.cancel(id(), run.owner)).terminal)
+            idle()
+            val assistant = ok(service.messages(session.sessionId, null, 10)).items.last()
+            assertEquals(RunStatus.CANCELLED, assistant.run!!.status)
+            assertEquals("硬件", assistant.run!!.documentReferences.single().headingTitle)
+            assertTrue(assistant.text.isEmpty())
+            assertEquals(2, server.requestCount)
+        }
+    }
+
     @Test fun quickNoteDiscussionSendsBoundedReferencesAndRetriesFrozenPayload() = runBlocking {
         fixture {
             val docs = db.quickNotesRepository

@@ -229,7 +229,8 @@ internal class AiStore(
             snapshot, title, acceptedAt, acceptedAt)
     }
 
-    suspend fun accept(c: SendCommand, start: AiFreeDiscussionCommand? = null, route: AiFrozenRoute? = null): AiCommandRow = command(
+    suspend fun accept(c: SendCommand, start: AiFreeDiscussionCommand? = null, route: AiFrozenRoute? = null,
+        allowDocumentTools: Boolean = false): AiCommandRow = command(
         c.commandId, "SEND", sendArgs(c, start), newSession = start != null,
     ) { before, acceptedAt ->
         val d = if (start == null) before else before.copy(sessions = listOf(newFreeSession(start, acceptedAt)))
@@ -256,6 +257,14 @@ internal class AiStore(
             require(c.documentSectionId == null)
             null
         }
+        var agentContext = if (allowDocumentTools && documentContext != null &&
+            QuickNoteAgentProtocol.needsTools(c.input, documentContext)) {
+            try { requireNotNull(quickNotes).aiTools(s.questionId, s.contentHash).initialContext() }
+            catch (e: AiStoreFailure) {
+                if (e.code in setOf(RejectCode.NOT_FOUND, RejectCode.STALE_OWNER)) refuse(RejectCode.READ_ONLY)
+                throw e
+            }
+        } else null
         val free = if (s.owner.kind == AiOwnerKind.FREE) {
             require(c.requestType == AiRequestType.FOLLOW_UP && c.choices.isEmpty() && c.code.isEmpty())
             AiFreeSnapshot.read(s.questionSnapshot, s.owner)
@@ -265,13 +274,20 @@ internal class AiStore(
         while(true) {
             try {
                 snapshot = when {
+                    agentContext != null -> AiSnapshotCodec.documentAgentRequest(s.questionSnapshot, c.model, c.input,
+                        rounds, agentContext, c.documentSectionId, route)
                     documentContext != null -> AiSnapshotCodec.documentRequest(s.questionSnapshot, c.model, c.input, rounds, documentContext, route)
                     free != null -> AiSnapshotCodec.freeRequest(free.reference, c.model, c.input, rounds, route)
                     else -> AiSnapshotCodec.request(s.questionSnapshot, c.model, c.requestType, c.input, c.choices, c.code, rounds, route)
                 }
                 break
             }
-            catch(e:IllegalArgumentException) { if(e.message!="INPUT_LIMIT" || rounds.isEmpty()) throw e; rounds=rounds.drop(1) }
+            catch (e: IllegalArgumentException) {
+                if (e.message != "INPUT_LIMIT") throw e
+                if (rounds.isNotEmpty()) rounds = rounds.drop(1)
+                else if (agentContext != null) agentContext = null
+                else throw e
+            }
         }
         val zone = businessZone()
         val user=AiMessageRow(id(),s.sessionId,nextSeq(d,s.sessionId),"USER",c.input.ifBlank { c.requestType.label },"COMPLETE",acceptedAt)
@@ -279,10 +295,14 @@ internal class AiStore(
         val clear=c.draftToken!=null && c.savedDraftRevision==s.draftRevision && c.draftToken.editorEpoch==s.activeEditorEpoch && c.draftToken.editorEpoch==s.lastEditorEpoch && c.draftToken.localEditVersion==s.lastLocalEditVersion
         val next=s.copy(contextRevision=Math.addExact(s.contextRevision,1),updatedAt=maxOf(s.updatedAt,acceptedAt),draftText=if(clear) "" else s.draftText,
             draftRevision=if(clear) Math.addExact(s.draftRevision,1) else s.draftRevision)
-        val digest=DeepSeekClient.hash(snapshot)
+        val digest=QuickNoteAgentProtocol.digest(snapshot)
         val run=AiRunRow(id(),c.commandId,s.sessionId,user.messageId,assistant.messageId,route?.billingModel(c.model) ?: c.model,c.requestType.name,epoch,snapshot,digest,
             DeepSeekClient.hash("${s.questionSnapshotVersion}\n${s.sessionId}\n${s.contentHash}\n$digest"),acceptedAt,java.time.Instant.ofEpochMilli(acceptedAt).atZone(zone).toLocalDate().toEpochDay(),zone.id,
-            contextSnapshotVersion = if (documentContext == null) s.questionSnapshotVersion else AiSnapshotCodec.DOCUMENT_REQUEST_VERSION,
+            contextSnapshotVersion = when {
+                agentContext != null -> AiSnapshotCodec.DOCUMENT_AGENT_VERSION
+                documentContext != null -> AiSnapshotCodec.DOCUMENT_REQUEST_VERSION
+                else -> s.questionSnapshotVersion
+            },
             effectiveParameters=AiJson.canonical(JSONObject(snapshot).getJSONObject("parameters")),reservedBytes=AiConversationCodec.RUN_RESERVE)
         cached(before,Change(withSession(d,next).copy(messages=d.messages+user+assistant,runs=d.runs+run),s.sessionId,run.requestId,c.draftToken,clear),run)
     }
@@ -297,7 +317,8 @@ internal class AiStore(
         if(latest?.messageId!=old.assistantMessageId || dao.completedAttempts(old.userMessageId)>0) refuse(RejectCode.STALE_ATTEMPT)
         val zone = businessZone()
         val a=AiMessageRow(id(),s.sessionId,nextSeq(d,s.sessionId),"ASSISTANT","","EMPTY",acceptedAt)
-        val r=old.copy(requestId=id(),commandId=commandId,assistantMessageId=a.messageId,retryOf=old.requestId,status="PREPARING",source="NETWORK",sourceRequestId=null,
+        val r=old.copy(contextSnapshot = QuickNoteAgentProtocol.initial(old.contextSnapshot),
+            requestId=id(),commandId=commandId,assistantMessageId=a.messageId,retryOf=old.requestId,status="PREPARING",source="NETWORK",sourceRequestId=null,
             coordinatorEpoch=epoch,createdAt=acceptedAt,billingDay=java.time.Instant.ofEpochMilli(acceptedAt).atZone(zone).toLocalDate().toEpochDay(),billingZone=zone.id,finishedAt=null,terminalReason=null,eventSeq=0,usageCutoffSeq=null,networkDispatched=false,
             reservedBytes=AiConversationCodec.RUN_RESERVE,inputTokens=null,outputTokens=null,hitTokens=null,usageStatus="UNKNOWN",estimatedUsd=null,
             priceVersion=null,missRate=null,hitRate=null,outputRate=null,errorCode=null,finishReason=null,providerResponseId=null)
@@ -314,9 +335,13 @@ internal class AiStore(
             cache=merge(d.cache,data.cache,AiCacheRow::cacheKey))
         val origin=data.messages.single { it.messageId==source.assistantMessageId }
         check(source.source=="NETWORK" && source.status=="COMPLETED" && origin.completion=="COMPLETE")
+        if (source.contextSnapshotVersion == AiSnapshotCodec.DOCUMENT_AGENT_VERSION &&
+            QuickNoteAgentProtocol.planningOnly(origin.text)) return change
         val base=extend(before);val proposed=extend(change.data);val session=session(proposed,run.sessionId)
         val after=withSession(proposed,session.copy(contextRevision=Math.addExact(session.contextRevision,1),updatedAt=maxOf(session.updatedAt,run.createdAt)))
             .copy(runs=proposed.runs.map { if(it.requestId==run.requestId) it.copy(source="CACHE",sourceRequestId=source.requestId,
+                contextSnapshot = if (run.contextSnapshotVersion == AiSnapshotCodec.DOCUMENT_AGENT_VERSION)
+                    source.contextSnapshot else it.contextSnapshot,
                 status="COMPLETED",finishedAt=run.createdAt,usageCutoffSeq=0,usageStatus="NOT_APPLICABLE",estimatedUsd="0",reservedBytes=0) else it },
                 messages=proposed.messages.map { if(it.messageId==run.assistantMessageId) it.copy(text=origin.text,completion="COMPLETE") else it })
         return change.copy(data=after,baseline=base)
@@ -342,7 +367,8 @@ internal class AiStore(
     /** Injected persistence events only; a future runtime coordinator owns transport/cleanup. */
     suspend fun checkpoint(requestId: String, eventSeq: Long, text: String, terminal: RunStatus?=null,
         usage: AiUsageEvidence?=null, expectedEpoch: String=epoch,
-        errorCode:String?=null,finishReason:String?=null,providerResponseId:String?=null): Unit = transaction {
+        errorCode:String?=null,finishReason:String?=null,providerResponseId:String?=null,
+        agentExecution: JSONObject? = null): Unit = transaction {
         val root=requireNotNull(dao.run(requestId));val before=working(root.sessionId,"CHECKPOINT",requestId); val old=before.runs.single { it.requestId==requestId }
         require(old.coordinatorEpoch==expectedEpoch && expectedEpoch==epoch) { "STALE_EPOCH" }
         if(eventSeq<=old.eventSeq) return@transaction
@@ -351,7 +377,10 @@ internal class AiStore(
         val completion=if(terminal==RunStatus.COMPLETED) "COMPLETE" else if(text.isEmpty()) "EMPTY" else "PARTIAL"
         val evidence=usage ?: AiUsageEvidence(old.inputTokens,old.outputTokens,old.hitTokens,UsageState.valueOf(old.usageStatus),old.priceVersion,
             old.missRate,old.hitRate,old.outputRate,old.estimatedUsd)
-        val run=old.copy(status=terminal?.name ?: "GENERATING",eventSeq=eventSeq,finishedAt=if(terminal!=null) maxOf(now(),old.createdAt) else null,
+        require(agentExecution == null || old.contextSnapshotVersion == AiSnapshotCodec.DOCUMENT_AGENT_VERSION)
+        val snapshot = if (agentExecution == null) old.contextSnapshot
+            else QuickNoteAgentProtocol.withExecution(old.contextSnapshot, agentExecution)
+        val run=old.copy(contextSnapshot = snapshot, status=terminal?.name ?: "GENERATING",eventSeq=eventSeq,finishedAt=if(terminal!=null) maxOf(now(),old.createdAt) else null,
             errorCode=errorCode,finishReason=finishReason,providerResponseId=providerResponseId,
             usageCutoffSeq=if(terminal!=null) eventSeq else null,terminalReason=if(terminal==RunStatus.FAILED) errorCode ?: "INTERRUPTED" else null,
             inputTokens=evidence.input,outputTokens=evidence.output,hitTokens=evidence.hit,usageStatus=evidence.state.name,estimatedUsd=null,
