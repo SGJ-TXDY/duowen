@@ -1,14 +1,17 @@
 package cn.embeddedquiz
 
-import android.content.Context
+import android.app.Application
+import android.os.Looper
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
+import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
@@ -17,6 +20,7 @@ import org.junit.rules.TestRule
 import org.junit.runner.RunWith
 import org.junit.runners.model.Statement
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /** 设置 › AI 模型 (PLAN-1.7.5) over GPT's real AiProviderStore, with Keys kept in memory. */
@@ -44,22 +48,42 @@ class AiModelSettingsUiTest {
             }
             override fun exists(id: String) = vault[id]?.isNotEmpty() == true
         }
+    private val app = ApplicationProvider.getApplicationContext<Application>()
+    private val owner = ViewModelStore()
     private lateinit var store: AiProviderStore
-    private var deepSeek = DeepSeekClient.FLASH
+    private lateinit var vm: QuizViewModel
 
     @Before
     fun setup() {
-        val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("ai-model-ui-test", 0)
+        app.deleteDatabase("embeddedquiz.db")
+        val prefs = app.getSharedPreferences("ai-model-ui-test", 0)
         prefs.edit().clear().commit()
         store = AiProviderStore(prefs, keys)
+        ui.runOnUiThread {
+            vm = ViewModelProvider(owner, object : ViewModelProvider.Factory {
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    requireNotNull(modelClass.cast(QuizViewModel(app, store)))
+            })[QuizViewModel::class.java]
+            vm.navigate(Page.SETTINGS_AI)
+        }
         ui.setContent {
             MaterialTheme {
-                var model by remember { mutableStateOf(deepSeek) }
-                val choices = remember { StoreModelSettings(store, { model }, { model = it; deepSeek = it }, { true }) }
-                AiModelSettingsContent(choices, busy = false, onSaveDeepSeekKey = {}) {}
+                if (vm.page == Page.SETTINGS_AI) AiModelSettings(vm) else AiDiscussionsScreen(vm)
             }
         }
         ui.waitForIdle()
+    }
+
+    @After
+    fun cleanup() {
+        ui.runOnUiThread { owner.clear() }
+        if (::vm.isInitialized) {
+            ui.waitUntil(20_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                vm.examResourcesClosed?.isCompleted == true
+            }
+        }
+        app.deleteDatabase("embeddedquiz.db")
     }
 
     private fun scrollTo(matcher: SemanticsMatcher) = ui.onNodeWithTag("settings-ai").performScrollToNode(matcher)
@@ -121,7 +145,7 @@ class AiModelSettingsUiTest {
         scrollTo(hasText(DeepSeekClient.PRO))
         ui.onNode(hasText(DeepSeekClient.PRO) and hasClickAction()).performClick()
         ui.waitForIdle()
-        assertEquals(DeepSeekClient.PRO, deepSeek)
+        assertEquals(DeepSeekClient.PRO, vm.model)
         assertEquals(DeepSeekClient.PRO, store.selectedModel())
         assertEquals("DeepSeek · ${DeepSeekClient.PRO}", current())
         ui.onNodeWithTag("provider-row").performClick()
@@ -150,5 +174,53 @@ class AiModelSettingsUiTest {
         ui.onNodeWithText("请输入不含凭据、查询参数或片段的 HTTPS 地址", substring = true).assertExists()
         assertTrue(store.profiles().isEmpty())
         assertTrue(vault.isEmpty())
+    }
+
+    @Test
+    fun aServiceSelectedInSettingsReceivesTheDiscussionOverHttps() = runBlocking {
+        withProviderTestNetwork {
+            vm.db.aiServices.configure(AiRuntimeConfig({ "" }, AiChatTransport(client = client), providers = store))
+            ui.waitUntil(20_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                vm.ready || vm.startupState is StartupState.Error
+            }
+            assertTrue(vm.startupState.toString(), vm.ready)
+            scrollTo(hasTestTag("provider-add"))
+            ui.onNodeWithTag("provider-add").performClick()
+            fill("Local", a.providerEndpoint("/v1"), "vendor/original", "fixture-ui-key")
+            save()
+            assertEquals("vendor/original", vm.model)
+
+            // Editing the selected service keeps the selection and updates the model used to send.
+            ui.onNodeWithContentDescription("编辑「Local」").performClick()
+            fill("Local", a.providerEndpoint("/v2"), "vendor/selected", "")
+            save()
+            assertEquals("vendor/selected", vm.model)
+
+            scrollTo(hasText(DeepSeekClient.PRO))
+            ui.onNode(hasText(DeepSeekClient.PRO) and hasClickAction()).performClick()
+            ui.runOnIdle { assertEquals(DeepSeekClient.PRO, vm.model) }
+            scrollTo(hasTestTag("provider-row"))
+            ui.onNodeWithTag("provider-row").performClick()
+            ui.runOnIdle { assertEquals("vendor/selected", vm.model) }
+
+            a.enqueue(providerTestReply())
+            ui.runOnIdle { vm.navigate(Page.AI_DISCUSSIONS) }
+            ui.onNodeWithTag("ai-new-free").performClick()
+            ui.onNodeWithTag("ai-free-field").performTextInput("Send from the selected service")
+            ui.onNodeWithTag("ai-free-send").performClick()
+            ui.waitUntil(20_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                ui.onAllNodesWithText("verified answer", substring = true).fetchSemanticsNodes().isNotEmpty()
+            }
+            val request = a.providerRequest()
+            assertEquals("/v2/chat/completions", request.path)
+            assertEquals("Bearer fixture-ui-key", request.getHeader("Authorization"))
+            val body = JSONObject(request.body.readUtf8())
+            assertEquals("vendor/selected", body.getString("model"))
+            assertTrue(body.getJSONArray("messages").toString().contains("Send from the selected service"))
+            assertEquals(1, a.requestCount)
+            assertEquals(0, b.requestCount)
+        }
     }
 }

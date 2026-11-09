@@ -51,7 +51,7 @@ class AiProviderRoutingTest {
     }
 
     @Test fun selectedProviderFromViewModelReachesHttpsThroughTheWorkbenchAndSurvivesReopen() = runBlocking {
-        network {
+        withProviderTestNetwork {
             val providers = store()
             val application = app as Application
             var profileId = ""
@@ -75,7 +75,7 @@ class AiProviderRoutingTest {
                     providers = providers))
                 waitOnMain { vm.ready || vm.startupState is StartupState.Error }
                 assertTrue(vm.ready)
-                val profile = vm.saveProvider(null, "Local", a.endpoint("/v1"), "vendor/original", "fixture-ui-key")
+                val profile = vm.saveProvider(null, "Local", a.providerEndpoint("/v1"), "vendor/original", "fixture-ui-key")
                 profileId = profile.id
                 assertEquals(listOf(profile), vm.providerProfiles)
                 assertTrue(vm.hasProviderKey(profile.id))
@@ -87,14 +87,14 @@ class AiProviderRoutingTest {
                 assertTrue(vm.providerProfiles.single().supportsTools)
                 assertFalse(vm.hasKey)
 
-                a.enqueue(reply())
+                a.enqueue(providerTestReply())
                 val workbench = vm.aiWorkbench
                 workbench.newConversation()
                 workbench.freeText = "send from selected model"
                 val sending = workbench.startFree()
                 waitOnMain { sending.isCompleted }
                 assertNotNull(workbench.opened)
-                val request = a.request()
+                val request = a.providerRequest()
                 assertEquals("/v1/chat/completions", request.path)
                 assertEquals("Bearer fixture-ui-key", request.getHeader("Authorization"))
                 assertEquals("vendor/selected", JSONObject(request.body.readUtf8()).getString("model"))
@@ -177,45 +177,6 @@ class AiProviderRoutingTest {
         } finally { credentials.edit().clear().commit() }
     }
 
-    private class Network(val a: MockWebServer, val b: MockWebServer, val client: OkHttpClient)
-    private suspend fun network(test: suspend Network.() -> Unit) {
-        // Self-signed loopback fixture. Only this test client trusts the certificate.
-        val password = "fixture-only".toCharArray()
-        val keys = KeyStore.getInstance("PKCS12").apply {
-            requireNotNull(AiProviderRoutingTest::class.java.getResourceAsStream("/ai-provider-localhost.p12")).use { load(it, password) }
-        }
-        val keyManagers = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply { init(keys, password) }.keyManagers
-        val trust = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
-            load(null, null)
-            setCertificateEntry("localhost", keys.getCertificate("localhost"))
-        }
-        val manager = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply { init(trust) }
-            .trustManagers.filterIsInstance<X509TrustManager>().single()
-        val serverContext = SSLContext.getInstance("TLS").apply { init(keyManagers, null, null) }
-        val clientContext = SSLContext.getInstance("TLS").apply { init(null, arrayOf(manager), null) }
-        fun server() = MockWebServer().apply {
-            protocols = listOf(Protocol.HTTP_1_1)
-            protocolNegotiationEnabled = false
-            useHttps(serverContext.socketFactory, false)
-            start(InetAddress.getByName("127.0.0.1"), 0)
-        }
-        val a = server()
-        val b = server()
-        val client = OkHttpClient.Builder().sslSocketFactory(clientContext.socketFactory, manager)
-            .protocols(listOf(Protocol.HTTP_1_1)).proxy(Proxy.NO_PROXY).build()
-        try { Network(a, b, client).test() }
-        finally { a.shutdown(); b.shutdown(); client.connectionPool.evictAll(); client.dispatcher.executorService.shutdown() }
-    }
-
-    private fun MockWebServer.endpoint(path: String) = url(path).newBuilder().host("127.0.0.1").build().toString()
-    private suspend fun MockWebServer.request(): RecordedRequest = withContext(Dispatchers.IO) {
-        requireNotNull(takeRequest(10, TimeUnit.SECONDS)) { "No HTTPS request reached the fixture" }
-    }
-
-    private fun reply() = MockResponse().setBody("""{"choices":[{"index":0,"finish_reason":"stop",
-        "message":{"role":"assistant","content":"verified answer"}}],
-        "usage":{"prompt_tokens":100,"completion_tokens":20,"prompt_cache_hit_tokens":10}}""")
-
     private suspend fun withRuntime(config: AiRuntimeConfig, test: suspend (QuizRepository, AiConversationFacade) -> Unit) {
         val name = "provider-${id().take(8)}.db"
         val db = QuizDatabase.open(app, name)
@@ -233,16 +194,16 @@ class AiProviderRoutingTest {
     }
 
     @Test fun tlsRetriesStayFrozenAndRejectEndpointChangesOrRedirects() = runBlocking {
-        network {
+        withProviderTestNetwork {
             val store = store()
-            val profile = store.save(null, "A", a.endpoint("/v1"), "vendor/model", "fixture-a-key")
+            val profile = store.save(null, "A", a.providerEndpoint("/v1"), "vendor/model", "fixture-a-key")
             val config = AiRuntimeConfig({ error("Custom requests cannot use the built-in Key") },
                 transport = AiChatTransport(client = client), providers = store)
             withRuntime(config) { repo, service ->
                 val original = AiFreeDiscussionCommand(id(), "private-origin-text", profile.model)
-                a.enqueue(MockResponse().setResponseCode(307).addHeader("Location", b.endpoint("/capture")))
+                a.enqueue(MockResponse().setResponseCode(307).addHeader("Location", b.providerEndpoint("/capture")))
                 val first = ok(service.startFreeDiscussion(original))
-                val sent = a.request()
+                val sent = a.providerRequest()
                 val originalBody = sent.body.readUtf8()
                 assertEquals("/v1/chat/completions", sent.path)
                 assertEquals("Bearer fixture-a-key", sent.getHeader("Authorization"))
@@ -252,19 +213,19 @@ class AiProviderRoutingTest {
                 assertEquals(0, b.requestCount)
                 a.enqueue(MockResponse().setResponseCode(500))
                 val retry = ok(service.retry(RetryCommand(id(), first.owner)))
-                assertEquals(originalBody, a.request().body.readUtf8())
+                assertEquals(originalBody, a.providerRequest().body.readUtf8())
                 withTimeout(15000) { ok(service.awaitIdle()) }
                 val originalRow = requireNotNull(repo.db.ai().run(retry.owner.requestId))
                 assertEquals("FAILED", originalRow.status)
                 assertEquals(profile.route, AiFrozenRoute.read(JSONObject(originalRow.contextSnapshot)))
-                val changed = store.save(profile.id, "B", b.endpoint("/v2"), profile.model, "fixture-b-key")
+                val changed = store.save(profile.id, "B", b.providerEndpoint("/v2"), profile.model, "fixture-b-key")
                 val stale = service.retry(RetryCommand(id(), retry.owner)) as ResultOf.Rejected
                 assertEquals(RejectCode.PROVIDER_CHANGED, stale.reason.code)
                 assertEquals(first, ok(service.startFreeDiscussion(original)))
                 assertEquals(0, b.requestCount)
-                b.enqueue(reply())
+                b.enqueue(providerTestReply())
                 val fresh = ok(service.startFreeDiscussion(AiFreeDiscussionCommand(id(), "new-service-text", changed.model)))
-                val request = b.request()
+                val request = b.providerRequest()
                 assertEquals("Bearer fixture-b-key", request.getHeader("Authorization"))
                 assertEquals("/v2/chat/completions", request.path)
                 assertFalse(request.body.readUtf8().contains("private-origin-text"))
@@ -289,9 +250,9 @@ class AiProviderRoutingTest {
     }
 
     @Test fun cacheAndCostBucketsAreScopedToTheFrozenRoute() = runBlocking {
-        network {
+        withProviderTestNetwork {
             val store = store()
-            val first = store.save(null, "A", a.endpoint("/v1"), "same-model", "fixture-a")
+            val first = store.save(null, "A", a.providerEndpoint("/v1"), "same-model", "fixture-a")
             withRuntime(AiRuntimeConfig({ "" }, AiChatTransport(client = client), providers = store)) { repo, service ->
                 repo.importBank("""{"schemaVersion":1,"questions":[{"id":"q","stem":"fixture","kind":"SHORT","source":"fixture"}]}""")
                 val q = requireNotNull(repo.question("q"))
@@ -302,19 +263,19 @@ class AiProviderRoutingTest {
                     return ok(service.send(SendCommand(id(), s.sessionId, owner, current.contextRevision, null, null,
                         "same request", emptySet(), "", AiRequestType.EXPLANATION, first.model)))
                 }
-                a.enqueue(reply())
+                a.enqueue(providerTestReply())
                 val original = send()
-                a.request()
+                a.providerRequest()
                 withTimeout(15000) { ok(service.awaitIdle()) }
                 val cached = send()
                 withTimeout(15000) { ok(service.awaitIdle()) }
                 assertEquals("CACHE", repo.db.ai().run(cached.owner.requestId)?.source)
                 assertEquals(1, a.requestCount)
 
-                val second = store.save(first.id, "B", b.endpoint("/v2"), first.model, "fixture-b")
-                b.enqueue(reply())
+                val second = store.save(first.id, "B", b.providerEndpoint("/v2"), first.model, "fixture-b")
+                b.enqueue(providerTestReply())
                 val switched = send()
-                assertEquals("Bearer fixture-b", b.request().getHeader("Authorization"))
+                assertEquals("Bearer fixture-b", b.providerRequest().getHeader("Authorization"))
                 withTimeout(15000) { ok(service.awaitIdle()) }
                 val routeA = requireNotNull(repo.db.ai().run(original.owner.requestId))
                 val routeB = requireNotNull(repo.db.ai().run(switched.owner.requestId))
@@ -330,9 +291,9 @@ class AiProviderRoutingTest {
     }
 
     @Test fun customToolsRequireOptInAndStopAtAChangedRouteBetweenHops() = runBlocking {
-        network {
+        withProviderTestNetwork {
             val store = store()
-            val profile = store.save(null, "A", a.endpoint("/v1"), "note-model", "fixture-a")
+            val profile = store.save(null, "A", a.providerEndpoint("/v1"), "note-model", "fixture-a")
             val thirdDispatch = CompletableDeferred<Unit>()
             val resume = CompletableDeferred<Unit>()
             var hops = 0
@@ -348,9 +309,9 @@ class AiProviderRoutingTest {
                     return ok(service.send(SendCommand(id(), s.sessionId, s.question, s.contextRevision, null, null,
                         input, emptySet(), "", AiRequestType.FOLLOW_UP, profile.model)))
                 }
-                a.enqueue(reply())
+                a.enqueue(providerTestReply())
                 val plain = send("请查原文")
-                assertFalse(JSONObject(a.request().body.readUtf8()).has("tools"))
+                assertFalse(JSONObject(a.providerRequest().body.readUtf8()).has("tools"))
                 withTimeout(15000) { ok(service.awaitIdle()) }
                 assertEquals(AiSnapshotCodec.DOCUMENT_REQUEST_VERSION, repo.db.ai().run(plain.owner.requestId)?.contextSnapshotVersion)
 
@@ -360,9 +321,9 @@ class AiProviderRoutingTest {
                     {"id":"list","type":"function","function":{"name":"list_sections","arguments":"{}"}}]}}],
                     "usage":{"prompt_tokens":100,"completion_tokens":20,"prompt_cache_hit_tokens":10}}"""))
                 val tool = send("请查全文")
-                assertTrue(JSONObject(a.request().body.readUtf8()).has("tools"))
+                assertTrue(JSONObject(a.providerRequest().body.readUtf8()).has("tools"))
                 withTimeout(8000) { thirdDispatch.await() }
-                store.save(profile.id, "B", b.endpoint("/v2"), profile.model, "fixture-b", supportsTools = true)
+                store.save(profile.id, "B", b.providerEndpoint("/v2"), profile.model, "fixture-b", supportsTools = true)
                 resume.complete(Unit)
                 withTimeout(15000) { ok(service.awaitIdle()) }
                 val row = requireNotNull(repo.db.ai().run(tool.owner.requestId))
@@ -377,16 +338,16 @@ class AiProviderRoutingTest {
     }
 
     @Test fun editingAddressBetweenAcceptanceAndDispatchDoesNotSendFrozenText() = runBlocking {
-        network {
+        withProviderTestNetwork {
             val store = store()
-            val profile = store.save(null, "A", a.endpoint("/v1"), "same-model", "fixture-a")
+            val profile = store.save(null, "A", a.providerEndpoint("/v1"), "same-model", "fixture-a")
             val entering = CompletableDeferred<Unit>()
             val resume = CompletableDeferred<Unit>()
             withRuntime(AiRuntimeConfig({ "" }, AiChatTransport(client = client),
                 beforeDispatch = { entering.complete(Unit); resume.await() }, providers = store)) { repo, service ->
                 val accepted = ok(service.startFreeDiscussion(AiFreeDiscussionCommand(id(), "frozen", profile.model)))
                 withTimeout(8000) { entering.await() }
-                store.save(profile.id, "B", b.endpoint("/v2"), profile.model, "fixture-b")
+                store.save(profile.id, "B", b.providerEndpoint("/v2"), profile.model, "fixture-b")
                 resume.complete(Unit)
                 withTimeout(15000) { ok(service.awaitIdle()) }
                 val row = requireNotNull(repo.db.ai().run(accepted.owner.requestId))
@@ -397,3 +358,42 @@ class AiProviderRoutingTest {
         }
     }
 }
+
+internal class ProviderTestNetwork(val a: MockWebServer, val b: MockWebServer, val client: OkHttpClient)
+internal suspend fun withProviderTestNetwork(test: suspend ProviderTestNetwork.() -> Unit) {
+    // Self-signed loopback fixture. Only this test client trusts the certificate.
+    val password = "fixture-only".toCharArray()
+    val keys = KeyStore.getInstance("PKCS12").apply {
+        requireNotNull(AiProviderRoutingTest::class.java.getResourceAsStream("/ai-provider-localhost.p12")).use { load(it, password) }
+    }
+    val keyManagers = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply { init(keys, password) }.keyManagers
+    val trust = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
+        load(null, null)
+        setCertificateEntry("localhost", keys.getCertificate("localhost"))
+    }
+    val manager = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply { init(trust) }
+        .trustManagers.filterIsInstance<X509TrustManager>().single()
+    val serverContext = SSLContext.getInstance("TLS").apply { init(keyManagers, null, null) }
+    val clientContext = SSLContext.getInstance("TLS").apply { init(null, arrayOf(manager), null) }
+    fun server() = MockWebServer().apply {
+        protocols = listOf(Protocol.HTTP_1_1)
+        protocolNegotiationEnabled = false
+        useHttps(serverContext.socketFactory, false)
+        start(InetAddress.getByName("127.0.0.1"), 0)
+    }
+    val a = server()
+    val b = server()
+    val client = OkHttpClient.Builder().sslSocketFactory(clientContext.socketFactory, manager)
+        .protocols(listOf(Protocol.HTTP_1_1)).proxy(Proxy.NO_PROXY).build()
+    try { ProviderTestNetwork(a, b, client).test() }
+    finally { a.shutdown(); b.shutdown(); client.connectionPool.evictAll(); client.dispatcher.executorService.shutdown() }
+}
+
+internal fun MockWebServer.providerEndpoint(path: String) = url(path).newBuilder().host("127.0.0.1").build().toString()
+internal suspend fun MockWebServer.providerRequest(): RecordedRequest = withContext(Dispatchers.IO) {
+    requireNotNull(takeRequest(10, TimeUnit.SECONDS)) { "No HTTPS request reached the fixture" }
+}
+
+internal fun providerTestReply() = MockResponse().setBody("""{"choices":[{"index":0,"finish_reason":"stop",
+    "message":{"role":"assistant","content":"verified answer"}}],
+    "usage":{"prompt_tokens":100,"completion_tokens":20,"prompt_cache_hit_tokens":10}}""")

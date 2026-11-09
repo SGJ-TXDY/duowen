@@ -117,11 +117,12 @@ class AiStateHolder internal constructor(
 
     internal fun hasProviderKey(id: String) = providerSettings.hasKey(id)
 
-    internal fun saveProvider(id: String?, name: String, url: String, model: String, key: String,
-        supportsTools: Boolean = false): AiProviderProfile {
-        val profile = providerSettings.save(id, name, url, model, key, supportsTools)
+    internal suspend fun saveProvider(id: String?, name: String, url: String, model: String, key: String,
+        supportsTools: Boolean = false): AiProviderProfile = try {
+        withContext(Dispatchers.IO) { providerSettings.save(id, name, url, model, key, supportsTools) }
+    } finally {
+        // The store may have saved the edit before the settings page was dismissed.
         reloadProviders()
-        return profile
     }
 
     internal fun deleteProvider(id: String) {

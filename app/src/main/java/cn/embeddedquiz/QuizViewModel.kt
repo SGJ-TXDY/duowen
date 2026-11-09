@@ -616,7 +616,7 @@ class QuizViewModel internal constructor(app: Application, providerSettings: AiP
     internal val providerProfiles get() = aiState.providerProfiles
     internal fun hasProviderKey(id: String) = aiState.hasProviderKey(id)
 
-    internal fun saveProvider(id: String?, name: String, url: String, model: String, key: String,
+    internal suspend fun saveProvider(id: String?, name: String, url: String, model: String, key: String,
         supportsTools: Boolean = false) = aiState.saveProvider(id, name, url, model, key, supportsTools)
 
     internal fun deleteProvider(id: String) = aiState.deleteProvider(id)

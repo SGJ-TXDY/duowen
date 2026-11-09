@@ -8,7 +8,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
@@ -17,9 +16,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /*
@@ -28,70 +25,6 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  * every rule (HTTPS only, a new Key when the host changes, one profile per model id) are GPT's
  * AiProviderStore; this page only shows them and passes the user's input through.
  */
-
-/** What the AI 模型 page reads and changes. */
-internal interface AiModelChoices {
-    /** The model id requests use now: a DeepSeek model or a custom profile's model. */
-    val selected: String
-    val providers: List<AiProviderProfile>
-    val deepSeekKey: Boolean
-    fun hasKey(profileId: String): Boolean
-    fun select(model: String)
-    /** Throws IllegalArgumentException with the reason to show when the input is refused. */
-    fun save(id: String?, name: String, url: String, model: String, key: String, supportsTools: Boolean): AiProviderProfile
-    fun delete(id: String)
-}
-
-/**
- * The page's state over [AiProviderStore]. DeepSeek models also go through [chooseDeepSeek], so the
- * ViewModel's model follows; a custom model is selected in the store, where sending reads it.
- */
-@Stable
-internal class StoreModelSettings(
-    private val store: AiProviderStore,
-    private val deepSeekModel: () -> String,
-    private val chooseDeepSeek: (String) -> Unit,
-    private val keyState: () -> Boolean,
-) : AiModelChoices {
-    override var providers by mutableStateOf(runCatching { store.profiles() }.getOrDefault(emptyList()))
-        private set
-    private var custom by mutableStateOf(runCatching { store.selectedModel() }.getOrNull()?.takeIf { it !in DeepSeekClient.MODELS })
-    private var keys by mutableStateOf(providers.associate { it.id to store.hasKey(it.id) })
-
-    override val selected: String
-        get() = custom?.takeIf { m -> providers.any { it.model == m } } ?: deepSeekModel()
-    override val deepSeekKey: Boolean
-        get() = keyState()
-
-    override fun hasKey(profileId: String) = keys[profileId] == true
-
-    private fun reload() {
-        providers = store.profiles()
-        keys = providers.associate { it.id to store.hasKey(it.id) }
-        custom = store.selectedModel().takeIf { it !in DeepSeekClient.MODELS }
-    }
-
-    override fun select(model: String) {
-        store.select(model)
-        // The ViewModel's model follows. Custom models reach it once GPT's AiStateHolder wiring accepts
-        // them (PLAN-1.7.5 接线补单 2); until then only built-in ones do, and the store keeps the choice.
-        if (model in DeepSeekClient.MODELS) chooseDeepSeek(model) else runCatching { chooseDeepSeek(model) }
-        reload()
-    }
-
-    override fun save(id: String?, name: String, url: String, model: String, key: String, supportsTools: Boolean): AiProviderProfile {
-        val profile = store.save(id, name, url, model, key, supportsTools)
-        reload()
-        return profile
-    }
-
-    override fun delete(id: String) {
-        store.delete(id)
-        reload()
-        // Deleting the selected service falls back to the built-in model.
-        if (custom == null) chooseDeepSeek(store.selectedModel().takeIf { it in DeepSeekClient.MODELS } ?: DeepSeekClient.FLASH)
-    }
-}
 
 /** The custom service being added (id null) or edited. */
 private data class ProviderForm(
@@ -109,22 +42,6 @@ private fun host(url: String) = url.toHttpUrlOrNull()?.host ?: url
 
 @Composable
 fun AiModelSettings(vm: QuizViewModel) {
-    val context = LocalContext.current
-    val settings =
-        remember(vm) {
-            StoreModelSettings(AiProviderStore.forContext(context.applicationContext), { vm.model }, vm::chooseModel, { vm.hasKey })
-        }
-    AiModelSettingsContent(settings, busy = vm.busy, onSaveDeepSeekKey = vm::saveKey) { vm.navigate(Page.COSTS) }
-}
-
-@Composable
-internal fun AiModelSettingsContent(
-    settings: AiModelChoices,
-    busy: Boolean,
-    /** Stores the built-in service's Key; "" deletes it. */
-    onSaveDeepSeekKey: (String) -> Unit,
-    onCosts: () -> Unit,
-) {
     val scope = rememberCoroutineScope()
     var key by remember { mutableStateOf("") }
     var editingKey by remember { mutableStateOf(false) }
@@ -132,7 +49,7 @@ internal fun AiModelSettingsContent(
     var deleting by remember { mutableStateOf<AiProviderProfile?>(null) }
     var notice by remember { mutableStateOf("") }
     val more = MaterialTheme.more
-    val current = settings.providers.firstOrNull { it.model == settings.selected }
+    val current = vm.providerProfiles.firstOrNull { it.model == vm.model }
 
     deleting?.let { p ->
         AlertDialog(
@@ -140,7 +57,7 @@ internal fun AiModelSettingsContent(
             title = { Text("删除「${p.name}」？") },
             text = {
                 Text(
-                    if (p.model == settings.selected) "它是当前使用的服务，删除后改用内置 DeepSeek。已保存的 Key 一并删除；已有讨论和费用记录保留。"
+                    if (p.model == vm.model) "它是当前使用的服务，删除后改用内置 DeepSeek。已保存的 Key 一并删除；已有讨论和费用记录保留。"
                     else "已保存的 Key 一并删除；已有讨论和费用记录保留。"
                 )
             },
@@ -149,7 +66,7 @@ internal fun AiModelSettingsContent(
                     onClick = {
                         deleting = null
                         form = null
-                        scope.launchSafely({ notice = it }) { settings.delete(p.id) }
+                        scope.launchSafely({ notice = it }) { vm.deleteProvider(p.id) }
                     },
                     modifier = Modifier.testTag("provider-delete-confirm"),
                 ) { Text("删除", color = MaterialTheme.colorScheme.error) }
@@ -170,15 +87,15 @@ internal fun AiModelSettingsContent(
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("当前使用", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
-                            current?.let { "${it.name} · ${it.model}" } ?: "DeepSeek · ${settings.selected}",
+                            current?.let { "${it.name} · ${it.model}" } ?: "DeepSeek · ${vm.model}",
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.testTag("ai-current-model"),
                         )
                         Text(
                             when {
-                                current != null && settings.hasKey(current.id) -> "自定义接口 · ${host(current.url)} · 已保存加密 Key"
+                                current != null && vm.hasProviderKey(current.id) -> "自定义接口 · ${host(current.url)} · 已保存加密 Key"
                                 current != null -> "自定义接口 · ${host(current.url)} · 需要重新填写 Key"
-                                settings.deepSeekKey -> "已保存加密 Key · 只有主动点击 AI 按钮才联网"
+                                vm.hasKey -> "已保存加密 Key · 只有主动点击 AI 按钮才联网"
                                 else -> "未设置 API Key · 设置后才能使用 AI"
                             },
                             style = MaterialTheme.typography.bodySmall,
@@ -194,8 +111,8 @@ internal fun AiModelSettingsContent(
         item {
             RoundedGroup(Modifier.testTag("model-choices")) {
                 GroupRows(DeepSeekClient.MODELS, dividerStart = 16.dp) { model ->
-                    GroupChoiceRow(model, settings.selected == model) {
-                        scope.launchSafely({ notice = it }) { settings.select(model) }
+                    GroupChoiceRow(model, vm.model == model) {
+                        scope.launchSafely({ notice = it }) { vm.chooseModel(model) }
                     }
                 }
                 GroupDivider(16.dp)
@@ -203,7 +120,7 @@ internal fun AiModelSettingsContent(
                     "API Key",
                     AppIcons.KeyRound,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    value = if (settings.deepSeekKey) "已加密保存" else "未设置",
+                    value = if (vm.hasKey) "已加密保存" else "未设置",
                     chevron = !editingKey,
                 ) { editingKey = !editingKey }
                 if (editingKey)
@@ -219,20 +136,20 @@ internal fun AiModelSettingsContent(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
                                 onClick = {
-                                    onSaveDeepSeekKey(key)
+                                    vm.saveKey(key)
                                     key = ""
                                     editingKey = false
                                 },
-                                enabled = key.isNotBlank() && !busy,
+                                enabled = key.isNotBlank() && !vm.busy,
                                 modifier = Modifier.heightIn(min = 48.dp),
                             ) { Text("保存 Key") }
                             OutlinedButton(
                                 onClick = {
-                                    onSaveDeepSeekKey("")
+                                    vm.saveKey("")
                                     key = ""
                                     editingKey = false
                                 },
-                                enabled = settings.deepSeekKey && !busy,
+                                enabled = vm.hasKey && !vm.busy,
                                 modifier = Modifier.heightIn(min = 48.dp),
                             ) { Text("删除 Key") }
                         }
@@ -243,23 +160,23 @@ internal fun AiModelSettingsContent(
         item { GroupCaption("自定义接口") }
         item {
             RoundedGroup(Modifier.testTag("custom-providers")) {
-                settings.providers.forEachIndexed { index, p ->
+                vm.providerProfiles.forEachIndexed { index, p ->
                     if (index > 0) GroupDivider(16.dp)
-                    ProviderRow(p, selected = settings.selected == p.model, hasKey = settings.hasKey(p.id), onEdit = {
+                    ProviderRow(p, selected = vm.model == p.model, hasKey = vm.hasProviderKey(p.id), onEdit = {
                         form = ProviderForm(p.id, p.name, p.url, p.model, "", p.supportsTools)
                     }) {
-                        if (!settings.hasKey(p.id)) {
+                        if (!vm.hasProviderKey(p.id)) {
                             form = ProviderForm(p.id, p.name, p.url, p.model, "", p.supportsTools, error = "这个接口还没有可用的 Key，请先填写。")
-                        } else scope.launchSafely({ notice = it }) { settings.select(p.model) }
+                        } else scope.launchSafely({ notice = it }) { vm.chooseModel(p.model) }
                     }
                 }
-                if (settings.providers.isNotEmpty()) GroupDivider(16.dp)
+                if (vm.providerProfiles.isNotEmpty()) GroupDivider(16.dp)
                 GroupRow(
                     "添加自定义接口",
                     AppIcons.Plus,
                     tint = MaterialTheme.colorScheme.primary,
-                    subtitle = if (settings.providers.size >= AiProviderStore.MAX_PROFILES) "最多保存 ${AiProviderStore.MAX_PROFILES} 个" else "兼容 OpenAI 格式的 HTTPS 接口",
-                    enabled = settings.providers.size < AiProviderStore.MAX_PROFILES && form == null,
+                    subtitle = if (vm.providerProfiles.size >= AiProviderStore.MAX_PROFILES) "最多保存 ${AiProviderStore.MAX_PROFILES} 个" else "兼容 OpenAI 格式的 HTTPS 接口",
+                    enabled = vm.providerProfiles.size < AiProviderStore.MAX_PROFILES && form == null,
                     chevron = false,
                     modifier = Modifier.testTag("provider-add"),
                 ) { form = ProviderForm(null) }
@@ -269,20 +186,19 @@ internal fun AiModelSettingsContent(
             item(key = "form") {
                 ProviderEditor(
                     f,
-                    existing = settings.providers.firstOrNull { it.id == f.id },
+                    existing = vm.providerProfiles.firstOrNull { it.id == f.id },
                     onChange = { form = it },
                     onCancel = { form = null },
-                    onDelete = { deleting = settings.providers.firstOrNull { it.id == f.id } },
+                    onDelete = { deleting = vm.providerProfiles.firstOrNull { it.id == f.id } },
                 ) {
                     form = f.copy(saving = true, error = "")
                     scope.launch {
-                        val result =
-                            withContext(Dispatchers.IO) { runCatching { settings.save(f.id, f.name, f.url, f.model, f.key, f.tools) } }
+                        val result = runCatching { vm.saveProvider(f.id, f.name, f.url, f.model, f.key, f.tools) }
                         result
                             .onSuccess { saved ->
                                 form = null
                                 // A newly added service with a Key becomes the one in use.
-                                if (f.id == null) runCatching { settings.select(saved.model) }.onFailure { notice = it.message ?: "切换失败" }
+                                if (f.id == null) runCatching { vm.chooseModel(saved.model) }.onFailure { notice = it.message ?: "切换失败" }
                             }
                             .onFailure { form = f.copy(saving = false, error = (it as? IllegalArgumentException)?.message ?: "保存失败，请重试") }
                     }
@@ -297,7 +213,7 @@ internal fun AiModelSettingsContent(
         item { Spacer(Modifier.height(12.dp)) }
         item {
             RoundedGroup {
-                GroupRow("AI 费用估算", AppIcons.Coin, tint = more.cost, subtitle = "按日、按模型查看", onClick = onCosts)
+                GroupRow("AI 费用估算", AppIcons.Coin, tint = more.cost, subtitle = "按日、按模型查看", onClick = { vm.navigate(Page.COSTS) })
             }
         }
     }
