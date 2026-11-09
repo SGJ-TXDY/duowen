@@ -5,6 +5,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
+import java.io.OutputStream
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.zip.ZipEntry
@@ -12,6 +13,8 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
@@ -83,12 +86,12 @@ class QuickNotesRepository(private val directory: File) {
             val images = files.filterKeys { imageMime(it) != null }
             return QuickNotePackage(path.substringAfterLast('/'), path, files.getValue(path), images).also { validatePackage(it) }
         }
-        private fun validatePackage(pack: QuickNotePackage) {
+        private fun validatePackage(pack: QuickNotePackage, allowBlank: Boolean = false) {
             require(pack.sourceName.isNotBlank() && pack.sourceName.endsWith(".md", true) && '/' !in pack.sourceName && '\\' !in pack.sourceName) { "文档文件名无效" }
             require(QuickNotePaths.normalize(pack.markdownPath) == pack.markdownPath) { "文档路径无效" }
-            require(pack.markdown.size <= MAX_MARKDOWN && pack.markdown.isNotEmpty()) { "Markdown 为空或超过 4 MiB" }
+            require(pack.markdown.size <= MAX_MARKDOWN) { "Markdown 超过 4 MiB" }
             val decoded = try { QuickNotePaths.utf8(pack.markdown) } catch (e: Exception) { throw IllegalArgumentException("Markdown 必须是有效 UTF-8 编码", e) }
-            require(decoded.isNotBlank()) { "Markdown 内容为空" }
+            require(allowBlank || decoded.isNotBlank()) { "Markdown 内容为空" }
             require(pack.images.size < MAX_ENTRIES) { "图片过多" }
             require(pack.images.values.sumOf { it.size.toLong() } + pack.markdown.size <= MAX_PACKAGE) { "文档及图片总计超过 32 MiB" }
             pack.images.forEach { (path, data) ->
@@ -113,6 +116,8 @@ class QuickNotesRepository(private val directory: File) {
         val markdownHash: String,
         val images: List<ImageInfo>,
         val storageId: String = summary.id,
+        val editVersion: String = storageId,
+        val creationDigest: String? = null,
     )
     private val mutex = Mutex()
     private val renderer = QuickNoteMarkdown()
@@ -128,19 +133,22 @@ class QuickNotesRepository(private val directory: File) {
         return target
     }
     private fun encode(entries: List<Entry>, local: Boolean = false): JSONObject {
-        val version = if (local && entries.any { it.storageId != it.summary.id }) 2 else 1
-        return JSONObject().put("quickNotesVersion", version).put("documents", JSONArray(entries.map { e ->
+        return JSONObject().put("quickNotesVersion", 2).put("documents", JSONArray(entries.map { e ->
             JSONObject().put("id", e.summary.id).put("title", e.summary.title).put("sourceName", e.summary.sourceName)
                 .put("contentHash", e.summary.contentHash).put("importedAt", e.summary.importedAt)
+                .put("updatedAt", e.summary.updatedAt).put("pinned", e.summary.pinned)
                 .put("markdownPath", e.markdownPath).put("markdownHash", e.markdownHash)
                 .put("position", JSONObject().put("anchor", e.summary.position.anchor).put("offset", e.summary.position.offset).put("fraction", e.summary.position.fraction))
                 .put("images", JSONArray(e.images.map { JSONObject().put("path", it.path).put("file", it.file) }))
-                .apply { if (version == 2) put("storageId", e.storageId) }
+                .apply {
+                    e.creationDigest?.let { put("creationDigest", it) }
+                    if (local) put("storageId", e.storageId).put("editVersion", e.editVersion).put("excerpt", e.summary.excerpt)
+                }
         }))
     }
     private fun decode(root: JSONObject, local: Boolean = false): List<Entry> {
         val version = root.getInt("quickNotesVersion")
-        require(version == 1 || local && version == 2) { "速记存储格式不支持" }
+        require(version in 1..2) { "速记存储格式不支持" }
         val values = root.getJSONArray("documents")
         require(values.length() <= MAX_DOCUMENTS) { "速记文档过多" }
         val entries = (0 until values.length()).map { n ->
@@ -148,7 +156,12 @@ class QuickNotesRepository(private val directory: File) {
             val p = o.getJSONObject("position")
             val position = QuickNotePosition(p.getString("anchor"), p.getDouble("offset"), p.getDouble("fraction"))
             validatePosition(position)
-            val summary = QuickNoteSummary(o.getString("id"), o.getString("title"), o.getString("sourceName"), o.getString("contentHash"), o.getLong("importedAt"), position)
+            val importedAt = o.getLong("importedAt")
+            val summary = QuickNoteSummary(o.getString("id"), o.getString("title"), o.getString("sourceName"),
+                o.getString("contentHash"), importedAt, position,
+                updatedAt = if (o.has("updatedAt")) o.getLong("updatedAt") else importedAt,
+                pinned = o.optBoolean("pinned"),
+                excerpt = if (local) boundedAiText(o.optString("excerpt"), 160) else "")
             folder(summary.id)
             require(summary.title.isNotBlank() && summary.title.length <= 1024 && summary.sourceName.length <= 255 && summary.contentHash.matches(Regex("[a-f0-9]{64}"))) { "速记索引无效" }
             val path = o.getString("markdownPath")
@@ -164,9 +177,12 @@ class QuickNotesRepository(private val directory: File) {
                 item
             }
             require(items.map { it.path }.distinct().size == items.size) { "图片路径重复" }
-            val storageId = if (version == 2) o.getString("storageId") else summary.id
+            val storageId = if (local && version == 2) o.getString("storageId") else summary.id
             folder(storageId)
-            Entry(summary, path, hash, items, storageId)
+            val editVersion = if (local) o.optString("editVersion", storageId) else storageId
+            require(UUID.fromString(editVersion).toString() == editVersion) { "编辑版本无效" }
+            val creationDigest = if (o.has("creationDigest")) o.getString("creationDigest").also(AiJson::hash) else null
+            Entry(summary, path, hash, items, storageId, editVersion, creationDigest)
         }
         require(entries.map { it.summary.id }.distinct().size == entries.size) { "文档编号重复" }
         require(entries.map { it.storageId }.distinct().size == entries.size) { "文档文件夹重复" }
@@ -187,20 +203,25 @@ class QuickNotesRepository(private val directory: File) {
         try { output.write(bytes); file.finishWrite(output) } catch (e: Exception) { file.failWrite(output); throw e }
     }
     private fun fingerprint(pack: QuickNotePackage): String = sha((sha(pack.markdown) + JSONArray(pack.images.toSortedMap().map { JSONArray(listOf(it.key, sha(it.value))) }).toString()).toByteArray(Charsets.UTF_8))
-    private fun install(pack: QuickNotePackage, existing: List<Entry>, restored: QuickNoteSummary? = null): Entry {
-        validatePackage(pack)
+    private fun install(
+        pack: QuickNotePackage, existing: List<Entry>, restored: QuickNoteSummary? = null, creationDigest: String? = null,
+    ): Entry {
+        validatePackage(pack, allowBlank = creationDigest != null)
         val id = restored?.id ?: UUID.randomUUID().toString()
         // Write new files before publishing the index, even when replacing the same logical ID.
         val storageId = if (folder(id).exists()) UUID.randomUUID().toString() else id
-        val rendered = renderer.render(QuickNotePaths.utf8(pack.markdown))
-        val title = restored?.title ?: rendered.headings.firstOrNull { it.level == 1 }?.title ?: pack.sourceName.dropLast(3)
+        val text = QuickNotePaths.utf8(pack.markdown)
+        val rendered = if (restored == null) renderer.render(text) else null
+        val title = rendered?.headings?.firstOrNull { it.level == 1 }?.title ?: pack.sourceName.dropLast(3)
         val initial = boundedAiText(title, 1000).ifBlank { "未命名文档" }
-        var display = initial
+        var display = restored?.title ?: initial
         var suffix = 2
-        while (existing.any { it.summary.title == display }) display = "$initial (${suffix++})"
-        val summary = QuickNoteSummary(id, display, pack.sourceName, fingerprint(pack),
-            restored?.importedAt ?: System.currentTimeMillis(), restored?.position ?: QuickNotePosition())
-        val entry = Entry(summary, pack.markdownPath, sha(pack.markdown), pack.images.map { ImageInfo(it.key, sha(it.value)) }, storageId)
+        if (restored == null) while (existing.any { it.summary.title == display }) display = "$initial (${suffix++})"
+        val hash = fingerprint(pack)
+        val summary = (restored ?: QuickNoteSummary(id, display, pack.sourceName, hash, System.currentTimeMillis()))
+            .copy(contentHash = hash, excerpt = excerpt(text))
+        val entry = Entry(summary, pack.markdownPath, sha(pack.markdown), pack.images.map { ImageInfo(it.key, sha(it.value)) },
+            storageId, UUID.randomUUID().toString(), creationDigest)
         val target = folder(storageId)
         check(target.mkdirs()) { "无法创建文档存储目录" }
         try {
@@ -220,7 +241,8 @@ class QuickNotesRepository(private val directory: File) {
         val active = entries.map { it.storageId }.toSet()
         directory.listFiles()?.filter { it.isDirectory && it.name !in active && runCatching { UUID.fromString(it.name).toString() == it.name }.getOrDefault(false) }
             ?.forEach { folder(it.name).deleteRecursively() }
-        entries.map { it.summary }.sortedWith(compareByDescending<QuickNoteSummary> { it.importedAt }.thenBy { it.id })
+        entries.map(::listSummary).sortedWith(compareByDescending<QuickNoteSummary> { it.pinned }
+            .thenByDescending { it.updatedAt }.thenBy { it.id })
     }
 
     suspend fun importDocument(pack: QuickNotePackage, keepBoth: Boolean = false): QuickNoteImportResult = locked {
@@ -234,6 +256,157 @@ class QuickNotesRepository(private val directory: File) {
         try { writeIndex(current + entry) } catch (e: Exception) { folder(entry.storageId).deleteRecursively(); anchors.remove(entry.summary.id); throw e }
         changes.value++
         QuickNoteImportResult.Imported(entry.summary)
+    }
+
+    /** Human editing input. The version also changes on title edits and restore, independently of AI context. */
+    suspend fun editSource(id: String): QuickNoteEdit = locked {
+        val entry = findDocument(readIndex(), id)
+        val text = QuickNotePaths.utf8(markdown(entry))
+        QuickNoteEdit(entry.summary.copy(excerpt = excerpt(text)), text, entry.markdownPath,
+            entry.images.map { it.path }.toSet(), entry.editVersion)
+    }
+
+    /** Reusing a command ID with the original input returns the existing document. */
+    suspend fun createDocument(command: QuickNoteCreate): QuickNoteSummary? = locked {
+        AiJson.uuid(command.commandId)
+        val title = editTitle(command.title)
+        val bytes = editBytes(command.markdown)
+        val digest = DeepSeekClient.hash(title + "\n" + sha(bytes))
+        val current = readIndex()
+        current.firstOrNull { it.summary.id == command.commandId }?.let {
+            require(it.creationDigest == digest) { "新建速记命令已用于其他内容" }
+            return@locked it.summary
+        }
+        if (title.isEmpty() && command.markdown.isBlank()) return@locked null
+        require(current.size < MAX_DOCUMENTS) { "最多保存 200 份速记文档" }
+        val filename = "${command.commandId}.md"
+        val headings = renderer.render(command.markdown).headings
+        val display = title.ifEmpty {
+            boundedAiText(headings.firstOrNull { it.level == 1 }?.title.orEmpty(), 1000).ifBlank { "未命名速记" }
+        }
+        val pack = QuickNotePackage(filename, filename, bytes)
+        val summary = QuickNoteSummary(command.commandId, display, filename, fingerprint(pack), System.currentTimeMillis())
+        val entry = install(pack, current, summary, digest)
+        publishEdit(current + entry, entry)
+        entry.summary
+    }
+
+    /** Saves raw Markdown as supplied. Editors replace only the edited range before calling this. */
+    suspend fun updateDocument(command: QuickNoteUpdate): QuickNoteSummary = locked {
+        val current = readIndex()
+        val old = findDocument(current, command.documentId)
+        require(old.editVersion == command.expectedVersion) { "速记已修改，请重新打开后再保存" }
+        val title = editTitle(command.title)
+        require(title.isNotEmpty() || command.markdown.isNotBlank()) { "速记内容为空" }
+        val bytes = editBytes(command.markdown)
+        val sameContent = bytes.contentEquals(markdown(old))
+        val display = title.ifEmpty { "未命名速记" }
+        if (sameContent && display == old.summary.title) return@locked old.summary
+        val summary = old.summary.copy(title = display, updatedAt = maxOf(old.summary.updatedAt, System.currentTimeMillis()))
+        if (sameContent) {
+            val updated = old.copy(summary = summary, editVersion = UUID.randomUUID().toString())
+            publishEdit(current.map { if (it === old) updated else it })
+            return@locked summary
+        }
+
+        // Validate the retained assets before writing a new storage directory, as for an import.
+        val assets = File(folder(old.storageId), "assets")
+        var remaining = MAX_PACKAGE - bytes.size
+        val images = old.images.associate { image ->
+            val file = File(assets, image.file)
+            val data = file.inputStream().use { readBounded(it, remaining) }
+            remaining -= data.size
+            require(sha(data) == image.file) { "图片校验失败，未保存" }
+            image.path to data
+        }
+        val known = renderer.render(command.markdown).headings.map { it.id }.toSet()
+        val position = summary.position.let {
+            if (it.anchor.isNotEmpty() && it.anchor !in known) QuickNotePosition(fraction = it.fraction) else it
+        }
+        val pack = QuickNotePackage(summary.sourceName, old.markdownPath, bytes, images)
+        val updated = install(pack, current, summary.copy(position = position), old.creationDigest)
+        publishEdit(current.map { if (it === old) updated else it }, updated)
+        anchors[old.summary.id] = known
+        folder(old.storageId).deleteRecursively()
+        updated.summary
+    }
+
+    suspend fun setPinned(id: String, pinned: Boolean): QuickNoteSummary = locked {
+        val current = readIndex()
+        val old = findDocument(current, id)
+        if (old.summary.pinned == pinned) return@locked old.summary
+        val updated = old.copy(summary = old.summary.copy(pinned = pinned))
+        publishEdit(current.map { if (it === old) updated else it })
+        listSummary(updated)
+    }
+
+    suspend fun searchDocuments(query: String, limit: Int = MAX_DOCUMENTS): List<QuickNoteSearchHit> {
+        val term = query.trim()
+        require(limit in 1..MAX_DOCUMENTS && term.length <= 160) { "速记搜索范围无效" }
+        if (term.isEmpty()) return emptyList()
+        val context = currentCoroutineContext()
+        return locked {
+            val hits = mutableListOf<QuickNoteSearchHit>()
+            for (entry in readIndex().sortedWith(compareByDescending<Entry> { it.summary.pinned }
+                .thenByDescending { it.summary.updatedAt }.thenBy { it.summary.id })) {
+                context.ensureActive()
+                if (entry.summary.title.contains(term, ignoreCase = true)) {
+                    hits += QuickNoteSearchHit(listSummary(entry), entry.summary.title)
+                } else {
+                    val text = QuickNotePaths.utf8(markdown(entry))
+                    val at = text.indexOf(term, ignoreCase = true)
+                    if (at < 0) continue
+                    val start = (at - 40).coerceAtLeast(0).let { if (text[it].isLowSurrogate()) it - 1 else it }
+                    val end = (at + term.length + 64).coerceAtMost(text.length)
+                    val safeEnd = if (end < text.length && text[end].isLowSurrogate()) end + 1 else end
+                    val snippet = text.substring(start, safeEnd).replace('\n', ' ').replace('\r', ' ')
+                    hits += QuickNoteSearchHit(entry.summary.copy(excerpt = excerpt(text)), snippet)
+                }
+                if (hits.size == limit) break
+            }
+            hits
+        }
+    }
+
+    private fun findDocument(entries: List<Entry>, id: String) =
+        entries.firstOrNull { it.summary.id == id } ?: error("速记文档不存在")
+
+    private fun editTitle(input: String): String = input.trim().also {
+        require(it.length <= 1000 && it.none(Char::isISOControl)) { "速记标题无效或过长" }
+        AiJson.utf8(it)
+    }
+
+    private fun editBytes(text: String): ByteArray {
+        require(text.length <= MAX_MARKDOWN && AiJson.utf8(text) <= MAX_MARKDOWN) { "Markdown 超过 4 MiB" }
+        return text.toByteArray(Charsets.UTF_8)
+    }
+
+    private fun excerpt(text: String): String {
+        val lines = text.lineSequence().map(String::trim).filter(String::isNotEmpty).iterator()
+        if (!lines.hasNext()) return ""
+        val first = lines.next()
+        var body = first
+        while (body.startsWith("#") && body.trimStart('#').startsWith(" ") && lines.hasNext()) body = lines.next()
+        return boundedAiText(body, 160)
+    }
+
+    private fun listSummary(entry: Entry): QuickNoteSummary {
+        if (entry.summary.excerpt.isNotEmpty() || markdownFile(entry).length() == 0L) return entry.summary
+        return try { entry.summary.copy(excerpt = excerpt(QuickNotePaths.utf8(markdown(entry)))) }
+        catch (_: java.io.IOException) { entry.summary }
+        catch (_: IllegalArgumentException) { entry.summary }
+    }
+
+    private fun publishEdit(entries: List<Entry>, staged: Entry? = null) {
+        try {
+            // Count and validate the same ZIP stream that export uses, without retaining it.
+            writeBackup(entries, null)
+            writeIndex(entries)
+        } catch (e: Exception) {
+            staged?.let { folder(it.storageId).deleteRecursively() }
+            throw e
+        }
+        changes.value++
     }
 
     private fun markdownFile(entry: Entry): File = File(folder(entry.storageId), "document.md")
@@ -306,32 +479,76 @@ class QuickNotesRepository(private val directory: File) {
         Unit
     }
 
-    /** Independent ZIP backup of Markdown files and their reader positions. */
+    /** Independent ZIP backup of Markdown, display metadata and reader positions. */
     suspend fun exportBackup(): ByteArray = locked {
-        val current = readIndex()
         val output = ByteArrayOutputStream()
-        var total = 0L
-        var count = 0
-        ZipOutputStream(output).use { zip ->
-            fun put(name: String, bytes: ByteArray) {
-                require(++count <= MAX_ENTRIES) { "速记备份文件超过 512 项，请减少文档或资源" }
-                total += bytes.size
-                require(total <= MAX_BACKUP) { "速记备份超过 64 MiB，请减少文档后重试" }
-                zip.putNextEntry(ZipEntry(name)); zip.write(bytes); zip.closeEntry()
-                require(output.size() <= MAX_BACKUP) { "速记备份过大" }
-            }
-            put("manifest.json", encode(current).toString().toByteArray(Charsets.UTF_8))
-            current.forEach { entry ->
-                put("documents/${entry.summary.id}/document.md", markdown(entry))
-                entry.images.distinctBy { it.file }.forEach { image ->
-                    val data = File(folder(entry.storageId), "assets/${image.file}").inputStream().use { readBounded(it, MAX_PACKAGE) }
-                    require(sha(data) == image.file) { "图片校验失败，备份未完成" }
-                    put("documents/${entry.summary.id}/assets/${image.file}", data)
+        writeBackup(readIndex(), output)
+        output.toByteArray()
+    }
+
+    private data class BackupFile(val name: String, val file: File, val hash: String, val limit: Int)
+
+    private class BoundedBackupOutput(private val output: OutputStream?) : OutputStream() {
+        private var written = 0L
+        private fun count(bytes: Int) {
+            written += bytes
+            require(written <= MAX_BACKUP) { "速记备份超过 64 MiB，请减少文档后重试" }
+        }
+        override fun write(value: Int) {
+            count(1)
+            output?.write(value)
+        }
+        override fun write(bytes: ByteArray, offset: Int, length: Int) {
+            count(length)
+            output?.write(bytes, offset, length)
+        }
+    }
+
+    private fun writeBackup(entries: List<Entry>, output: OutputStream?) {
+        val manifest = encode(entries).toString().toByteArray(Charsets.UTF_8)
+        require(manifest.size <= MAX_MARKDOWN) { "速记备份索引过大" }
+        val files = buildList {
+            for (entry in entries) {
+                val prefix = "documents/${entry.summary.id}"
+                add(BackupFile("$prefix/document.md", markdownFile(entry), entry.markdownHash, MAX_MARKDOWN))
+                for (image in entry.images.distinctBy { it.file }) {
+                    val path = "assets/${image.file}"
+                    add(BackupFile("$prefix/$path", File(folder(entry.storageId), path), image.file, MAX_PACKAGE))
                 }
             }
         }
-        require(output.size() <= MAX_BACKUP) { "速记备份过大" }
-        output.toByteArray()
+        require(files.size + 1 <= MAX_ENTRIES) { "速记备份文件超过 512 项，请减少文档或资源" }
+        var total = manifest.size.toLong()
+        for (item in files) {
+            require(item.file.isFile && item.file.length() <= item.limit) { "速记备份文件损坏或超过大小限制" }
+            total += item.file.length()
+            require(total <= MAX_BACKUP) { "速记备份超过 64 MiB，请减少文档后重试" }
+        }
+        ZipOutputStream(BoundedBackupOutput(output)).use { zip ->
+            zip.putNextEntry(ZipEntry("manifest.json"))
+            zip.write(manifest)
+            zip.closeEntry()
+            val buffer = ByteArray(8192)
+            total = manifest.size.toLong()
+            for (item in files) {
+                zip.putNextEntry(ZipEntry(item.name))
+                val digest = MessageDigest.getInstance("SHA-256")
+                var size = 0L
+                item.file.inputStream().use { input ->
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        size += count
+                        total += count
+                        require(size <= item.limit && total <= MAX_BACKUP) { "速记备份文件超过大小限制" }
+                        digest.update(buffer, 0, count)
+                        zip.write(buffer, 0, count)
+                    }
+                }
+                require(digest.digest().joinToString("") { "%02x".format(it) } == item.hash) { "速记备份文件校验失败" }
+                zip.closeEntry()
+            }
+        }
     }
 
     /** Default is merge-and-skip-identical; replace requires an explicit UI confirmation. */
@@ -350,7 +567,7 @@ class QuickNotesRepository(private val directory: File) {
                 image.path to imageBytes
             }
             val pack = QuickNotePackage(entry.summary.sourceName, entry.markdownPath, md, images)
-            validatePackage(pack)
+            validatePackage(pack, allowBlank = entry.creationDigest != null)
             require(fingerprint(pack) == entry.summary.contentHash) { "速记备份内容校验失败" }
             val headings = renderer.render(QuickNotePaths.utf8(md)).headings.map { it.id }.toSet()
             require(entry.summary.position.anchor.isEmpty() || entry.summary.position.anchor in headings) { "备份阅读锚点无效" }
@@ -361,11 +578,15 @@ class QuickNotesRepository(private val directory: File) {
         val created = mutableListOf<Entry>()
         try {
             packs.forEach { (old, pack) ->
-                if (replace || updated.none { it.summary.contentHash == old.summary.contentHash }) {
+                val duplicate = updated.any { other ->
+                    other.summary.contentHash == old.summary.contentHash &&
+                        (old.creationDigest == null || other.summary.id == old.summary.id)
+                }
+                if (replace || !duplicate) {
                     require(updated.size < MAX_DOCUMENTS) { "恢复后速记文档超过 200 份" }
                     val summary = if (updated.any { it.summary.id == old.summary.id })
                         old.summary.copy(id = UUID.randomUUID().toString()) else old.summary
-                    val entry = install(pack, updated, summary)
+                    val entry = install(pack, updated, summary, old.creationDigest)
                     created.add(entry); updated.add(entry)
                 }
             }

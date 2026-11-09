@@ -6,8 +6,13 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.UUID
 import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -173,6 +178,181 @@ class QuickNotesRepositoryTest {
                 assertTrue(runCatching { repo.savePosition(item.id, it) }.isFailure)
             }
             assertEquals(position, repo.openDocument(item.id).summary.position)
+        }
+    }
+
+    @Test
+    fun manualCreationIsReplaySafeAndPreservesSameNamedNotesAcrossBackup() = runBlocking {
+        withDirectory { directory, repo ->
+            assertNull(repo.createDocument(QuickNoteCreate(UUID.randomUUID().toString(), " ", "\n")))
+            assertTrue(repo.listDocuments().isEmpty())
+            val command = QuickNoteCreate(UUID.randomUUID().toString(), " 同名速记 ", "首行\n设备 USART")
+            val results = coroutineScope { List(2) { async { repo.createDocument(command) } }.awaitAll() }
+            val first = requireNotNull(results.first())
+            assertEquals(first, results.last())
+            val restarted = QuickNotesRepository(directory)
+            assertEquals(first, restarted.createDocument(command))
+            assertTrue(runCatching { restarted.createDocument(command.copy(markdown = "另一份内容")) }.isFailure)
+            val second = requireNotNull(restarted.createDocument(command.copy(commandId = UUID.randomUUID().toString())))
+            val titleOnly = requireNotNull(restarted.createDocument(QuickNoteCreate(UUID.randomUUID().toString(), "只有标题", "")))
+            assertEquals(first.title, second.title)
+            assertEquals(first.contentHash, second.contentHash)
+            assertNotEquals(first.id, second.id)
+            assertEquals("", restarted.editSource(titleOnly.id).text)
+            val pinned = restarted.setPinned(first.id, true)
+            assertEquals(first.updatedAt, pinned.updatedAt)
+            assertEquals(first.id, restarted.listDocuments().first().id)
+            val hits = restarted.searchDocuments("usart")
+            assertEquals(setOf(first.id, second.id), hits.map { it.summary.id }.toSet())
+            assertTrue(hits.all { it.snippet.contains("USART") })
+            assertEquals(titleOnly.id, restarted.searchDocuments("只有标题").single().summary.id)
+
+            val restored = QuickNotesRepository(File(directory, "restored"))
+            val backup = restarted.exportBackup()
+            assertEquals(3, restored.restoreBackup(backup))
+            assertEquals(0, restored.restoreBackup(backup))
+            assertEquals(restarted.listDocuments(), restored.listDocuments())
+            assertEquals(pinned, restored.createDocument(command))
+            assertEquals("", restored.editSource(titleOnly.id).text)
+        }
+    }
+
+    @Test
+    fun partialEditPreservesCrLfTablesCodeImagesAndIdentity() = runBlocking {
+        withDirectory { directory, repo ->
+            val raw = "# 原标题\r\n\r\n## 旧章节\r\n\r\n旧段落\r\n\r\n" +
+                "| 表头 | 列 |\r\n| --- | --- |\r\n| A | B |\r\n\r\n" +
+                "~~~c\r\nint x;\r\n~~~\r\n\r\n![图](../a.png)\r\n"
+            val original = imported(repo.importDocument(QuickNotePackage("main.md", "docs/main.md",
+                raw.toByteArray(), mapOf("a.png" to png))))
+            val oldAnchor = repo.openDocument(original.id).rendered.headings.last().id
+            repo.savePosition(original.id, QuickNotePosition(oldAnchor, 12.0, 0.6))
+            val draft = repo.editSource(original.id)
+            assertEquals(raw, draft.text)
+            assertEquals("docs/main.md", draft.markdownPath)
+            assertEquals(setOf("a.png"), draft.imagePaths)
+            val expected = raw.replace("旧段落", "修改段落")
+            val updated = repo.updateDocument(QuickNoteUpdate(original.id, draft.version, draft.summary.title, expected))
+            assertEquals(original.id, updated.id)
+            assertEquals(original.title, updated.title)
+            assertNotEquals(original.contentHash, updated.contentHash)
+            assertEquals(QuickNotePosition(oldAnchor, 12.0, 0.6), updated.position)
+            assertEquals(expected, repo.editSource(updated.id).text)
+            assertFalse(File(directory, original.id).exists())
+            assertTrue(repo.openDocument(updated.id).rendered.warnings.isEmpty())
+            assertArrayEquals(png, repo.readAsset(updated.id, "a.png")!!.bytes)
+
+            val latest = repo.editSource(updated.id)
+            val removed = repo.updateDocument(QuickNoteUpdate(updated.id, latest.version, latest.summary.title,
+                expected.replace("## 旧章节\r\n\r\n", "")))
+            assertEquals(QuickNotePosition(fraction = 0.6), removed.position)
+            assertTrue(runCatching { repo.savePosition(updated.id, QuickNotePosition(oldAnchor)) }.isFailure)
+            val restored = QuickNotesRepository(File(directory, "restored"))
+            assertEquals(1, restored.restoreBackup(repo.exportBackup()))
+            assertEquals(removed, restored.listDocuments().single())
+            assertEquals(repo.editSource(updated.id).text, restored.editSource(updated.id).text)
+            assertArrayEquals(png, restored.readAsset(updated.id, "a.png")!!.bytes)
+        }
+    }
+
+    @Test
+    fun oldIndexAndPortableBackupDefaultNewMetadata() = runBlocking {
+        withDirectory { directory, repo ->
+            val original = imported(repo.importDocument(pack()))
+            repo.setPinned(original.id, true)
+            val files = mutableMapOf<String, ByteArray>()
+            ZipInputStream(repo.exportBackup().inputStream()).use { input ->
+                while (true) {
+                    val entry = input.nextEntry ?: break
+                    files[entry.name] = input.readBytes()
+                }
+            }
+            val legacy = JSONObject(String(files.getValue("manifest.json"), Charsets.UTF_8)).put("quickNotesVersion", 1)
+            legacy.getJSONArray("documents").getJSONObject(0).apply {
+                remove("updatedAt")
+                remove("pinned")
+            }
+            files["manifest.json"] = legacy.toString().toByteArray()
+            File(directory, "index.json").writeText(legacy.toString())
+            val old = QuickNotesRepository(directory)
+            assertEquals(original, old.listDocuments().single())
+            assertEquals(original.id, old.editSource(original.id).version)
+
+            val restored = QuickNotesRepository(File(directory, "legacy-restored"))
+            assertEquals(1, restored.restoreBackup(zip(files)))
+            assertEquals(original, restored.listDocuments().single())
+            assertEquals(repo.editSource(original.id).text, restored.editSource(original.id).text)
+        }
+    }
+
+    @Test
+    fun corruptedAssetRejectsEditBeforePublishingVersion() = runBlocking {
+        withDirectory { directory, repo ->
+            val original = imported(repo.importDocument(QuickNotePackage("a.md", "a.md",
+                "原文 ![图](a.png)".toByteArray(), mapOf("a.png" to png))))
+            val before = repo.editSource(original.id)
+            val image = File(directory, "${original.id}/assets/${QuickNotesRepository.sha(png)}")
+            image.writeBytes(png.copyOf().also { it[it.lastIndex] = 0 })
+            val failure = runCatching {
+                repo.updateDocument(QuickNoteUpdate(original.id, before.version, original.title, "修改原文"))
+            }.exceptionOrNull()
+            assertNotNull(failure)
+            assertEquals(before, repo.editSource(original.id))
+            assertEquals(listOf(original.id), directory.listFiles()!!.filter(File::isDirectory).map { it.name })
+        }
+    }
+
+    @Test
+    fun backupLimitRejectsEditWithoutReplacingPublishedFiles() = runBlocking {
+        withDirectory { directory, repo ->
+            val image = ByteArray(21 * 1024 * 1024).also { png.copyInto(it) }
+            val docs = (1..3).map { n -> imported(repo.importDocument(QuickNotePackage("$n.md", "$n.md",
+                "# 文档$n".toByteArray(), mapOf("a.png" to image)))) }
+            val before = repo.listDocuments()
+            val edited = repo.editSource(docs.first().id)
+            val failure = runCatching { repo.updateDocument(QuickNoteUpdate(edited.summary.id, edited.version,
+                edited.summary.title, "新正文\n\n" + "x".repeat(2 * 1024 * 1024))) }.exceptionOrNull()
+            assertNotNull(failure)
+            assertTrue(failure!!.message.orEmpty().contains("64 MiB"))
+            assertEquals(before, repo.listDocuments())
+            assertEquals(edited, repo.editSource(edited.summary.id))
+            assertEquals(docs.map { it.id }.toSet(), directory.listFiles()!!.filter(File::isDirectory).map { it.name }.toSet())
+            assertTrue(repo.exportBackup().isNotEmpty())
+        }
+    }
+
+    @Test
+    fun editVersionIsBoundToDocumentAndProtectsConcurrentAndRestoredEdits() = runBlocking {
+        withDirectory { _, repo ->
+            val first = imported(repo.importDocument(pack()))
+            val second = imported(repo.importDocument(pack("# 其他文档", "其他.md")))
+            val draft = repo.editSource(first.id)
+            repo.setPinned(first.id, true)
+            assertEquals(draft.version, repo.editSource(first.id).version)
+            val noChange = repo.updateDocument(QuickNoteUpdate(first.id, draft.version, draft.summary.title, draft.text))
+            assertEquals(first.updatedAt, noChange.updatedAt)
+            assertEquals(draft.version, repo.editSource(first.id).version)
+            val renamed = repo.updateDocument(QuickNoteUpdate(first.id, draft.version, "显示名称", draft.text))
+            assertEquals(first.contentHash, renamed.contentHash)
+            assertTrue(renamed.pinned)
+            val edit = repo.editSource(first.id)
+            assertNotEquals(draft.version, edit.version)
+            assertTrue(runCatching { repo.updateDocument(QuickNoteUpdate(second.id, edit.version, "错文档", "不应保存")) }.isFailure)
+            assertEquals("# 其他文档", repo.editSource(second.id).text)
+            val attempts = coroutineScope {
+                listOf("第一份并发修改", "第二份并发修改").map { text ->
+                    async { runCatching { repo.updateDocument(QuickNoteUpdate(first.id, edit.version, edit.summary.title, text)) } }
+                }.awaitAll()
+            }
+            assertEquals(1, attempts.count { it.isSuccess })
+            val saved = repo.editSource(first.id)
+            for (text in listOf(" ", "x".repeat(QuickNotesRepository.MAX_MARKDOWN + 1))) {
+                assertTrue(runCatching { repo.updateDocument(QuickNoteUpdate(first.id, saved.version, saved.summary.title, text)) }.isFailure)
+                assertEquals(saved, repo.editSource(first.id))
+            }
+            repo.restoreBackup(repo.exportBackup(), replace = true)
+            assertTrue(runCatching { repo.updateDocument(QuickNoteUpdate(first.id, saved.version, "旧草稿", "冲突")) }.isFailure)
+            assertEquals(saved.text, repo.editSource(first.id).text)
         }
     }
 }

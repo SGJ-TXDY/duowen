@@ -14,7 +14,23 @@ data class QuickNoteSummary(
     val contentHash: String,
     val importedAt: Long,
     val position: QuickNotePosition = QuickNotePosition(),
+    val updatedAt: Long = importedAt,
+    val pinned: Boolean = false,
+    val excerpt: String = "",
 )
+
+/** A draft is editable only against the document and version it was loaded from. */
+data class QuickNoteEdit(
+    val summary: QuickNoteSummary,
+    val text: String,
+    val markdownPath: String,
+    val imagePaths: Set<String>,
+    val version: String,
+)
+
+data class QuickNoteCreate(val commandId: String, val title: String, val markdown: String)
+data class QuickNoteUpdate(val documentId: String, val expectedVersion: String, val title: String, val markdown: String)
+data class QuickNoteSearchHit(val summary: QuickNoteSummary, val snippet: String)
 
 data class QuickNoteHeading(val id: String, val level: Int, val title: String)
 data class QuickNoteRendered(

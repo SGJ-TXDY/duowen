@@ -195,6 +195,44 @@ class AiRuntimeTest {
         return result.toByteArray()
     }
 
+    @Test fun quickNoteTitleAndPinKeepExistingDiscussionWritableUntilBodyChanges() = runBlocking {
+        fixture {
+            val docs = db.quickNotesRepository
+            val note = requireNotNull(docs.createDocument(QuickNoteCreate(id(), "文档", "# DMA\n\nDMA transfers data")))
+            val created = ok(service.createDocumentSession(id(), note)).session
+            val sent = send(created, "解释 DMA", AiRequestType.FOLLOW_UP).copy(question = created.question)
+            server.enqueue(MockResponse().setResponseCode(500))
+            val accepted = ok(service.send(sent))
+            val frozen = request().body.readUtf8()
+            idle()
+
+            val edit = docs.editSource(note.id)
+            val titled = docs.updateDocument(QuickNoteUpdate(note.id, edit.version, "显示标题", edit.text))
+            docs.setPinned(note.id, true)
+            val reopened = ok(service.open(created.sessionId)).session
+            assertFalse(reopened.readOnly)
+            assertEquals(note.contentHash, titled.contentHash)
+            assertEquals("显示标题", ok(service.discussionSource(created.sessionId)).label)
+            server.enqueue(response("原版回答"))
+            ok(service.retry(RetryCommand(id(), accepted.owner)))
+            assertEquals(frozen, request().body.readUtf8())
+            idle()
+
+            val latest = docs.editSource(note.id)
+            docs.updateDocument(QuickNoteUpdate(note.id, latest.version, latest.summary.title, latest.text))
+            assertFalse(ok(service.open(created.sessionId)).session.readOnly)
+            val changed = docs.updateDocument(QuickNoteUpdate(note.id, latest.version, latest.summary.title, "# TCP\n\n新版内容"))
+            assertNotEquals(note.contentHash, changed.contentHash)
+            val archived = ok(service.open(created.sessionId)).session
+            assertTrue(archived.readOnly)
+            assertEquals(AiSourceStatus.UPDATED, ok(service.discussionSource(created.sessionId)).status)
+            rejected(RejectCode.READ_ONLY, service.send(sent.copy(commandId = id(), expectedContextRevision = archived.contextRevision)))
+            assertEquals("原版回答", ok(service.messages(created.sessionId, null, 20)).items.last().text)
+            docs.deleteDocument(note.id)
+            assertEquals(AiSourceStatus.DELETED, ok(service.discussionSource(created.sessionId)).status)
+        }
+    }
+
     @Test fun completedQuestionReplySavesOneMarkdownNoteAndRestoresReadOnlyOrigin() = runBlocking {
         fixture {
             val s = opened()
