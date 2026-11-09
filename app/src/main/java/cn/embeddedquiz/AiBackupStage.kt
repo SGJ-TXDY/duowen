@@ -105,7 +105,7 @@ internal class AiBackupStage private constructor(
                             }
                         };reader.endObject();require(reader.peek()==JsonToken.END_DOCUMENT)
                     }
-                    require(headers["schemaVersion"]==1L && headers["backupVersion"] in 1L..6L) { "UNSUPPORTED_BACKUP_VERSION" }
+                    require(headers["schemaVersion"]==1L && headers["backupVersion"] in 1L..7L) { "UNSUPPORTED_BACKUP_VERSION" }
                     val v=headers.getValue("backupVersion").toInt()
                     require(seen.containsAll(setOf("questions","progress","attempts","ai"))) { "MISSING_LEGACY_SECTION" }
                     if(v>=2) require("stickyNotes" in seen)
@@ -163,7 +163,12 @@ internal class AiBackupStage private constructor(
             db.query("SELECT rowKey,wire FROM legacy WHERE section=? ORDER BY ordinal",arrayOf(section)).use { c ->
                 while(c.moveToNext()) { currentCoroutineContext().ensureActive()
                     val wire = JSONObject(c.getString(1))
-                    val row = if (section == AI_DELETED_COST_SECTION) AiDeletedCostLedger.validate(wire)
+                    val row = if (section == AI_DELETED_COST_SECTION) {
+                        require(version >= 7 || wire.getString("model") in AiSnapshotCodec.MODELS_V1) {
+                            "CUSTOM_AI_REQUIRES_BACKUP_VERSION_7"
+                        }
+                        AiDeletedCostLedger.validate(wire)
+                    }
                         else AiLegacyBackupCodec.validate(section,wire,version) { legacy("questions",it) }
                     if (section == "stickyNotes" && !row.isNull("sourceRequestId")) {
                         db.execSQL("INSERT INTO note_sources VALUES (?,?)",
@@ -177,6 +182,13 @@ internal class AiBackupStage private constructor(
             "SELECT COUNT(*) FROM ai_sessions WHERE questionSnapshotVersion<>1") == 0L) { "DOCUMENT_AI_IN_LEGACY_FORMAT" }
         if (version < 6) require(AiSqlAccess(db).scalar(
             "SELECT COUNT(*) FROM ai_runs WHERE contextSnapshotVersion>2") == 0L) { "UPDATED_DOCUMENT_AI_IN_LEGACY_FORMAT" }
+        if (version < 7) {
+            val builtIns = AiSnapshotCodec.MODELS_V1.joinToString(",") { "'$it'" }
+            val access = AiSqlAccess(db)
+            require(access.scalar("SELECT COUNT(*) FROM ai_runs WHERE model NOT IN ($builtIns)") == 0L) {
+                "CUSTOM_AI_REQUIRES_BACKUP_VERSION_7"
+            }
+        }
         AiStorageValidation.verifyAndRecover(db,now)
     }
     override fun close() { if(!closed) { closed=true;try { helper.close() } finally { deleteFiles(file) } } }

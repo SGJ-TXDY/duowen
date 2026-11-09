@@ -205,11 +205,11 @@ internal class AiStore(
             }
     }
     suspend fun acceptedHistory(sessionId: String): List<JSONObject> = transaction { history(working(sessionId,"HISTORY"),sessionId) }
-    suspend fun startFreeDiscussion(start: AiFreeDiscussionCommand): AiCommandRow {
+    suspend fun startFreeDiscussion(start: AiFreeDiscussionCommand, route: AiFrozenRoute? = null): AiCommandRow {
         val pendingOwner = QuestionOwner(start.groupId ?: start.commandId, "", AiOwnerKind.FREE)
         val send = SendCommand(start.commandId, start.commandId, pendingOwner, 0, null, null, start.input,
             emptySet(), "", AiRequestType.FOLLOW_UP, start.model)
-        return accept(send, start)
+        return accept(send, start, route)
     }
 
     private suspend fun newFreeSession(start: AiFreeDiscussionCommand, acceptedAt: Long): AiSessionRow {
@@ -229,7 +229,7 @@ internal class AiStore(
             snapshot, title, acceptedAt, acceptedAt)
     }
 
-    suspend fun accept(c: SendCommand, start: AiFreeDiscussionCommand? = null): AiCommandRow = command(
+    suspend fun accept(c: SendCommand, start: AiFreeDiscussionCommand? = null, route: AiFrozenRoute? = null): AiCommandRow = command(
         c.commandId, "SEND", sendArgs(c, start), newSession = start != null,
     ) { before, acceptedAt ->
         val d = if (start == null) before else before.copy(sessions = listOf(newFreeSession(start, acceptedAt)))
@@ -265,9 +265,9 @@ internal class AiStore(
         while(true) {
             try {
                 snapshot = when {
-                    documentContext != null -> AiSnapshotCodec.documentRequest(s.questionSnapshot, c.model, c.input, rounds, documentContext)
-                    free != null -> AiSnapshotCodec.freeRequest(free.reference, c.model, c.input, rounds)
-                    else -> AiSnapshotCodec.request(s.questionSnapshot, c.model, c.requestType, c.input, c.choices, c.code, rounds)
+                    documentContext != null -> AiSnapshotCodec.documentRequest(s.questionSnapshot, c.model, c.input, rounds, documentContext, route)
+                    free != null -> AiSnapshotCodec.freeRequest(free.reference, c.model, c.input, rounds, route)
+                    else -> AiSnapshotCodec.request(s.questionSnapshot, c.model, c.requestType, c.input, c.choices, c.code, rounds, route)
                 }
                 break
             }
@@ -280,7 +280,7 @@ internal class AiStore(
         val next=s.copy(contextRevision=Math.addExact(s.contextRevision,1),updatedAt=maxOf(s.updatedAt,acceptedAt),draftText=if(clear) "" else s.draftText,
             draftRevision=if(clear) Math.addExact(s.draftRevision,1) else s.draftRevision)
         val digest=DeepSeekClient.hash(snapshot)
-        val run=AiRunRow(id(),c.commandId,s.sessionId,user.messageId,assistant.messageId,c.model,c.requestType.name,epoch,snapshot,digest,
+        val run=AiRunRow(id(),c.commandId,s.sessionId,user.messageId,assistant.messageId,route?.billingModel(c.model) ?: c.model,c.requestType.name,epoch,snapshot,digest,
             DeepSeekClient.hash("${s.questionSnapshotVersion}\n${s.sessionId}\n${s.contentHash}\n$digest"),acceptedAt,java.time.Instant.ofEpochMilli(acceptedAt).atZone(zone).toLocalDate().toEpochDay(),zone.id,
             contextSnapshotVersion = if (documentContext == null) s.questionSnapshotVersion else AiSnapshotCodec.DOCUMENT_REQUEST_VERSION,
             effectiveParameters=AiJson.canonical(JSONObject(snapshot).getJSONObject("parameters")),reservedBytes=AiConversationCodec.RUN_RESERVE)

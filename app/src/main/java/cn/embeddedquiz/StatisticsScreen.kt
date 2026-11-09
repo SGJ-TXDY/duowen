@@ -247,7 +247,7 @@ internal fun CostsContent(state: AiCostsUiState) {
         items(state.buckets, key = { "d-${it.day}-${it.model}-${it.currency}" }) { b ->
             Card(Modifier.fillMaxWidth().testTag("cost-day")) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("${LocalDate.ofEpochDay(b.day)} · ${b.model} · ${b.currency}", style = MaterialTheme.typography.titleSmall)
+                    Text("${LocalDate.ofEpochDay(b.day)} · ${AiModels.billingLabel(b.model)} · ${b.currency}", style = MaterialTheme.typography.titleSmall)
                     b.parts.forEach { part ->
                         if (part.origin == CostOrigin.LEGACY_ESTIMATE)
                             Text("早期记录 ${part.legacyRecords} 条 · 旧估算 " + aiMoney(part.knownEstimated, b.currency))

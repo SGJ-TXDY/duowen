@@ -23,7 +23,7 @@ internal class AiFullBackupCodec(private val context:Context,private val workDir
             database.withTransaction {
                 val sql=database.openHelper.readableDatabase
                 java.io.BufferedWriter(java.io.OutputStreamWriter(temp.outputStream(),Charsets.UTF_8),8192).use { out ->
-                    out.write("{\"schemaVersion\":1,\"backupVersion\":6,\"aiConversationVersion\":1")
+                    out.write("{\"schemaVersion\":1,\"backupVersion\":7,\"aiConversationVersion\":1")
                     val tables = AiLegacyBackupCodec.tables + (AI_DELETED_COST_SECTION to "ai_deleted_costs")
                     for((section,table) in tables) {
                         currentCoroutineContext().ensureActive()

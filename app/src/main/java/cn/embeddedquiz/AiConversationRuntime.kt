@@ -20,6 +20,7 @@ internal data class AiRuntimeConfig(
     val beforeDispatch:suspend ()->Unit={},
     val waitDraft:suspend (Long)->Unit={ delay(it) },
     val draftNow:()->Long={ System.nanoTime()/1_000_000 },
+    val providers: AiProviderStore? = null,
 )
 
 /** Shared by all Repository and ViewModel entry points for a single database owner. */
@@ -29,7 +30,8 @@ internal class AiServices(private val db:QuizDatabase) {
     private var costStore:AiCostsStore?=null
     @Synchronized fun configure(value:AiRuntimeConfig) { check(runtime==null);config=value }
     @Synchronized fun conversations():AiConversationFacade = runtime ?: AiConversationRuntime(QuizRepository(db),
-        config ?: AiRuntimeConfig(KeyVault(db.storageContext)::read)).also { runtime=it }
+        config ?: AiRuntimeConfig(KeyVault(db.storageContext)::read,
+            providers = AiProviderStore.forContext(db.storageContext))).also { runtime=it }
     @Synchronized fun costs():AiCostsStore = costStore ?: AiCostsStore(db).also { costStore=it }
 }
 
@@ -164,7 +166,7 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
             RejectCode.BUSY,RejectCode.REPLACING -> RecoveryAction.WAIT_IDLE
             RejectCode.NOT_READY -> RecoveryAction.REOPEN
             RejectCode.STALE_CONTEXT,RejectCode.STALE_SESSION,RejectCode.STALE_DRAFT,RejectCode.STALE_CURSOR -> RecoveryAction.RELOAD
-            RejectCode.INVALID -> RecoveryAction.EDIT
+            RejectCode.INVALID, RejectCode.PROVIDER_CHANGED -> RecoveryAction.EDIT
             RejectCode.CAPACITY_EXCEEDED -> RecoveryAction.EXPORT_BACKUP
             RejectCode.STORAGE_FAILED -> RecoveryAction.RESTART
             else -> RecoveryAction.NONE
@@ -499,7 +501,8 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
                 if (memory.owner != frozen.question) refuse(RejectCode.STALE_OWNER)
                 val replay = memory.dao.command(frozen.commandId) != null
                 if (!replay && active != null) refuse(RejectCode.BUSY)
-                return@action accepted(memory.store.accept(frozen.copy(question = memory.storedOwner)), replay, memory)
+                val route = bindProvider(frozen.model, replay)?.route
+                return@action accepted(memory.store.accept(frozen.copy(question = memory.storedOwner), route = route), replay, memory)
             }
             if (frozen.question.kind == AiOwnerKind.TEMPORARY) refuse(RejectCode.NOT_FOUND)
             val replay=dao.command(frozen.commandId)!=null
@@ -508,13 +511,13 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
                 require(AiJson.utf8(frozen.input)<=AiSnapshotCodec.INPUT_BYTES && AiJson.utf8(frozen.code)<=AiSnapshotCodec.INPUT_BYTES)
                 session(frozen.sessionId);flushPending(frozen.sessionId,propagate=true)
             }
-            accepted(store.accept(frozen),replay)
+            accepted(store.accept(frozen, route = bindProvider(frozen.model, replay)?.route), replay)
         }
     }
     override suspend fun startFreeDiscussion(command: AiFreeDiscussionCommand) = action {
         val replay = dao.command(command.commandId) != null
         if (!replay && active != null) refuse(RejectCode.BUSY)
-        accepted(store.startFreeDiscussion(command), replay)
+        accepted(store.startFreeDiscussion(command, bindProvider(command.model, replay)?.route), replay)
     }
 
     override suspend fun retry(command:RetryCommand)=action(command.owner.requestId) {
@@ -522,14 +525,39 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
         if (memory != null) {
             if (memory.owner != command.owner.question) refuse(RejectCode.STALE_OWNER)
             val replay = memory.dao.command(command.commandId) != null
-            if (!replay && active != null) refuse(RejectCode.BUSY)
+            if (!replay) {
+                if (active != null) refuse(RejectCode.BUSY)
+                checkRetryRoute(memory.dao, command.owner)
+            }
             val stored = command.owner.copy(question = memory.storedOwner)
             return@action accepted(memory.store.retry(command.commandId, stored), replay, memory)
         }
         if (command.owner.question.kind == AiOwnerKind.TEMPORARY) refuse(RejectCode.NOT_FOUND)
         val replay=dao.command(command.commandId)!=null
-        if(!replay) { if(active!=null) refuse(RejectCode.BUSY);session(command.owner.sessionId) }
+        if (!replay) {
+            if (active != null) refuse(RejectCode.BUSY)
+            session(command.owner.sessionId)
+            checkRetryRoute(dao, command.owner)
+        }
         accepted(store.retry(command.commandId,command.owner),replay)
+    }
+
+    private fun bindProvider(model: String, replay: Boolean): AiProviderProfile? {
+        if (replay || model in DeepSeekClient.MODELS) return null
+        require(AiModels.valid(model))
+        return try { config.providers?.bind(model) ?: throw AiProviderUnavailable() }
+        catch (_: Exception) { refuse(RejectCode.PROVIDER_CHANGED) }
+    }
+
+    private fun resolveCustomTarget(snapshot: JSONObject, route: AiFrozenRoute): AiResolvedTarget =
+        try { config.providers?.resolve(snapshot.getString("model"), route) ?: throw AiProviderUnavailable() }
+        catch (_: Exception) { throw AiProviderUnavailable() }
+
+    private suspend fun checkRetryRoute(targetDao: AiConversationDao, owner: RunOwner) {
+        val previous = targetDao.run(owner.requestId)?.takeIf { it.sessionId == owner.sessionId } ?: return
+        val snapshot = JSONObject(previous.contextSnapshot)
+        val route = AiFrozenRoute.read(snapshot) ?: return
+        try { resolveCustomTarget(snapshot, route) } catch (_: AiProviderUnavailable) { refuse(RejectCode.PROVIDER_CHANGED) }
     }
     private suspend fun accepted(row: AiCommandRow, replay: Boolean, memory: AiTemporaryDiscussion? = null): AcceptedReceipt {
         val targetDao = memory?.dao ?: dao
@@ -559,16 +587,26 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
         try {
             currentCoroutineContext().ensureActive()
             config.beforeDispatch()
-            val key=try { config.readKey().trim() } catch(_:Exception) { "" }
+            val snapshot = JSONObject(row.contextSnapshot)
+            val route = AiFrozenRoute.read(snapshot)
+            val target = try {
+                if (route == null) AiResolvedTarget(config.transport.url, try { config.readKey().trim() } catch (_: Exception) { "" })
+                else resolveCustomTarget(snapshot, route)
+            } catch (_: AiProviderUnavailable) {
+                actor.withLock { if (owns(slot) && fault == null) finishWithoutReply(slot, "PROVIDER_CHANGED", RunStatus.FAILED) }
+                return
+            }
+            val key = target.key
             if(key.isEmpty() || key.length>4096 || key.any { it !in '!'..'~' }) {
                 actor.withLock { if(owns(slot) && fault==null) finishWithoutReply(slot,"CREDENTIALS_UNAVAILABLE",RunStatus.FAILED) }
                 return
             }
-            val exchange=config.transport.prepare(AiSnapshotCodec.payload(row.contextSnapshot),key,{ slot.reading();metadata() },slot::received)
+            val exchange=config.transport.prepare(AiSnapshotCodec.payload(row.contextSnapshot),key,{ slot.reading();metadata() },slot::received,
+                endpointOverride = target.endpoint)
             val started=actor.withLock {
                 if(!owns(slot) || phase!=ServicePhase.READY || life.token()==null || fault!=null) false
                 else {
-                    slot.exchange=exchange;price=config.price(row.model)
+                    slot.exchange=exchange;price=if (route == null) config.price(row.model) else AiUsageEvidence()
                     withContext(NonCancellable) {
                         slot.dispatched(targetStore.dispatched(row.requestId, price))
                         if (slot.memory != null) {

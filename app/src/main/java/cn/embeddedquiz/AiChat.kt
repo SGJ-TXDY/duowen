@@ -850,6 +850,7 @@ internal fun aiRejectionText(r: Rejection): String =
         RejectCode.STALE_CONTEXT, RejectCode.STALE_SESSION -> "讨论已在别处更新，请返回列表后重新打开。"
         RejectCode.STALE_DRAFT -> "草稿已在别处更新，当前文字未保存；可先复制，再返回列表重新打开。"
         RejectCode.STALE_OWNER, RejectCode.STALE_ATTEMPT -> "这次请求已过期。"
+        RejectCode.PROVIDER_CHANGED -> "原 AI 接口已更改或删除，请选择接口后重新发送。"
         RejectCode.STALE_CURSOR -> "数据已更新，已重新载入。"
         RejectCode.IDEMPOTENCY_CONFLICT -> "操作冲突，未执行。"
         RejectCode.ALREADY_TERMINAL -> "请求已经结束。"
@@ -896,7 +897,8 @@ internal fun aiRunStatusText(run: RunView): String? =
         RunStatus.GENERATING -> "正在生成…"
         RunStatus.COMPLETED -> null
         RunStatus.CANCELLED -> "已取消"
-        RunStatus.FAILED -> "失败" + (run.errorCode?.let { "（$it）" } ?: "")
+        RunStatus.FAILED -> if (run.errorCode == "PROVIDER_CHANGED") "原 AI 接口已更改，请重新发送"
+            else "失败" + (run.errorCode?.let { "（$it）" } ?: "")
     }
 
 @Composable

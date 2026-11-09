@@ -86,7 +86,9 @@ internal object AiConversationCodec {
             require(r.contextSnapshotVersion == s.questionSnapshotVersion ||
                 s.owner.kind == AiOwnerKind.QUICK_NOTE && r.contextSnapshotVersion == AiSnapshotCodec.DOCUMENT_REQUEST_VERSION)
             require(AiJson.long(JSONObject(r.contextSnapshot), "version") == r.contextSnapshotVersion.toLong())
-            require(r.model in AiSnapshotCodec.MODELS_V1); AiRequestType.valueOf(r.requestType)
+            require(AiModels.validBillingModel(r.model)); AiRequestType.valueOf(r.requestType)
+            if (r.model !in AiSnapshotCodec.MODELS_V1)
+                require(listOf(r.priceVersion, r.missRate, r.hitRate, r.outputRate).all { it == null })
             AiJson.hash(r.contextDigest); AiJson.hash(r.cacheKey)
             require(DeepSeekClient.hash(r.contextSnapshot) == r.contextDigest)
             require(r.cacheKey == DeepSeekClient.hash("${s.questionSnapshotVersion}\n${s.sessionId}\n${s.contentHash}\n${r.contextDigest}"))

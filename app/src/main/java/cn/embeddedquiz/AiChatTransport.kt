@@ -30,11 +30,12 @@ internal object AiChatPrices {
 
 /** No automatic retry/redirect and no reconstructed prompt. One call owns one callback/response. */
 internal class AiChatTransport(endpoint:String="https://api.deepseek.com/chat/completions",
-    private val beforeExit:()->Unit={}) {
+    private val beforeExit:()->Unit={}, client: OkHttpClient? = null) {
     internal val url=endpoint
-    private val http=OkHttpClient.Builder().connectTimeout(20,TimeUnit.SECONDS).readTimeout(120,TimeUnit.SECONDS)
-        .callTimeout(150,TimeUnit.SECONDS).retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false).build()
-    fun prepare(payload:String,key:String,reading:()->Unit,received:(AiChatResult)->Unit):Exchange {
+    private val http=(client?.newBuilder() ?: OkHttpClient.Builder().connectTimeout(20,TimeUnit.SECONDS)
+        .readTimeout(120,TimeUnit.SECONDS).callTimeout(150,TimeUnit.SECONDS))
+        .retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false).build()
+    fun prepare(payload:String,key:String,reading:()->Unit,received:(AiChatResult)->Unit,endpointOverride: String? = null):Exchange {
         val frozen=payload.toRequestBody("application/json; charset=utf-8".toMediaType())
         // OkHttp's HTTP follow-up rules (for example 503/Retry-After: 0) are separate
         // from connection retries. A one-shot body disallows reissuing this accepted attempt.
@@ -44,7 +45,7 @@ internal class AiChatTransport(endpoint:String="https://api.deepseek.com/chat/co
             override fun isOneShot()=true
             override fun writeTo(sink:BufferedSink)=frozen.writeTo(sink)
         }
-        val request=Request.Builder().url(url).header("Authorization","Bearer $key").post(oneShot).build()
+        val request=Request.Builder().url(endpointOverride ?: url).header("Authorization","Bearer $key").post(oneShot).build()
         return Exchange(http.newCall(request),key,reading,received,beforeExit)
     }
     internal class Exchange(private val call:Call,private val key:String,private val reading:()->Unit,private val received:(AiChatResult)->Unit,
