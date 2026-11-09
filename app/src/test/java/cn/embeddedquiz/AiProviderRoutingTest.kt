@@ -1,12 +1,18 @@
 package cn.embeddedquiz
 
+import android.app.Application
 import android.content.Context
+import android.os.Looper
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
 import java.net.InetAddress
 import java.net.Proxy
 import java.security.KeyStore
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.LockSupport
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManagerFactory
@@ -23,6 +29,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -41,6 +48,79 @@ class AiProviderRoutingTest {
     private fun <T> ok(result: ResultOf<T>): T = when (result) {
         is ResultOf.Ok -> result.value
         is ResultOf.Rejected -> error("Unexpected rejection: ${result.reason.code}")
+    }
+
+    @Test fun selectedProviderFromViewModelReachesHttpsThroughTheWorkbenchAndSurvivesReopen() = runBlocking {
+        network {
+            val providers = store()
+            val application = app as Application
+            var profileId = ""
+            fun waitOnMain(condition: () -> Boolean) {
+                val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
+                while (!condition() && System.nanoTime() < deadline) {
+                    shadowOf(Looper.getMainLooper()).idle()
+                    LockSupport.parkNanos(1_000_000)
+                }
+                assertTrue("ViewModel operation did not complete", condition())
+            }
+            fun model(owners: ViewModelStore): QuizViewModel = ViewModelProvider(owners, object : ViewModelProvider.Factory {
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    requireNotNull(modelClass.cast(QuizViewModel(application, providers)))
+            })[QuizViewModel::class.java]
+            app.deleteDatabase("embeddedquiz.db")
+            val firstOwner = ViewModelStore()
+            val vm = model(firstOwner)
+            try {
+                vm.db.aiServices.configure(AiRuntimeConfig({ "built-in-fixture" }, AiChatTransport(client = client),
+                    providers = providers))
+                waitOnMain { vm.ready || vm.startupState is StartupState.Error }
+                assertTrue(vm.ready)
+                val profile = vm.saveProvider(null, "Local", a.endpoint("/v1"), "vendor/original", "fixture-ui-key")
+                profileId = profile.id
+                assertEquals(listOf(profile), vm.providerProfiles)
+                assertTrue(vm.hasProviderKey(profile.id))
+                assertEquals(DeepSeekClient.FLASH, vm.model)
+                vm.chooseModel(profile.model)
+                val edited = vm.saveProvider(profile.id, "Local edited", profile.url, "vendor/selected", "",
+                    supportsTools = true)
+                assertEquals(edited.model, vm.model)
+                assertTrue(vm.providerProfiles.single().supportsTools)
+                assertFalse(vm.hasKey)
+
+                a.enqueue(reply())
+                val workbench = vm.aiWorkbench
+                workbench.newConversation()
+                workbench.freeText = "send from selected model"
+                val sending = workbench.startFree()
+                waitOnMain { sending.isCompleted }
+                assertNotNull(workbench.opened)
+                val request = a.request()
+                assertEquals("/v1/chat/completions", request.path)
+                assertEquals("Bearer fixture-ui-key", request.getHeader("Authorization"))
+                assertEquals("vendor/selected", JSONObject(request.body.readUtf8()).getString("model"))
+                withTimeout(15000) { ok(vm.aiConversations.awaitIdle()) }
+                assertEquals(0, b.requestCount)
+            } finally {
+                firstOwner.clear()
+                waitOnMain { vm.examResourcesClosed?.isCompleted == true }
+            }
+            val nextOwner = ViewModelStore()
+            val reopened = model(nextOwner)
+            try {
+                assertEquals("vendor/selected", reopened.model)
+                assertEquals(profileId, reopened.providerProfiles.single().id)
+                assertTrue(reopened.hasProviderKey(profileId))
+                reopened.deleteProvider(profileId)
+                assertTrue(reopened.providerProfiles.isEmpty())
+                assertFalse(reopened.hasProviderKey(profileId))
+                assertEquals(DeepSeekClient.FLASH, reopened.model)
+                assertEquals(DeepSeekClient.FLASH, providers.selectedModel())
+            } finally {
+                nextOwner.clear()
+                waitOnMain { reopened.examResourcesClosed?.isCompleted == true }
+                app.deleteDatabase("embeddedquiz.db")
+            }
+        }
     }
 
     @Test fun crossingOriginRequiresFreshKeyAndSameOriginPathStillInvalidatesRetry() {

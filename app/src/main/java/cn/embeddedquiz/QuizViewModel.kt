@@ -16,7 +16,9 @@ sealed interface InitializationOutcome {
     data class Failed(val message: String) : InitializationOutcome
 }
 
-class QuizViewModel(app: Application) : AndroidViewModel(app) {
+class QuizViewModel internal constructor(app: Application, providerSettings: AiProviderStore) : AndroidViewModel(app) {
+    constructor(app: Application) : this(app, AiProviderStore.forContext(app))
+
     val db = QuizDatabase.open(app)
     val repo = QuizRepository(db)
     val aiConversations: AiConversationFacade get() = repo.aiConversations
@@ -74,7 +76,7 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
 
     var notice by mutableStateOf("")
     val accent = AccentPreference(prefs)
-    val aiState = AiStateHolder(viewModelScope, repo, vault, prefs) { notice = it }
+    val aiState = AiStateHolder(viewModelScope, repo, vault, prefs, providerSettings = providerSettings) { notice = it }
     val aiEntries
         get() = aiState.entries
 
@@ -610,6 +612,14 @@ class QuizViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun chooseModel(value: String) = aiState.chooseModel(value)
+
+    internal val providerProfiles get() = aiState.providerProfiles
+    internal fun hasProviderKey(id: String) = aiState.hasProviderKey(id)
+
+    internal fun saveProvider(id: String?, name: String, url: String, model: String, key: String,
+        supportsTools: Boolean = false) = aiState.saveProvider(id, name, url, model, key, supportsTools)
+
+    internal fun deleteProvider(id: String) = aiState.deleteProvider(id)
 
     fun ask(
         q: Question,

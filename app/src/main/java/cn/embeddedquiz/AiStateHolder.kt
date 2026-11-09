@@ -30,13 +30,14 @@ data class AiRequestUiState(
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class AiStateHolder(
+class AiStateHolder internal constructor(
     private val scope: CoroutineScope,
     private val repo: QuizRepository,
     private val vault: KeyVault,
-    private val prefs: SharedPreferences,
+    prefs: SharedPreferences,
     private val clientFactory: (okhttp3.OkHttpClient) -> DeepSeekClient = { DeepSeekClient(client = it) },
     private val readKey: () -> String = vault::read,
+    private val providerSettings: AiProviderStore = AiProviderStore(prefs, vault),
     private val notify: (String) -> Unit,
 ) {
     var entries by mutableStateOf<List<AiEntry>>(emptyList())
@@ -48,11 +49,10 @@ class AiStateHolder(
     var error by mutableStateOf("")
         private set
 
-    var model by
-        mutableStateOf(
-            prefs.getString("model", DeepSeekClient.FLASH).takeIf { it in DeepSeekClient.MODELS }
-                ?: DeepSeekClient.FLASH
-        )
+    var model by mutableStateOf(providerSettings.selectedModel())
+        private set
+
+    internal var providerProfiles by mutableStateOf(providerSettings.profiles())
         private set
 
     var hasKey by mutableStateOf(vault.exists())
@@ -111,9 +111,27 @@ class AiStateHolder(
     }
 
     fun chooseModel(value: String) {
-        require(value in DeepSeekClient.MODELS)
+        providerSettings.select(value)
         model = value
-        prefs.writeDurably { putString("model", value) }
+    }
+
+    internal fun hasProviderKey(id: String) = providerSettings.hasKey(id)
+
+    internal fun saveProvider(id: String?, name: String, url: String, model: String, key: String,
+        supportsTools: Boolean = false): AiProviderProfile {
+        val profile = providerSettings.save(id, name, url, model, key, supportsTools)
+        reloadProviders()
+        return profile
+    }
+
+    internal fun deleteProvider(id: String) {
+        providerSettings.delete(id)
+        reloadProviders()
+    }
+
+    private fun reloadProviders() {
+        providerProfiles = providerSettings.profiles()
+        model = providerSettings.selectedModel()
     }
 
     /** The request shown on [q]'s current version, or null if the latest request is another one's. */
@@ -162,11 +180,15 @@ class AiStateHolder(
             error = if (repo.db.aiLifecycle.legacyRetired()) "旧AI入口已停止发送，请使用新会话入口" else "AI暂不可用，请等待数据操作完成或启动重试"
             return
         }
+        val requestedModel = model
+        if (requestedModel !in DeepSeekClient.MODELS) {
+            error = "自定义接口请从 AI 讨论发送"
+            return
+        }
         observe(q)
         busy = true
         error = ""
         lastRequest = AiRequest(q, text, choices, type, code)
-        val requestedModel = model
         val activeSerial = ++serial
         request =
             AiRequestUiState(
