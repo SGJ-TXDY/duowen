@@ -20,6 +20,9 @@ internal data class AiRuntimeConfig(
     val beforeDispatch:suspend ()->Unit={},
     val waitDraft:suspend (Long)->Unit={ delay(it) },
     val draftNow:()->Long={ System.nanoTime()/1_000_000 },
+    val providers: AiProviderStore? = null,
+    val documentToolsEnabled: Boolean = false,
+    val documentToolTimeoutMillis: Long = 180_000,
 )
 
 /** Shared by all Repository and ViewModel entry points for a single database owner. */
@@ -29,7 +32,8 @@ internal class AiServices(private val db:QuizDatabase) {
     private var costStore:AiCostsStore?=null
     @Synchronized fun configure(value:AiRuntimeConfig) { check(runtime==null);config=value }
     @Synchronized fun conversations():AiConversationFacade = runtime ?: AiConversationRuntime(QuizRepository(db),
-        config ?: AiRuntimeConfig(KeyVault(db.storageContext)::read)).also { runtime=it }
+        config ?: AiRuntimeConfig(KeyVault(db.storageContext)::read,
+            providers = AiProviderStore.forContext(db.storageContext), documentToolsEnabled = true)).also { runtime=it }
     @Synchronized fun costs():AiCostsStore = costStore ?: AiCostsStore(db).also { costStore=it }
 }
 
@@ -84,7 +88,12 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
     // still be able to settle its existing row before replacement/close; it cannot accept commands.
     private fun newStore()=AiStore(db,dao,repo::question,config.now,config.zone,coordinatorEpoch,
         beforeCommit=config.beforeCommit,ownedByCoordinator=true,useCache=true)
-    private class Slot(val owner: RunOwner, val epoch: String, val memory: AiTemporaryDiscussion?) {
+    private class AgentProgress {
+        val execution: JSONObject = QuickNoteAgentProtocol.empty()
+        var price = AiUsageEvidence()
+    }
+
+    private class Slot(val owner: RunOwner, val epoch: String, val memory: AiTemporaryDiscussion?, val agent: AgentProgress?) {
         private val monitor=Any()
         private var accepting=true
         private var outcome:Pair<Long,AiChatResult>?=null
@@ -97,6 +106,8 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
         fun received(value:AiChatResult)=synchronized(monitor) {
             if(accepting && outcome==null) { seq=Math.addExact(seq,1);outcome=seq to value }
         }
+        fun take() = synchronized(monitor) { outcome.also { outcome = null } }
+        fun nextSeq() = synchronized(monitor) { Math.addExact(seq, 1).also { seq = it } }
         fun cutoff()=synchronized(monitor) { accepting=false;outcome.also { outcome=null } }
         fun closingSeq()=synchronized(monitor) { accepting=false;Math.addExact(seq,1) }
         fun busy()=BusyRun(owner,transport)
@@ -164,7 +175,7 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
             RejectCode.BUSY,RejectCode.REPLACING -> RecoveryAction.WAIT_IDLE
             RejectCode.NOT_READY -> RecoveryAction.REOPEN
             RejectCode.STALE_CONTEXT,RejectCode.STALE_SESSION,RejectCode.STALE_DRAFT,RejectCode.STALE_CURSOR -> RecoveryAction.RELOAD
-            RejectCode.INVALID -> RecoveryAction.EDIT
+            RejectCode.INVALID, RejectCode.PROVIDER_CHANGED -> RecoveryAction.EDIT
             RejectCode.CAPACITY_EXCEEDED -> RecoveryAction.EXPORT_BACKUP
             RejectCode.STORAGE_FAILED -> RecoveryAction.RESTART
             else -> RecoveryAction.NONE
@@ -499,7 +510,8 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
                 if (memory.owner != frozen.question) refuse(RejectCode.STALE_OWNER)
                 val replay = memory.dao.command(frozen.commandId) != null
                 if (!replay && active != null) refuse(RejectCode.BUSY)
-                return@action accepted(memory.store.accept(frozen.copy(question = memory.storedOwner)), replay, memory)
+                val route = bindProvider(frozen.model, replay)?.route
+                return@action accepted(memory.store.accept(frozen.copy(question = memory.storedOwner), route = route), replay, memory)
             }
             if (frozen.question.kind == AiOwnerKind.TEMPORARY) refuse(RejectCode.NOT_FOUND)
             val replay=dao.command(frozen.commandId)!=null
@@ -508,13 +520,16 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
                 require(AiJson.utf8(frozen.input)<=AiSnapshotCodec.INPUT_BYTES && AiJson.utf8(frozen.code)<=AiSnapshotCodec.INPUT_BYTES)
                 session(frozen.sessionId);flushPending(frozen.sessionId,propagate=true)
             }
-            accepted(store.accept(frozen),replay)
+            val provider = bindProvider(frozen.model, replay)
+            val allowTools = !replay && config.documentToolsEnabled &&
+                (provider?.supportsTools ?: (frozen.model in DeepSeekClient.MODELS))
+            accepted(store.accept(frozen, route = provider?.route, allowDocumentTools = allowTools), replay)
         }
     }
     override suspend fun startFreeDiscussion(command: AiFreeDiscussionCommand) = action {
         val replay = dao.command(command.commandId) != null
         if (!replay && active != null) refuse(RejectCode.BUSY)
-        accepted(store.startFreeDiscussion(command), replay)
+        accepted(store.startFreeDiscussion(command, bindProvider(command.model, replay)?.route), replay)
     }
 
     override suspend fun retry(command:RetryCommand)=action(command.owner.requestId) {
@@ -522,14 +537,39 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
         if (memory != null) {
             if (memory.owner != command.owner.question) refuse(RejectCode.STALE_OWNER)
             val replay = memory.dao.command(command.commandId) != null
-            if (!replay && active != null) refuse(RejectCode.BUSY)
+            if (!replay) {
+                if (active != null) refuse(RejectCode.BUSY)
+                checkRetryRoute(memory.dao, command.owner)
+            }
             val stored = command.owner.copy(question = memory.storedOwner)
             return@action accepted(memory.store.retry(command.commandId, stored), replay, memory)
         }
         if (command.owner.question.kind == AiOwnerKind.TEMPORARY) refuse(RejectCode.NOT_FOUND)
         val replay=dao.command(command.commandId)!=null
-        if(!replay) { if(active!=null) refuse(RejectCode.BUSY);session(command.owner.sessionId) }
+        if (!replay) {
+            if (active != null) refuse(RejectCode.BUSY)
+            session(command.owner.sessionId)
+            checkRetryRoute(dao, command.owner)
+        }
         accepted(store.retry(command.commandId,command.owner),replay)
+    }
+
+    private fun bindProvider(model: String, replay: Boolean): AiProviderProfile? {
+        if (replay || model in DeepSeekClient.MODELS) return null
+        require(AiModels.valid(model))
+        return try { config.providers?.bind(model) ?: throw AiProviderUnavailable() }
+        catch (_: Exception) { refuse(RejectCode.PROVIDER_CHANGED) }
+    }
+
+    private fun resolveCustomTarget(snapshot: JSONObject, route: AiFrozenRoute): AiResolvedTarget =
+        try { config.providers?.resolve(snapshot.getString("model"), route) ?: throw AiProviderUnavailable() }
+        catch (_: Exception) { throw AiProviderUnavailable() }
+
+    private suspend fun checkRetryRoute(targetDao: AiConversationDao, owner: RunOwner) {
+        val previous = targetDao.run(owner.requestId)?.takeIf { it.sessionId == owner.sessionId } ?: return
+        val snapshot = JSONObject(previous.contextSnapshot)
+        val route = AiFrozenRoute.read(snapshot) ?: return
+        try { resolveCustomTarget(snapshot, route) } catch (_: AiProviderUnavailable) { refuse(RejectCode.PROVIDER_CHANGED) }
     }
     private suspend fun accepted(row: AiCommandRow, replay: Boolean, memory: AiTemporaryDiscussion? = null): AcceptedReceipt {
         val targetDao = memory?.dao ?: dao
@@ -541,7 +581,8 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
         if (!replay) {
             if (memory == null) workbenchGeneration++
             if (r.status == "PREPARING") {
-                val slot = Slot(runOwner, coordinatorEpoch, memory)
+                val agent = if (r.contextSnapshotVersion == AiSnapshotCodec.DOCUMENT_AGENT_VERSION) AgentProgress() else null
+                val slot = Slot(runOwner, coordinatorEpoch, memory, agent)
                 active = slot
                 slot.job = scope.launch(start = CoroutineStart.ATOMIC) { execute(slot, r) }
             } else if (memory != null && r.source == "CACHE") {
@@ -559,16 +600,34 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
         try {
             currentCoroutineContext().ensureActive()
             config.beforeDispatch()
-            val key=try { config.readKey().trim() } catch(_:Exception) { "" }
+            val snapshot = JSONObject(row.contextSnapshot)
+            val route = AiFrozenRoute.read(snapshot)
+            val target = try {
+                if (route == null) AiResolvedTarget(config.transport.url, try { config.readKey().trim() } catch (_: Exception) { "" })
+                else resolveCustomTarget(snapshot, route)
+            } catch (_: AiProviderUnavailable) {
+                actor.withLock { if (owns(slot) && fault == null) finishWithoutReply(slot, "PROVIDER_CHANGED", RunStatus.FAILED) }
+                return
+            }
+            val key = target.key
             if(key.isEmpty() || key.length>4096 || key.any { it !in '!'..'~' }) {
                 actor.withLock { if(owns(slot) && fault==null) finishWithoutReply(slot,"CREDENTIALS_UNAVAILABLE",RunStatus.FAILED) }
                 return
             }
-            val exchange=config.transport.prepare(AiSnapshotCodec.payload(row.contextSnapshot),key,{ slot.reading();metadata() },slot::received)
+            if (slot.agent != null) {
+                slot.agent.price = if (route == null) config.price(row.model) else AiUsageEvidence()
+                try { withTimeout(config.documentToolTimeoutMillis) { executeAgent(slot, row, target, route) } }
+                catch (_: TimeoutCancellationException) {
+                    actor.withLock { if (owns(slot) && fault == null) finishWithoutReply(slot, "DOCUMENT_TOOL_TIMEOUT", RunStatus.FAILED) }
+                }
+                return
+            }
+            val exchange=config.transport.prepare(AiSnapshotCodec.payload(row.contextSnapshot),key,{ slot.reading();metadata() },slot::received,
+                endpointOverride = target.endpoint)
             val started=actor.withLock {
                 if(!owns(slot) || phase!=ServicePhase.READY || life.token()==null || fault!=null) false
                 else {
-                    slot.exchange=exchange;price=config.price(row.model)
+                    slot.exchange=exchange;price=if (route == null) config.price(row.model) else AiUsageEvidence()
                     withContext(NonCancellable) {
                         slot.dispatched(targetStore.dispatched(row.requestId, price))
                         if (slot.memory != null) {
@@ -587,6 +646,9 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
             catch(_:Exception) { slot.received(AiChatResult(error="NETWORK_FAILED")) }
             actor.withLock { if(owns(slot) && fault==null) settleReceived(slot,price) }
         } catch(e:CancellationException) { throw e }
+        catch (_: AiProviderUnavailable) {
+            actor.withLock { if (owns(slot) && fault == null) finishWithoutReply(slot, "PROVIDER_CHANGED", RunStatus.FAILED) }
+        }
         catch(_:Exception) { actor.withLock { if(owns(slot)) storageFault() } }
         finally {
             slot.exchange?.cancel()
@@ -603,8 +665,149 @@ internal class AiConversationRuntime(private val repo:QuizRepository,private val
             }
         }
     }
+    private suspend fun executeAgent(slot: Slot, row: AiRunRow, firstTarget: AiResolvedTarget, route: AiFrozenRoute?) {
+        val agent = requireNotNull(slot.agent)
+        val snapshot = JSONObject(row.contextSnapshot)
+        val tools = try {
+            db.quickNotesRepository.aiTools(slot.owner.question.questionId, slot.owner.question.contentHash)
+        } catch (e: AiStoreFailure) {
+            val code = when (e.code) {
+                RejectCode.NOT_FOUND, RejectCode.STALE_OWNER -> "SOURCE_CHANGED"
+                RejectCode.STORAGE_FAILED -> "DOCUMENT_UNAVAILABLE"
+                else -> throw e
+            }
+            actor.withLock { if (owns(slot) && fault == null) finishWithoutReply(slot, code, RunStatus.FAILED) }
+            return
+        }
+        val execution = agent.execution
+        while (true) {
+            currentCoroutineContext().ensureActive()
+            val frame = actor.withLock {
+                if (!owns(slot) || fault != null || phase != ServicePhase.READY) return
+                JSONObject(execution.toString())
+            }
+            val priorDispatches = frame.getInt("dispatches")
+            if (priorDispatches > 0) config.beforeDispatch()
+            val target = if (priorDispatches > 0 && route != null) resolveCustomTarget(snapshot, route) else firstTarget
+            val steps = frame.getJSONArray("steps")
+            val usedBytes = AiJson.objects(frame, "steps").sumOf { AiJson.encodedBytes(it.getJSONObject("result")) }
+            val final = steps.length() >= QuickNoteReadTools.MAX_STEPS ||
+                usedBytes + QuickNoteReadTools.RESULT_BYTES > QUICK_NOTE_CONTEXT_BYTES
+            val body = try { QuickNoteAgentProtocol.continuation(row.contextSnapshot, frame, final) }
+            catch (e: IllegalArgumentException) {
+                if (e.message != "INPUT_LIMIT") throw e
+                actor.withLock { if (owns(slot) && fault == null) finishWithoutReply(slot, "TOOL_LIMIT", RunStatus.FAILED) }
+                return
+            }
+            val exchange = config.transport.prepare(body, target.key, { slot.reading(); metadata() }, slot::received,
+                endpointOverride = target.endpoint, allowTools = true)
+            val started = actor.withLock {
+                currentCoroutineContext().ensureActive()
+                if (!owns(slot) || phase != ServicePhase.READY || life.token() == null || fault != null) false else {
+                    slot.exchange = exchange
+                    withContext(NonCancellable) {
+                        if (priorDispatches == 0) slot.dispatched(store.dispatched(row.requestId, agent.price))
+                        execution.put("dispatches", priorDispatches + 1)
+                        store.checkpoint(row.requestId, slot.nextSeq(), "", usage = QuickNoteAgentProtocol.usage(execution, agent.price),
+                            agentExecution = execution)
+                        slot.transport = TransportPhase.CONNECTING
+                        publish()
+                    }
+                    true
+                }
+            }
+            if (!started) { exchange.cancel(); return }
+            try { exchange.receive() }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) { slot.received(AiChatResult(error = "NETWORK_FAILED")) }
+            exchange.awaitClosed()
+
+            val calls = actor.withLock {
+                if (!owns(slot) || fault != null) return@withLock null
+                val (seq, result) = slot.take() ?: return@withLock null
+                val overBudget = result.toolCalls.size > QuickNoteReadTools.MAX_STEPS - steps.length() ||
+                    usedBytes + result.toolCalls.size * QuickNoteReadTools.RESULT_BYTES > QUICK_NOTE_CONTEXT_BYTES
+                val advance = settleAgentResponse(slot, seq, result, final, overBudget)
+                when (advance) {
+                    AgentAdvance.STOP -> null
+                    AgentAdvance.CORRECT -> emptyList()
+                    AgentAdvance.READ_TOOLS -> result.toolCalls
+                }
+            } ?: return
+
+            for (call in calls) {
+                currentCoroutineContext().ensureActive()
+                val output = try { tools.invoke(call) }
+                catch (e: CancellationException) { throw e }
+                catch (_: Exception) {
+                    actor.withLock { if (owns(slot) && fault == null) finishWithoutReply(slot, "INVALID_TOOL_CALL", RunStatus.FAILED) }
+                    return
+                }
+                actor.withLock {
+                    if (!owns(slot) || fault != null || phase != ServicePhase.READY) return
+                    if (AiJson.objects(execution, "steps").any { it.getJSONObject("call").getString("id") == call.id }) {
+                        finishWithoutReply(slot, "INVALID_TOOL_CALL", RunStatus.FAILED)
+                        return
+                    }
+                    withContext(NonCancellable) {
+                        execution.getJSONArray("steps").put(JSONObject().put("call", call.json()).put("result", output)
+                            .put("hop", execution.getJSONArray("usage").length()))
+                        store.checkpoint(row.requestId, slot.nextSeq(), "", usage = QuickNoteAgentProtocol.usage(execution, agent.price),
+                            agentExecution = execution)
+                        publish()
+                    }
+                }
+            }
+        }
+    }
+
+    private enum class AgentAdvance { STOP, CORRECT, READ_TOOLS }
+
+    /** Actor only. No plan or tool-call narration enters the message store. */
+    private suspend fun settleAgentResponse(slot: Slot, seq: Long, result: AiChatResult, final: Boolean = false,
+        overBudget: Boolean = false): AgentAdvance {
+        val agent = requireNotNull(slot.agent)
+        val row = requireNotNull(dao.run(slot.owner.requestId))
+        if (row.status !in setOf("PREPARING", "GENERATING")) return AgentAdvance.STOP
+        val execution = agent.execution
+        val usage = execution.getJSONArray("usage")
+        usage.put(QuickNoteAgentProtocol.usageJson(result.usage))
+        val tool = result.toolCalls.isNotEmpty()
+        val plan = !tool && QuickNoteAgentProtocol.planningOnly(result.text)
+        val advance = when {
+            !result.complete -> AgentAdvance.STOP
+            plan && !QuickNoteAgentProtocol.hasNudge(execution) -> AgentAdvance.CORRECT
+            tool && !final && !overBudget -> AgentAdvance.READ_TOOLS
+            else -> AgentAdvance.STOP
+        }
+        if (advance == AgentAdvance.CORRECT) execution.put("nudgeAfter", usage.length())
+        val error = when {
+            !result.complete -> result.error ?: "INVALID_RESPONSE"
+            advance == AgentAdvance.CORRECT -> null
+            plan -> "INCOMPLETE_ANSWER"
+            tool && advance == AgentAdvance.STOP -> "TOOL_LIMIT"
+            else -> null
+        }
+        val terminal = if (advance != AgentAdvance.STOP) null else if (error == null) RunStatus.COMPLETED else RunStatus.FAILED
+        var text = if (tool || plan) "" else result.text
+        if (terminal == RunStatus.COMPLETED) {
+            val input = JSONObject(row.contextSnapshot).getJSONObject("data").getString("input")
+            if (QuickNoteAgentProtocol.requiresNoteEvidence(input) && QuickNoteAgentProtocol.references(execution).isEmpty())
+                text = QuickNoteReadTools.NO_EVIDENCE
+            if (final) text = QuickNoteReadTools.LIMIT_NOTE + "\n\n" + text
+        }
+        withContext(NonCancellable) {
+            store.checkpoint(row.requestId, seq, text, terminal, QuickNoteAgentProtocol.usage(execution, agent.price),
+                errorCode = error, finishReason = result.finish, providerResponseId = result.responseId, agentExecution = execution)
+        }
+        if (terminal != null) { slot.cutoff(); slot.transport = TransportPhase.CLEANING; workbenchGeneration++ }
+        publish()
+        return advance
+    }
+
     private suspend fun settleReceived(slot:Slot,price:AiUsageEvidence?=null) {
         val (seq,value)=slot.cutoff() ?: return
+        if (slot.agent != null) { settleAgentResponse(slot, seq, value); return }
         val targetDao = slot.memory?.dao ?: dao
         val targetStore = slot.memory?.store ?: store
         val row=requireNotNull(targetDao.run(slot.owner.requestId))

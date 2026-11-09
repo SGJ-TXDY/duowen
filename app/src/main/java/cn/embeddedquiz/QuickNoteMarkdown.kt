@@ -162,14 +162,22 @@ class QuickNoteMarkdown {
         return id
     }
 
-    internal fun aiDocument(markdown: String): QuickNoteAiDocument {
+    internal fun aiDocument(markdown: String, rawMarkdown: Boolean = false): QuickNoteAiDocument {
         val used = mutableSetOf<String>()
         val paragraphs = mutableListOf<QuickNoteAiParagraph>()
         val headings = mutableListOf<QuickNoteHeading>()
         var heading = QuickNoteHeading("", 0, "文档开头")
         var ordinal = 0
-        fun add(text: String, code: Boolean = false) {
-            if (text.isNotBlank()) paragraphs += QuickNoteAiParagraph(heading, ++ordinal, text.trim(), code)
+        val offsets = linkedMapOf<String, IntRange>()
+        fun span(node: Node): IntRange {
+            val spans = node.sourceSpans
+            return if (spans.isEmpty()) 0 until 0 else spans.first().inputIndex until
+                (spans.last().inputIndex + spans.last().length)
+        }
+        fun add(node: Node, text: String, code: Boolean = false) {
+            val range = span(node)
+            val body = if (rawMarkdown) markdown.substring(range.first, range.last + 1) else text.trim()
+            if (body.isNotBlank()) paragraphs += QuickNoteAiParagraph(heading, ++ordinal, body, code, range.first, range.last + 1)
         }
         fun visit(node: Node) {
             when (node) {
@@ -177,19 +185,22 @@ class QuickNoteMarkdown {
                     val title = plain(node)
                     heading = QuickNoteHeading(headingId(title, used), node.level, title)
                     headings += heading
+                    offsets[heading.id] = span(node)
                     ordinal = 0
                 }
-                is Paragraph, is TableBlock -> add(aiPlain(node))
-                is FencedCodeBlock -> add(node.literal, code = true)
-                is IndentedCodeBlock -> add(node.literal, code = true)
+                is Paragraph, is TableBlock -> add(node, aiPlain(node))
+                is FencedCodeBlock -> add(node, node.literal, code = true)
+                is IndentedCodeBlock -> add(node, node.literal, code = true)
+                is HtmlBlock -> if (rawMarkdown) add(node, node.literal)
                 else -> {
                     var child = node.firstChild
                     while (child != null) { visit(child); child = child.next }
                 }
             }
         }
-        visit(parser.parse(markdown))
-        return QuickNoteAiDocument(headings, paragraphs)
+        val sourceParser = Parser.builder().extensions(extensions).includeSourceSpans(IncludeSourceSpans.BLOCKS).build()
+        visit(sourceParser.parse(markdown))
+        return QuickNoteAiDocument(headings, paragraphs, offsets)
     }
 
     private fun aiPlain(node: Node): String = buildString {

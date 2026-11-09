@@ -41,33 +41,44 @@ class KeyVault(val context: Context) {
             .generateKey()
     }
 
-    fun save(value: String) {
+    fun save(value: String) = saveSlot("", value)
+
+    internal fun saveSlot(slot: String, value: String) {
+        val prefix = slotPrefix(slot)
         if (value.isBlank()) {
-            prefs.writeDurably { clear() }
+            prefs.writeDurably { remove(prefix + "iv"); remove(prefix + "value") }
             return
         }
         val cipher =
             Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
         val bytes = cipher.doFinal(value.trim().toByteArray(Charsets.UTF_8))
         prefs.writeDurably {
-            putString("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
-            putString("value", Base64.encodeToString(bytes, Base64.NO_WRAP))
+            putString(prefix + "iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+            putString(prefix + "value", Base64.encodeToString(bytes, Base64.NO_WRAP))
         }
     }
 
-    fun read(): String {
-        val value = prefs.getString("value", null) ?: return ""
+    fun read(): String = readSlot("")
+
+    internal fun readSlot(slot: String): String {
+        val prefix = slotPrefix(slot)
+        val value = prefs.getString(prefix + "value", null) ?: return ""
         return Cipher.getInstance("AES/GCM/NoPadding").run {
             init(
                 Cipher.DECRYPT_MODE,
                 key(),
-                GCMParameterSpec(128, Base64.decode(prefs.getString("iv", null), Base64.NO_WRAP)),
+                GCMParameterSpec(128, Base64.decode(prefs.getString(prefix + "iv", null), Base64.NO_WRAP)),
             )
             String(doFinal(Base64.decode(value, Base64.NO_WRAP)), Charsets.UTF_8)
         }
     }
 
-    fun exists() = prefs.contains("value")
+    fun exists() = existsSlot("")
+    internal fun existsSlot(slot: String) = prefs.contains(slotPrefix(slot) + "value")
+    private fun slotPrefix(slot: String): String {
+        require(slot.isEmpty() || slot.matches(Regex("[a-f0-9-]{36}")))
+        return if (slot.isEmpty()) "" else "custom.$slot."
+    }
 }
 
 class AiFailure(message: String) : Exception(message)

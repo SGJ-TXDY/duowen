@@ -189,9 +189,10 @@ internal class AiPageReader(private val dao:AiConversationDao,private val repo:Q
     fun run(row:AiRunRow,question:QuestionOwner,canRetry:Boolean)=RunView(RunOwner(question,row.sessionId,row.requestId),
         RunStatus.valueOf(row.status),RunSource.valueOf(row.source),row.retryOf,row.sourceRequestId,
         UsageView(row.inputTokens,row.outputTokens,row.hitTokens,UsageState.valueOf(row.usageStatus),row.estimatedUsd?.let(::BigDecimal),row.currency,row.priceVersion),
-        row.errorCode ?: row.terminalReason,canRetry,
+        row.errorCode ?: row.terminalReason,canRetry && row.errorCode != "PROVIDER_CHANGED",
         if (question.kind == AiOwnerKind.QUICK_NOTE) AiSnapshotCodec.documentReferences(row.contextSnapshot) else emptyList(),
-        if (row.contextSnapshotVersion == AiSnapshotCodec.DOCUMENT_REQUEST_VERSION) AiSnapshotCodec.documentCoverage(row.contextSnapshot)
+        if (row.contextSnapshotVersion == AiSnapshotCodec.DOCUMENT_REQUEST_VERSION ||
+            row.contextSnapshotVersion == AiSnapshotCodec.DOCUMENT_AGENT_VERSION) AiSnapshotCodec.documentCoverage(row.contextSnapshot)
         else null)
     suspend fun messages(sid:String,after:PageCursor?,limit:Int,busy:Boolean):AiPage<MessageView> {
         require(limit in 1..100);val s=dao.session(sid) ?: throw AiStoreFailure(RejectCode.NOT_FOUND)

@@ -438,6 +438,14 @@ class QuickNotesRepository(private val directory: File) {
         selectQuickNoteAiContext(document, sectionId, query, previous)
     }
 
+    internal suspend fun aiTools(id: String, hash: String): QuickNoteReadTools = aiRead {
+        val entry = readIndex().firstOrNull { it.summary.id == id } ?: throw AiStoreFailure(RejectCode.NOT_FOUND)
+        if (entry.summary.contentHash != hash) throw AiStoreFailure(RejectCode.STALE_OWNER)
+        if (!markdownFile(entry).isFile) throw AiStoreFailure(RejectCode.NOT_FOUND)
+        val text = QuickNotePaths.utf8(markdown(entry))
+        QuickNoteReadTools(text, renderer.aiDocument(text, rawMarkdown = true))
+    }
+
     internal suspend fun previewAiContext(document: QuickNoteSummary, section: QuickNoteHeading?, query: String): ResultOf<QuickNoteAiContext> =
         aiLocalResult { aiContext(document.id, document.contentHash, section?.id, query) }
 

@@ -122,7 +122,7 @@ internal object AiDeletedCostLedger {
     fun validate(row: JSONObject): JSONObject {
         require(row.keys().asSequence().toSet() == columns.toSet())
         LocalDate.ofEpochDay(AiJson.long(row, "billingDay"))
-        require(AiJson.string(row, "model") in AiSnapshotCodec.MODELS_V1)
+        require(AiModels.validBillingModel(AiJson.string(row, "model")))
         require(AiJson.string(row, "currency").matches(Regex("[A-Z]{3}")))
         AiJson.decimal(AiJson.string(row, "knownEstimated"))
         val counters = columns.drop(4).map { AiJson.long(row, it) }
