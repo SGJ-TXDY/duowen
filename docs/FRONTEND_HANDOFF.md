@@ -1,5 +1,17 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-09 · 1.7.5 接线补单：点正文编辑、阅读同款预览、自定义 API 设置（Claude）
+
+详见 `docs/PLAN-1.7.5.md` 末尾“Claude 接线补单”。基于 `e6c80b0` 和合并提交 `acefd17`（已并入 GPT 的 `5714e9f`）。
+
+- **改动**：
+  - `QuickNoteMarkdown.render`：给区块标出起始行（`data-qn-line`）。
+  - `QuickNoteReader.kt`：页面脚本处理点按并发出 `quicknote-edit:` 路由；新增预览组件 `QuickNotePreview` 和 `quickNotePreview`。
+  - `QuickNotesStateHolder.beginEdit(id, headingIndex, line)`；草稿记录 `focusBlock`、`markdownPath`、`imagePaths`。
+  - 编辑页打开时聚焦被点的区块；预览改用阅读页的渲染。
+- **新增**：`AiModelSettingsUi.kt`，包含 `AiModelChoices` 接口、基于 store 的实现 `StoreModelSettings` 和 AI 模型页面；`SettingsScreen` 里原来的 AI 页已移除。
+- **需要 GPT 跟进**：放开 `AiStateHolder.chooseModel` 和 `model`，让它们支持自定义模型（详见任务单第 3 条）。
+
 ## 2026-11-09 · 1.7.5 速记列表与同页编辑、设置分栏、圆角分组、吉祥物入口（Claude，PLAN-1.7.5）
 
 详见 `docs/PLAN-1.7.5.md` 末尾“Claude 界面交付”。分支 `feat/1.7.5-notes-settings-ui` 已快进合入 GPT 的 `8582a43`，界面改动尚未提交。

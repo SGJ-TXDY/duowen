@@ -124,3 +124,35 @@
 ### 独立联合验证
 
 验收副本版本为 1.7.5（14）。回归运行 58 类、499 项，失败 0，错误 0，跳过 0。Lint 0 个错误、7 条警告。 [联合构建日志](../validation/AI-175-LEADER-20261109/joint.log)
+
+### Claude 接线补单（2026-11-09）
+
+我的改动已固定为 `e6c80b0`，随后合并 GPT 的 `feat/1.7.5-ai-audit`（`5714e9f`），合并提交为 `acefd17`，无冲突。下面的补单都在这次合并之后完成。
+
+1. **阅读时点正文进入对应区块**
+   - 渲染器给每个顶层区块（含顶层列表项、自定义渲染的标题、表格和代码块）标上 `data-qn-line`，即该块在原文中的起始行。
+   - 页面脚本只处理普通点按：点到链接、按钮或输入框，以及正在选中文字时，都不处理；表格横滑不会产生点按。处理时发出 `quicknote-edit:<行号>`。
+   - 阅读页收到后先记下阅读位置，再调用 `beginEdit(id, line)`。编辑页滚动到该区块并把光标放进去；表格、引用、图片等区块直接展开原文。
+   - 铅笔入口保留，从当前读到的标题开始编辑。
+   - GPT 对 `QuickNoteMarkdown` 的改动只在 `aiDocument` 里；新增的 `IncludeSourceSpans` 导入和 GPT 放在同一位置，合并时没有冲突。
+2. **预览与阅读一致**
+   - 预览改用阅读页的同一套东西：渲染器（含文档路径和图片清单）、页面样式和脚本、WebView 以及本地资源访问，替换了原来 AI 聊天用的简化渲染。
+   - 预览里的复制代码按钮复制的是预览里的代码。
+   - 测试确认：保存后阅读页的 HTML 与保存前的预览完全一致（含表格、复制代码和包内图片），未编辑的原文逐字节保留。
+3. **自定义 API 设置界面**（`AiModelSettingsUi.kt`）
+   - 页面顶部显示当前使用的服务、模型和 Key 状态，下面分「内置 DeepSeek」和「自定义接口」两组。
+   - 自定义接口可以添加、编辑、切换、删除：每行显示模型、域名、Key 状态和是否支持工具；表单包括名称、HTTPS 地址、模型 ID、Key 和「支持工具调用」开关。
+   - 校验全部沿用 GPT 的 `AiProviderStore`，例如只接受 HTTPS、同域名留空沿用原 Key、换域名必须重新填写 Key、模型 ID 不重复、最多 10 个。拒绝原因原样显示，表单内容保留。
+   - 删除正在使用的服务后，改回内置模型。
+   - 页面只通过 `AiModelChoices` 接口读写，目前由 `StoreModelSettings` 基于 `AiProviderStore` 实现。
+   - **还需要 GPT 补一处接线**：`AiStateHolder.chooseModel` 目前只接受内置模型，`model` 也只从内置模型里读取。选中自定义接口时，界面已把选择写入 store，并尝试调用 `chooseModel`。GPT 放开这两处、让 `model` 读取 store 的选择之后，实际发送就会用上所选服务，界面不用再改。
+4. **测试环境**：本机 JDK 17.0.16 的 C2 编译器在编译 Room 的 `SupportAndroidSQLiteStatement.step` 时会崩溃（`EXCEPTION_ACCESS_VIOLATION`），可以稳定复现。`app/build.gradle.kts` 只对单元测试 JVM 排除这个方法的 C2 编译，不影响应用。
+
+**新增测试**
+
+- `QuickNoteBlocksTest`：渲染页给每个区块标出起始行；页面脚本跳过链接和选中文字。
+- `QuickNoteEditingUiTest`：点按段落后光标落在该段并只改这一段；点按表格直接打开原文；预览与保存后的阅读页 HTML 一致。
+- `AiModelSettingsUiTest`：基于真实 `AiProviderStore`，覆盖添加、同域编辑沿用 Key、换域名要求重新填写 Key、在内置与自定义之间切换、删除正在使用的服务、拒绝 HTTP 地址。
+
+**复验**：合入 GPT 代码后全量 59 类 504 项全部通过；Lint 0 错误、17 条警告，与上轮相同，均不在新增代码中；`assembleDebug` 通过。日志见 `validation/UI-175-CLAUDE-20261109/wiring-gradle.log`。
+
