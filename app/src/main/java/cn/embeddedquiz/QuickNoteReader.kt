@@ -70,7 +70,17 @@ internal fun QuickNoteReader(
     val zoom = (LocalDensity.current.fontScale * 100).roundToInt()
     val web = remember(id) { ReaderWeb(id, rendered.headings.map { it.id }.toSet(), document.summary.position) }
     val saves = remember(id) { Channel<Unit>(Channel.CONFLATED) }
-    SideEffect { web.onScrolled = { saves.trySend(Unit) } }
+    SideEffect {
+        web.onScrolled = { saves.trySend(Unit) }
+        // Tapping the text edits that block, starting where it is.
+        web.onEdit = { line ->
+            if (!notes.state.working)
+                web.capture { position ->
+                    if (position != null) notes.savePosition(id, position)
+                    notes.beginEdit(id, line = line)
+                }
+        }
+    }
     var tocOpen by rememberSaveable { mutableStateOf(false) }
     var warningsOpen by rememberSaveable { mutableStateOf(false) }
     // The discussion opens over the page, which stays alive underneath: back lands on the same spot.
@@ -129,6 +139,19 @@ internal fun QuickNoteReader(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(start = 4.dp),
             )
+            // Editing starts at the heading reading had reached (PLAN-1.7.5).
+            IconButton(
+                onClick = {
+                    web.capture { position ->
+                        if (position != null) notes.savePosition(id, position)
+                        notes.beginEdit(id, rendered.headings.indexOfFirst { it.id == position?.anchor })
+                    }
+                },
+                enabled = !notes.state.working,
+                modifier = Modifier.size(48.dp).testTag("quick-note-edit"),
+            ) {
+                Icon(AppIcons.Pencil, contentDescription = "编辑速记")
+            }
             if (ai != null)
                 IconButton(
                     onClick = { openAi() },
@@ -266,6 +289,10 @@ private class ReaderWeb(val documentId: String, private val anchors: Set<String>
     var lastInteraction = 0L
     var position = start
     var onScrolled: () -> Unit = {}
+    /** A plain tap on a block: its first source line (PLAN-1.7.5). */
+    var onEdit: (Int) -> Unit = {}
+    /** The code the page shows when it is not the open document (the editor's preview). */
+    @Volatile var codeBlocks: Map<String, String>? = null
 
     fun load(view: WebView, html: String, background: Int) {
         if (loaded == html) return
@@ -388,8 +415,12 @@ private class ReaderClient(
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         val url = request.url
         when {
-            url.scheme == "quicknote-copy" ->
-                toast(context, if (notes.copyCode(url.schemeSpecificPart)) "已复制代码" else "无法复制这段代码")
+            url.scheme == "quicknote-copy" -> {
+                val id = url.schemeSpecificPart
+                val copied = web.codeBlocks?.get(id)?.let { notes.copyText(it) } ?: notes.copyCode(id)
+                toast(context, if (copied) "已复制代码" else "无法复制这段代码")
+            }
+            url.scheme == "quicknote-edit" -> quickNoteEditLine(url.schemeSpecificPart)?.let(web.onEdit)
             // In-page anchors resolve against the virtual origin; keep them in this document.
             url.host == ASSET_HOST -> url.fragment?.let { web.jump(it) }
             url.scheme in setOf("http", "https", "mailto") ->
@@ -431,6 +462,39 @@ private class ReaderClient(
 }
 
 private fun toast(context: Context, text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+
+/** The line a `quicknote-edit:` tap reports, or null for anything else. */
+internal fun quickNoteEditLine(part: String?): Int? = part?.toIntOrNull()?.takeIf { it in 0..10_000_000 }
+
+/** What the editor's preview shows: the reader's own rendering of the draft, with the document's images. */
+internal fun quickNotePreview(draft: QuickNoteDraft): QuickNoteRendered =
+    QuickNoteMarkdown().render(draft.markdown(), draft.documentId ?: "preview", draft.markdownPath, draft.imagePaths)
+
+/**
+ * The draft as it will read once saved: the same renderer, page, styles and local image access as
+ * the reader, so tables scroll, code copies and images show the same way.
+ */
+@Composable
+internal fun QuickNotePreview(notes: QuickNotesStateHolder, draft: QuickNoteDraft, modifier: Modifier = Modifier) {
+    val colors = quickNoteColors()
+    val zoom = (LocalDensity.current.fontScale * 100).roundToInt()
+    val rendered = remember(draft.blocks, draft.baseMarkdown, draft.documentId) { quickNotePreview(draft) }
+    val web = remember(draft.documentId) { ReaderWeb(draft.documentId ?: "preview", rendered.headings.map { it.id }.toSet(), QuickNotePosition()) }
+    SideEffect { web.codeBlocks = rendered.codeBlocks }
+    val html = remember(rendered.htmlBody, colors) { quickNoteHtml(rendered.htmlBody, colors, newNonce()) }
+    AndroidView(
+        factory = { ctx -> createReaderWebView(ctx, web, notes, colors.background) {} },
+        update = { view ->
+            view.settings.textZoom = zoom
+            web.load(view, html, colors.background)
+        },
+        onRelease = { view ->
+            web.view = null
+            view.destroy()
+        },
+        modifier = modifier.testTag("quick-note-preview-web"),
+    )
+}
 
 private fun newNonce() = UUID.randomUUID().toString().replace("-", "")
 
@@ -522,6 +586,11 @@ e.preventDefault();var id=link.getAttribute('href').slice(1);try{id=decodeURICom
 function broken(img){var s=document.createElement('span');s.className='qn-missing-image';s.setAttribute('role','note');
 s.textContent='图片无法显示：'+(img.getAttribute('alt')||'未命名图片')+'。文件可能已损坏或格式不受支持。';img.replaceWith(s);}
 Array.prototype.forEach.call(document.images,function(img){if(img.complete&&img.naturalWidth===0){broken(img);}else{img.addEventListener('error',function(){broken(img);});}});
+document.addEventListener('click',function(e){if(e.defaultPrevented||!e.target.closest)return;
+if(e.target.closest('a,button,input,textarea,select'))return;
+var sel=window.getSelection?window.getSelection():null;if(sel&&!sel.isCollapsed)return;
+var b=e.target.closest('[data-qn-line]');if(!b)return;
+window.location.href='quicknote-edit:'+b.getAttribute('data-qn-line');});
 })();"""
 
 /** Discussions about the open document, over the reader. Back from the list returns to the page. */

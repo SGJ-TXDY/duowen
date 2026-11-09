@@ -126,7 +126,7 @@ class QuickNotesUiTest {
         val answers = vm.examAnswers
 
         openNotes()
-        inList(hasText("还没有速记文档")).assertExists()
+        inList(hasText("还没有速记")).assertExists()
         assertEquals(Page.HOME, vm.page)
 
         ui.onNodeWithContentDescription("导航到错题").performClick()
@@ -191,11 +191,13 @@ class QuickNotesUiTest {
         openNotes()
         importLinux()
         val doc = vm.quickNotes.state.documents.single()
-        inList(hasContentDescription("删除《${doc.title}》")).performClick()
+        // Deleting moved into each note's ⋯ menu (PLAN-1.7.5).
+        inList(hasContentDescription("更多操作：${doc.title}")).performClick()
+        ui.onNodeWithText("删除").performClick()
         ui.onNodeWithText("将删除这份文档的正文、图片和阅读位置，无法撤销。刷题数据不受影响。").assertExists()
         ui.onNodeWithText("删除").performClick()
         await { !vm.quickNotes.state.working && vm.quickNotes.state.documents.isEmpty() }
-        inList(hasText("还没有速记文档")).assertExists()
+        inList(hasText("还没有速记")).assertExists()
     }
 
     @Test

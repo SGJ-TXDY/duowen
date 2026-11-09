@@ -19,7 +19,17 @@ import androidx.compose.ui.unit.dp
  */
 internal object PagePolicy {
     /** Opened from 更多 (the notes list also from a question): each has a top bar and no tab bar. */
-    val subPages = setOf(Page.REVIEW, Page.NOTES, Page.WORKBENCH, Page.STATISTICS, Page.AI_DISCUSSIONS, Page.COSTS, Page.SETTINGS, Page.ERROR_LOG)
+    val subPages =
+        setOf(
+            Page.REVIEW, Page.NOTES, Page.WORKBENCH, Page.STATISTICS, Page.AI_DISCUSSIONS, Page.COSTS, Page.SETTINGS,
+            Page.SETTINGS_APPEARANCE, Page.SETTINGS_AI, Page.SETTINGS_REVIEW, Page.SETTINGS_DATA, Page.ERROR_LOG,
+        )
+
+    /** 设置 and its sections are rounded groups on the group page color, inset by the page itself (PLAN-1.7.5). */
+    val groupedPages =
+        setOf(Page.SETTINGS, Page.SETTINGS_APPEARANCE, Page.SETTINGS_AI, Page.SETTINGS_REVIEW, Page.SETTINGS_DATA, Page.ERROR_LOG)
+
+    fun isGrouped(page: Page) = page in groupedPages
 
     fun isSubPage(page: Page) = page in subPages
 
@@ -38,6 +48,7 @@ internal object PagePolicy {
         when (page) {
             Page.NOTES -> "全局标签"
             Page.STATISTICS -> "学习统计与历史"
+            Page.ERROR_LOG -> "诊断"
             else -> page.label
         }
 
@@ -55,8 +66,13 @@ internal object PagePolicy {
             // Opened from the home screen's practice modes, so back returns there.
             Page.BROWSE,
             Page.PROGRAMMING -> Page.HOME
-            Page.ERROR_LOG -> Page.SETTINGS
-            Page.COSTS -> if (costsFrom == Page.SETTINGS) Page.SETTINGS else Page.MORE
+            Page.ERROR_LOG,
+            Page.SETTINGS_APPEARANCE,
+            Page.SETTINGS_AI,
+            Page.SETTINGS_REVIEW,
+            Page.SETTINGS_DATA -> Page.SETTINGS
+            // Opened from 设置 (before 1.7.5) or its AI 模型 section: back returns there.
+            Page.COSTS -> if (costsFrom == Page.SETTINGS || costsFrom == Page.SETTINGS_AI) costsFrom else Page.MORE
             Page.REVIEW,
             Page.WORKBENCH,
             Page.STATISTICS,

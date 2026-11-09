@@ -547,7 +547,6 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
     // Only confirmed answers are highlighted; pending ones stay as plain reference text.
     val answerKeys = personal?.selected ?: if (q.autoGradable) q.correct else emptySet()
     var notesOpen by rememberSaveable { mutableStateOf(false) }
-    var aiOpen by rememberSaveable { mutableStateOf(false) }
     var infoOpen by rememberSaveable { mutableStateOf(false) }
     val controls = ExamControls(vm)
     var confirm by remember { mutableStateOf<ExamConfirm?>(null) }
@@ -638,11 +637,13 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                 allowRetry = editable,
                 Modifier.padding(horizontal = 16.dp).padding(top = 6.dp),
             )
+        Box(Modifier.weight(1f)) {
         LazyColumn(
-            Modifier.weight(1f).testTag("question-list").semantics { contentDescription = "题目${q.id}" },
+            Modifier.fillMaxSize().testTag("question-list").semantics { contentDescription = "题目${q.id}" },
             state = draft.scroll,
             verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
+            // Outside an exam the mascot floats bottom right; the last block can scroll clear of it.
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = if (exam) 24.dp else 96.dp),
         ) {
             if (exam && controls.state != ExamOperationState.Idle)
                 item {
@@ -940,12 +941,6 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                     }
                 }
                 item {
-                    AiAssistantSection(open = aiOpen, onToggle = { aiOpen = !aiOpen }) { type ->
-                        aiPage = true
-                        if (type != null) ai.quick(type)
-                    }
-                }
-                item {
                     ExpandableSection(
                         icon = AppIcons.Info,
                         title = "题目信息",
@@ -961,6 +956,13 @@ fun QuestionContent(vm: QuizViewModel, q: Question) {
                             InfoLine("同题关联", "${q.duplicateOf}（来源和学习记录独立）")
                     }
                 }
+            }
+        }
+        // A mock exam keeps its original limits: no AI entry while it runs (PLAN-1.7.5).
+        if (!exam)
+            AiMascotEntry(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 12.dp)) { type ->
+                aiPage = true
+                if (type != null) ai.quick(type)
             }
         }
         QuestionActionBar {
@@ -1334,35 +1336,7 @@ private fun InfoLine(label: String, value: String) {
 internal fun aiCostTextColor(colors: ColorScheme) = colors.onSurfaceVariant
 
 /**
- * Entry to the multi-turn AI discussions of this question. It reads nothing from the AI backend, so
- * showing it does not move the send right; opening the page or a one-tap request does.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-internal fun AiAssistantSection(open: Boolean, onToggle: () -> Unit, onOpen: (AiRequestType?) -> Unit) {
-    ExpandableSection(
-        icon = AppIcons.Chat,
-        title = "AI 学习助手",
-        summary = "多轮讨论 · DeepSeek · 需自行核实",
-        expanded = open,
-        onToggle = onToggle,
-    ) {
-        Text(
-            "发送时会把本题、参考答案、所选选项和本讨论最近几轮内容发送到 DeepSeek。AI 内容独立存储，不写入题库、不参与判分。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Button(onClick = { onOpen(null) }, modifier = Modifier.heightIn(min = 48.dp).testTag("ai-open")) {
-            Text("打开 AI 讨论")
-        }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AI_QUICK_TYPES.forEach { type -> AiQuickChip(type.label, true) { onOpen(type) } }
-        }
-    }
-}
-
-/**
- * Not mounted any more: the question page uses [AiAssistantSection] and the discussions page. Kept
+ * Not mounted any more: the question page uses [AiMascotEntry] and the discussions page. Kept
  * only while AiConversationUiTest still covers the old single-turn holder; remove both together.
  *
  * The question's AI conversation. Saved history comes from [AiStateHolder.entries]; the pending

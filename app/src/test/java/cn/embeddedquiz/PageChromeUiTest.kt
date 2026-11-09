@@ -179,6 +179,11 @@ class PageChromeUiTest {
         assertEquals(Page.MORE, PagePolicy.parent(Page.AI_DISCUSSIONS, Page.MORE))
         assertEquals(Page.SETTINGS, PagePolicy.parent(Page.ERROR_LOG, Page.MORE))
         assertEquals(Page.SETTINGS, PagePolicy.parent(Page.COSTS, Page.SETTINGS))
+        assertEquals(Page.SETTINGS_AI, PagePolicy.parent(Page.COSTS, Page.SETTINGS_AI))
+        listOf(Page.SETTINGS_APPEARANCE, Page.SETTINGS_AI, Page.SETTINGS_REVIEW, Page.SETTINGS_DATA).forEach {
+            assertTrue(it.name, PagePolicy.isSubPage(it))
+            assertEquals(it.name, Page.SETTINGS, PagePolicy.parent(it, Page.MORE))
+        }
         assertEquals(Page.MORE, PagePolicy.parent(Page.COSTS, Page.MORE))
         assertEquals(Page.HOME, PagePolicy.parent(Page.BROWSE, Page.MORE))
 
@@ -238,17 +243,33 @@ class PageChromeUiTest {
     fun settingsChildrenReturnToSettings() {
         openMore()
         openFromMore("设置", Page.SETTINGS)
-        ui.onNodeWithTag("settings-list").performScrollToNode(hasText("查看按日、按模型费用估算"))
-        ui.onNodeWithText("查看按日、按模型费用估算").performClick()
+        // Every section of 设置 (PLAN-1.7.5) is a sub-page whose back, either way, returns to 设置.
+        listOf(
+                Triple("外观", Page.SETTINGS_APPEARANCE, "外观"),
+                Triple("AI 模型", Page.SETTINGS_AI, "AI 模型"),
+                Triple("复习设置", Page.SETTINGS_REVIEW, "复习设置"),
+                Triple("题库与备份", Page.SETTINGS_DATA, "题库与备份"),
+                Triple("诊断", Page.ERROR_LOG, "诊断"),
+            )
+            .forEachIndexed { index, (row, page, title) ->
+                ui.onNodeWithTag("settings-list").performScrollToNode(hasText(row))
+                ui.onNode(hasText(row) and hasClickAction()).performClick()
+                await { vm.page == page }
+                assertSubPageChrome(title)
+                assertFalse(tabBarShown())
+                if (index % 2 == 0) systemBack() else topBack()
+                assertEquals(row, Page.SETTINGS, vm.page)
+            }
+
+        // The cost estimate opened from AI 模型 returns there, then to 设置.
+        ui.onNode(hasText("AI 模型") and hasClickAction()).performClick()
+        await { vm.page == Page.SETTINGS_AI }
+        ui.onNodeWithTag("settings-ai").performScrollToNode(hasText("AI 费用估算"))
+        ui.onNode(hasText("AI 费用估算") and hasClickAction()).performClick()
         await { vm.page == Page.COSTS }
         assertSubPageChrome("AI 费用估算")
         topBack()
-        assertEquals(Page.SETTINGS, vm.page)
-
-        ui.onNodeWithTag("settings-list").performScrollToNode(hasText("查看本地错误记录"))
-        ui.onNodeWithText("查看本地错误记录").performClick()
-        await { vm.page == Page.ERROR_LOG }
-        assertSubPageChrome("本地错误记录")
+        assertEquals(Page.SETTINGS_AI, vm.page)
         systemBack()
         assertEquals(Page.SETTINGS, vm.page)
         systemBack()
@@ -369,6 +390,6 @@ class PageChromeUiTest {
         await { vm.quickNotes.state.visible }
         scrollToEnd("quick-notes-list")
         assertFullyVisible(ui.onNodeWithText("速记单独存放", substring = true), "quick-notes-list")
-        assertFullyVisible(ui.onNodeWithText("还没有速记文档"), "quick-notes-list")
+        assertFullyVisible(ui.onNodeWithText("还没有速记"), "quick-notes-list")
     }
 }

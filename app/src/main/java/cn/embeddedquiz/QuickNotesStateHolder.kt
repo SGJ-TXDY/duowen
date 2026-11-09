@@ -136,6 +136,9 @@ class QuickNotesStateHolder(
     suspend fun readAsset(id: String, encodedPath: String) = repository.readAsset(id, encodedPath)
     fun copyCode(blockId: String): Boolean {
         val code = state.reader?.rendered?.codeBlocks?.get(blockId) ?: return false
+        return copyText(code)
+    }
+    fun copyText(code: String): Boolean {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
         clipboard.setPrimaryClip(android.content.ClipData.newPlainText("代码", code))
         return true
@@ -156,4 +159,149 @@ class QuickNotesStateHolder(
         refresh()
     }
     fun shutdown() = positions.close()
+
+    // ---- the document page's draft (PLAN-1.7.5) ----
+
+    /**
+     * The one draft of the 速记 document page, bound to the document and the version it was read at
+     * (null id: a new note). Leaving 速记 by a tab, a notification or the AI page keeps it; it shows
+     * again where it belongs (the new note in place of the library, an edit over its own document),
+     * so no path drops typed text and no document ever shows another one's edits.
+     */
+    var draft by mutableStateOf<QuickNoteDraft?>(null)
+        private set
+    private var nextKey = 1L
+
+    /** True when the draft belongs on the page showing now. */
+    fun draftShown(): Boolean {
+        val d = draft ?: return false
+        return if (d.documentId == null) state.reader == null else state.reader?.summary?.id == d.documentId
+    }
+
+    /** A new note: an empty title and first paragraph; nothing is stored until it is saved with content. */
+    fun startNew() {
+        if (draft?.dirty == true) return
+        val first = QuickNoteBlock(nextKey++, QuickNoteBlockKind.PARAGRAPH, "")
+        draft = QuickNoteDraft(null, java.util.UUID.randomUUID().toString(), null, "", "", "", listOf(first), focusTitle = true)
+        state = state.copy(visible = true, reader = null, error = "")
+    }
+
+    /**
+     * Edits the open document from the version on disk now, starting at the block holding source
+     * [line] (a tap on the text) or else at heading [headingIndex] (where reading had got to).
+     */
+    fun beginEdit(id: String, headingIndex: Int = -1, line: Int = -1) = work {
+        positions.flush()
+        draft?.let {
+            if (it.documentId == id) return@work
+            // Never replace another note's unsaved edits.
+            if (it.dirty) error("《${it.title.ifBlank { "新速记" }}》还有未保存的修改，请先保存或放弃")
+        }
+        val source = repository.editSource(id)
+        val blocks = QuickNoteBlocks.parse(source.text, nextKey)
+        nextKey += blocks.size + 1
+        val tapped =
+            if (line < 0) null
+            else (blocks.firstOrNull { it.lines?.contains(line) == true } ?: blocks.lastOrNull { (it.lines?.first ?: Int.MAX_VALUE) <= line })?.key
+        val at = tapped ?: if (headingIndex < 0) null else blocks.filter { it.heading }.getOrNull(headingIndex)?.key
+        draft =
+            QuickNoteDraft(
+                id, java.util.UUID.randomUUID().toString(), source.version, source.summary.title, source.text, source.summary.title, blocks,
+                scrollTo = at, focusBlock = tapped, markdownPath = source.markdownPath, imagePaths = source.imagePaths,
+            )
+    }
+
+    fun editDraft(change: (QuickNoteDraft) -> QuickNoteDraft) {
+        val d = draft ?: return
+        if (d.saving) return
+        draft = change(d).copy(error = "")
+    }
+
+    fun newBlockKey() = nextKey++
+
+    fun discardDraft() {
+        if (draft?.saving == true) return
+        draft = null
+    }
+
+    /**
+     * Saves the draft: a new note is created (once per command id), an edit replaces only its changed
+     * blocks and is checked against the version it was read at. The reader then reopens the saved
+     * document, so position, excerpt and outline follow what is stored. A failure keeps the draft,
+     * its text and the reason.
+     */
+    fun saveDraft() {
+        val d = draft ?: return
+        if (d.saving || state.working) return
+        draft = d.copy(saving = true, error = "")
+        state = state.copy(working = true, error = "")
+        scope.launch {
+            try {
+                positions.flush()
+                val markdown = d.markdown()
+                if (d.documentId == null) {
+                    val created = repository.createDocument(QuickNoteCreate(d.commandId, d.title, markdown))
+                    draft = null
+                    refresh()
+                    if (created != null) state = state.copy(reader = repository.openDocument(created.id))
+                } else {
+                    repository.updateDocument(QuickNoteUpdate(d.documentId, requireNotNull(d.version), d.title, markdown))
+                    draft = null
+                    state = state.copy(reader = repository.openDocument(d.documentId))
+                    refresh()
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val reason =
+                    if (e is IllegalArgumentException || e is IllegalStateException) e.message ?: "速记保存失败，请重试"
+                    else "无法保存速记，请重试"
+                draft = draft?.copy(saving = false, error = reason)
+            } finally {
+                state = state.copy(working = false)
+            }
+        }
+    }
+
+    fun setPinned(id: String, pinned: Boolean) = work {
+        repository.setPinned(id, pinned)
+        refresh()
+    }
+
+    suspend fun search(query: String): List<QuickNoteSearchHit> = withContext(Dispatchers.IO) { repository.searchDocuments(query) }
+}
+
+/** The document page's draft; see [QuickNotesStateHolder.draft]. */
+data class QuickNoteDraft(
+    val documentId: String?,
+    /** Creating twice with this id gives the same note. */
+    val commandId: String,
+    /** The version the edit was read at; saving against another version is refused. */
+    val version: String?,
+    val baseTitle: String,
+    val baseMarkdown: String,
+    val title: String,
+    val blocks: List<QuickNoteBlock>,
+    val focusTitle: Boolean = false,
+    /** The block reading had reached when editing began. */
+    val scrollTo: Long? = null,
+    /** The block that was tapped to start editing: it takes the cursor. */
+    val focusBlock: Long? = null,
+    /** Where the Markdown sits in its package and which images it has, for the preview. */
+    val markdownPath: String = "document.md",
+    val imagePaths: Set<String> = emptySet(),
+    val previewing: Boolean = false,
+    val saving: Boolean = false,
+    val error: String = "",
+) {
+    fun markdown(): String = QuickNoteBlocks.compose(baseMarkdown, blocks)
+
+    val dirty: Boolean
+        get() =
+            title.trim() != baseTitle.trim() ||
+                blocks.any { b -> if (b.lines == null) !b.deleted && b.hasContent else b.edited || b.deleted }
+
+    /** A new note with nothing in it: leaving it stores nothing and asks nothing. */
+    val blank: Boolean
+        get() = documentId == null && title.isBlank() && blocks.none { !it.deleted && it.hasContent }
 }

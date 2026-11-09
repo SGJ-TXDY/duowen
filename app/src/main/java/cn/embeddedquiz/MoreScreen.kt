@@ -159,8 +159,8 @@ fun MoreScreen(vm: QuizViewModel, today: LocalDate) {
             listOf(MoreEntry(Page.SETTINGS, Page.SETTINGS.label, AppIcons.Settings, colors.settings)),
         )
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(colors.page).testTag("more-list"),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        modifier = Modifier.fillMaxSize().background(groupPageColor()).testTag("more-list"),
+        contentPadding = PaddingValues(start = PAGE_INSET, end = PAGE_INSET, top = 8.dp, bottom = 24.dp),
     ) {
         item {
             ProfileCard(
@@ -173,17 +173,11 @@ fun MoreScreen(vm: QuizViewModel, today: LocalDate) {
             )
         }
         groups.forEach { group ->
-            item { Spacer(Modifier.height(8.dp)) }
+            item { Spacer(Modifier.height(12.dp)) }
             item {
-                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer)) {
-                    group.forEachIndexed { index, entry ->
-                        if (index > 0)
-                            HorizontalDivider(
-                                Modifier.padding(start = 56.dp),
-                                thickness = 0.5.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant,
-                            )
-                        MoreRow(entry) { vm.navigate(entry.page) }
+                RoundedGroup {
+                    GroupRows(group) { entry ->
+                        GroupRow(entry.title, entry.icon, tint = entry.tint, value = entry.hint, dot = entry.dot) { vm.navigate(entry.page) }
                     }
                 }
             }
@@ -201,11 +195,11 @@ private fun ProfileCard(
     avatar: @Composable () -> Unit = { Icon(AppIcons.Person, contentDescription = null, Modifier.size(32.dp)) },
 ) {
     val sub = MaterialTheme.colorScheme.onSurfaceVariant
-    val base = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer)
+    val base = Modifier.fillMaxWidth().clip(RoundedCornerShape(GROUP_RADIUS)).background(groupColor())
     Column(
         (if (onClick != null) base.clickable(role = Role.Button, onClick = onClick)
             else base.semantics(mergeDescendants = true) {})
-            .padding(start = 24.dp, top = 24.dp, end = 16.dp, bottom = 22.dp),
+            .padding(start = 20.dp, top = 20.dp, end = 16.dp, bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -250,45 +244,5 @@ private fun ProfileCard(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun MoreRow(entry: MoreEntry, onClick: () -> Unit) {
-    val sub = MaterialTheme.colorScheme.onSurfaceVariant
-    // clickable merges the row's texts, so tests and TalkBack read title and hint together.
-    Row(
-        Modifier.fillMaxWidth()
-            .heightIn(min = 56.dp)
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(entry.icon, contentDescription = null, Modifier.size(24.dp), tint = entry.tint)
-        Spacer(Modifier.width(16.dp))
-        Text(entry.title, Modifier.weight(1f), fontSize = 16.sp, lineHeight = 22.sp)
-        entry.hint?.let {
-            Text(
-                it,
-                Modifier.padding(start = 8.dp).widthIn(max = 160.dp),
-                fontSize = 13.sp,
-                color = sub,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        if (entry.dot)
-            Box(
-                Modifier.padding(start = 6.dp)
-                    .size(8.dp)
-                    .background(MaterialTheme.more.dot, CircleShape)
-                    .semantics { contentDescription = "有待处理" }
-            )
-        Icon(
-            AppIcons.ChevronRight,
-            contentDescription = null,
-            Modifier.padding(start = 4.dp).size(20.dp),
-            tint = sub,
-        )
     }
 }

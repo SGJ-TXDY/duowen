@@ -31,7 +31,7 @@ class QuickNoteMarkdownTest {
     @Test
     fun syntaxFixtureCoversNestedListsFormattingLinksTablesImagesAndCopyData() {
         val result = renderer.render(fixture("syntax"), images = setOf("assets/示例图.png"))
-        listOf("<em>", "<strong>", "<del>", "<blockquote>", "<ol>", "<ul>", "<hr", "<table>", "<code>", "<pre>").forEach {
+        listOf("<em>", "<strong>", "<del>", "<blockquote", "<ol>", "<ul>", "<hr", "<table>", "<code>", "<pre>").forEach {
             assertTrue("missing $it", result.htmlBody.contains(it))
         }
         assertEquals(listOf("语法验收", "重复标题", "重复标题-1"), result.headings.map { it.id })

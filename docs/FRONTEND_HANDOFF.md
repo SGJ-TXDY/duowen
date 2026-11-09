@@ -1,5 +1,24 @@
 # 前端交接文档（FRONTEND_HANDOFF）
 
+## 2026-11-09 · 1.7.5 速记列表与同页编辑、设置分栏、圆角分组、吉祥物入口（Claude，PLAN-1.7.5）
+
+详见 `docs/PLAN-1.7.5.md` 末尾“Claude 界面交付”。分支 `feat/1.7.5-notes-settings-ui` 已快进合入 GPT 的 `8582a43`，界面改动尚未提交。
+
+- **新文件**：
+  - `GroupedList.kt`：圆角分组组件；
+  - `QuickNoteBlocks.kt`：Markdown 区块模型，只改写编辑过的块；
+  - `QuickNoteEditor.kt`：文档编辑页；
+  - `QuestionAiEntry.kt`：题目页的吉祥物入口。
+- **改动**：
+  - `MoreScreen.kt`、`SettingsScreen.kt`：设置首页加 4 个子页，诊断即原错误记录页。
+  - `Navigation.kt`、`PageChrome.kt`、`AppNavigation.kt`：新增设置子页和返回路径；分组页的背景；文档页和新建页隐藏底栏。
+  - `QuickNotesScreen.kt`：列表、搜索、菜单、＋、草稿提示。
+  - `QuickNotesStateHolder.kt`：草稿状态、保存、置顶、搜索。
+  - `QuickNoteReader.kt`：铅笔入口。
+  - `QuestionScreen.kt`：浮动吉祥物替换原内联区块，考试中不显示。
+  - `Mascot.kt`：抽出 `MascotStill`。
+- **用到的 GPT 接口**：`editSource`、`createDocument`、`updateDocument`、`setPinned`、`searchDocuments`，以及摘要字段 `updatedAt`、`pinned`、`excerpt`。
+
 ## 2026-11-09 · 1.7.4 Leader 退回两项的补修（Claude）
 
 详见 `docs/PLAN-1.7.4.md` 末尾“Claude 补修退回两项”。只改了 `AiWorkbench.kt` 和测试。

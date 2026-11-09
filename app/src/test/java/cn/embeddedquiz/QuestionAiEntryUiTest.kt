@@ -156,9 +156,10 @@ class QuestionAiEntryUiTest {
     fun theAssistantEntryOpensDiscussionsAndAFollowUpIsAccepted() {
         start("qa-single", "顺序练习")
         // Showing the entry does not take the facade; only using it does.
-        ui.onNodeWithTag("question-list").performScrollToNode(hasText("AI 学习助手"))
-        ui.onNodeWithText("AI 学习助手").performClick()
-        ui.onNodeWithTag("question-list").performScrollToNode(hasTestTag("ai-open"))
+        // The mascot floats over the page (PLAN-1.7.5); tapping it only opens the menu.
+        ui.onNodeWithTag("ai-mascot").performClick()
+        ui.onNodeWithTag("ai-mascot-menu").assertExists()
+        assertFalse(exists(hasTestTag("ai-page")))
         ui.onNodeWithTag("ai-open").performClick()
 
         await { exists(hasTestTag("ai-new-session")) && vm.aiConversations.state.value.phase == ServicePhase.READY }
@@ -177,5 +178,24 @@ class QuestionAiEntryUiTest {
             "",
             ui.onNodeWithTag("ai-draft").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.EditableText].text,
         )
+    }
+
+    @Test
+    fun theMascotLeavesTheLastBlockReachableAndStaysOutOfMockExams() {
+        start("qa-single", "顺序练习")
+        ui.onNodeWithTag("ai-mascot").assertIsDisplayed()
+        // With real taps: the last block of the page scrolls clear of the floating mascot.
+        ui.onNodeWithTag("question-list").performScrollToNode(hasText("题目信息"))
+        ui.onNodeWithTag("question-list").performTouchInput { swipeUp() }
+        ui.waitForIdle()
+        ui.onNode(hasText("题目信息") and hasClickAction()).performClick()
+        await { exists(hasText("原文位置")) }
+        assertFalse(exists(hasTestTag("ai-mascot-menu")))
+
+        // A mock exam keeps the old limits: no mascot, no AI entry.
+        ui.runOnIdle { vm.startExam(vm.questions.filter { it.id == "qa-single" }, 1, 30) }
+        await { vm.page == Page.QUESTION && vm.mode == "模拟考试" && exists(hasTestTag("question-list")) }
+        assertFalse(exists(hasTestTag("ai-mascot")))
+        assertFalse(exists(hasContentDescription("AI 学习助手")))
     }
 }

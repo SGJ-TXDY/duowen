@@ -14,6 +14,7 @@ import org.commonmark.ext.gfm.tables.TableRow
 import org.commonmark.ext.gfm.tables.TablesExtension
 import org.commonmark.node.*
 import org.commonmark.parser.Parser
+import org.commonmark.parser.IncludeSourceSpans
 import org.commonmark.renderer.NodeRenderer
 import org.commonmark.renderer.html.HtmlRenderer
 
@@ -51,8 +52,18 @@ class QuickNoteMarkdown {
     private val extensions = listOf(TablesExtension.create(), StrikethroughExtension.create())
     private val parser = Parser.builder().extensions(extensions).build()
 
+    /** Same parse, with each block's source lines: the reading page maps a tap to its block (PLAN-1.7.5). */
+    private val linedParser = Parser.builder().extensions(extensions).includeSourceSpans(IncludeSourceSpans.BLOCKS).build()
+
     fun render(markdown: String, documentId: String = "preview", markdownPath: String = "document.md", images: Set<String> = emptySet()): QuickNoteRendered {
-        val root = parser.parse(markdown)
+        val root = linedParser.parse(markdown)
+        /** The first source line of a top-level block or of an item of a top-level list. */
+        fun blockLine(node: Node): String? {
+            val top = node.parent is Document || (node is ListItem && node.parent?.parent is Document)
+            return if (top) node.sourceSpans.firstOrNull()?.lineIndex?.toString() else null
+        }
+        fun lined(node: Node, attributes: Map<String, String>) =
+            blockLine(node)?.let { attributes + ("data-qn-line" to it) } ?: attributes
         val outline = mutableListOf<QuickNoteHeading>()
         val ids = IdentityHashMap<Node, String>()
         val code = linkedMapOf<String, String>()
@@ -85,6 +96,7 @@ class QuickNoteMarkdown {
         if (Regex("""\$\$|\$[^\n$]+\$|\\\(|\\\[""").containsMatchIn(outsideCode))
             warnings.add("第一版不排版数学公式，公式语法按原文显示。")
         val renderer = HtmlRenderer.builder().escapeHtml(true).sanitizeUrls(true)
+            .attributeProviderFactory { org.commonmark.renderer.html.AttributeProvider { node, _, attributes -> blockLine(node)?.let { attributes["data-qn-line"] = it } } }
             .nodeRendererFactory { context -> object : NodeRenderer {
                 override fun getNodeTypes(): Set<Class<out Node>> = setOf(Heading::class.java, FencedCodeBlock::class.java, IndentedCodeBlock::class.java, TableBlock::class.java, Image::class.java, Link::class.java)
                 private val html = context.writer
@@ -95,16 +107,16 @@ class QuickNoteMarkdown {
                 override fun render(node: Node) {
                     when (node) {
                         is Heading -> {
-                            html.tag("h${node.level}", mapOf("id" to ids.getValue(node)))
+                            html.tag("h${node.level}", lined(node, mapOf("id" to ids.getValue(node))))
                             children(node); html.tag("/h${node.level}"); html.line()
                         }
                         is TableBlock -> {
-                            html.tag("div", mapOf("class" to "qn-table-scroll", "role" to "region", "aria-label" to "表格，可横向查看"))
+                            html.tag("div", lined(node, mapOf("class" to "qn-table-scroll", "role" to "region", "aria-label" to "表格，可横向查看")))
                             html.tag("table"); children(node); html.tag("/table"); html.tag("/div"); html.line()
                         }
                         is FencedCodeBlock, is IndentedCodeBlock -> {
                             val id = ids.getValue(node)
-                            html.tag("div", mapOf("class" to "qn-code-block"))
+                            html.tag("div", lined(node, mapOf("class" to "qn-code-block")))
                             html.tag("a", mapOf("href" to "quicknote-copy:$id", "class" to "qn-copy", "role" to "button"))
                             html.text("复制代码"); html.tag("/a")
                             html.tag("div", mapOf("class" to "qn-code-scroll", "role" to "region", "aria-label" to "代码，可横向查看"))

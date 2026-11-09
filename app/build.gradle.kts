@@ -21,7 +21,12 @@ android {
     kotlinOptions { jvmTarget = "17" }
     testOptions {
         unitTests.isIncludeAndroidResources = true
-        unitTests.all { it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2") }
+        unitTests.all {
+            it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+            // Tests only: the local JDK 17.0.16 C2 compiler crashes (access violation) compiling this
+            // Room method under Robolectric; interpreting/C1 for it keeps the test JVM alive.
+            it.jvmArgs("-XX:CompileCommand=quiet", "-XX:CompileCommand=exclude,androidx.room.driver.SupportSQLiteStatement\$SupportAndroidSQLiteStatement::step")
+        }
     }
 }
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }

@@ -1,0 +1,122 @@
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:31: Warning: A newer version of androidx.compose:compose-bom than 2025.01.01 is available: 2026.09.00 [GradleDependency]
+    implementation(platform("androidx.compose:compose-bom:2025.01.01"))
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:32: Warning: A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0 [GradleDependency]
+    implementation("androidx.activity:activity-compose:1.10.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:36: Warning: A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.11.0 [GradleDependency]
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:37: Warning: A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.11.0 [GradleDependency]
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:38: Warning: A newer version of androidx.room:room-runtime than 2.7.2 is available: 2.8.5 [GradleDependency]
+    implementation("androidx.room:room-runtime:2.7.2")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:39: Warning: A newer version of androidx.room:room-ktx than 2.7.2 is available: 2.8.5 [GradleDependency]
+    implementation("androidx.room:room-ktx:2.7.2")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:40: Warning: A newer version of androidx.room:room-compiler than 2.7.2 is available: 2.8.5 [GradleDependency]
+    ksp("androidx.room:room-compiler:2.7.2")
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:42: Warning: A newer version of androidx.work:work-runtime-ktx than 2.9.1 is available: 2.12.0 [GradleDependency]
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:43: Warning: A newer version of androidx.work:work-testing than 2.9.1 is available: 2.12.0 [GradleDependency]
+    testImplementation("androidx.work:work-testing:2.9.1")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\build.gradle.kts:46: Warning: A newer version of androidx.test:core than 1.6.1 is available: 1.7.0 [GradleDependency]
+    testImplementation("androidx.test:core:1.6.1")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\src\main\java\cn\embeddedquiz\CommonComponents.kt:35: Warning: Modifier parameter should be the first optional parameter [ModifierParameter from androidx.compose.ui]
+    modifier: Modifier = Modifier,
+    ~~~~~~~~
+
+   Explanation for issues of type "ModifierParameter":
+   The first (or only) Modifier parameter in a Composable function should
+   follow the following rules:
+   - Be named modifier
+   - Have a type of Modifier
+   - Either have no default value, or have a default value of Modifier
+   - If optional, be the first optional parameter in the parameter list
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.ui
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\src\main\res\drawable\ic_launcher_mascot.xml:7: Warning: Very long vector path (1172 characters), which is bad for performance. Considering reducing precision, removing minor details or rasterizing vector. [VectorPath]
+    <path android:fillColor="#FF120D14" android:pathData="M46.65,30.725h14.7v2.45h-14.7zM41.75,33.175h4.9v2.45h-4.9zM61.35,33.175h4.9v2.45h-4.9zM39.3,35.625h2.45v2.45h-2.45zM66.25,35.625h2.45v2.45h-2.45zM36.85,38.075h2.45v2.45h-2.45zM68.7,38.075h2.45v2.45h-2.45zM36.85,40.525h2.45v2.45h-2.45zM68.7,40.525h2.45v2.45h-2.45zM34.4,42.975h2.45v2.45h-2.45zM71.15,42.975h2.45v2.45h-2.45zM34.4,45.425h2.45v2.45h-2.45zM71.15,45.425h2.45v2.45h-2.45zM31.95,47.875h2.45v2.45h-2.45zM73.6,47.875h2.45v2.45h-2.45zM31.95,50.325h2.45v2.45h-2.45zM73.6,50.325h2.45v2.45h-2.45zM29.5,52.775h2.45v2.45h-2.45zM76.05,52.775h2.45v2.45h-2.45zM24.6,55.225h7.35v2.45h-7.35zM76.05,55.225h7.35v2.45h-7.35zM22.15,57.675h2.45v2.45h-2.45zM29.5,57.675h2.45v2.45h-2.45zM76.05,57.675h2.45v2.45h-2.45zM83.4,57.675h2.45v2.45h-2.45zM24.6,60.125h7.35v2.45h-7.35zM76.05,60.125h7.35v2.45h-7.35zM31.95,62.575h2.45v2.45h-2.45zM73.6,62.575h2.45v2.45h-2.45zM31.95,65.025h2.45v2.45h-2.45zM73.6,65.025h2.45v2.45h-2.45zM34.4,67.475h4.9v2.45h-4.9zM68.7,67.475h4.9v2.45h-4.9zM39.3,69.925h29.4v2.45h-29.4zM39.3,72.375h2.45v2.45h-2.45zM44.2,72.375h2.45v2.45h-2.45zM61.35,72.375h2.45v2.45h-2.45zM66.25,72.375h2.45v2.45h-2.45zM39.3,74.825h7.35v2.45h-7.35zM61.35,74.825h7.35v2.45h-7.35z" />
+                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\src\main\res\drawable\ic_launcher_mascot_mono.xml:6: Warning: Very long vector path (827 characters), which is bad for performance. Considering reducing precision, removing minor details or rasterizing vector. [VectorPath]
+    <path android:fillColor="#FF000000" android:pathData="M46.65,30.725h14.7v2.45h-14.7zM41.75,33.175h24.5v2.45h-24.5zM39.3,35.625h29.4v2.45h-29.4zM36.85,38.075h34.3v2.45h-34.3zM36.85,40.525h34.3v2.45h-34.3zM34.4,42.975h39.2v2.45h-39.2zM34.4,45.425h39.2v2.45h-39.2zM31.95,47.875h44.1v2.45h-44.1zM31.95,50.325h9.8v2.45h-9.8zM46.65,50.325h14.7v2.45h-14.7zM66.25,50.325h9.8v2.45h-9.8zM29.5,52.775h12.25v2.45h-12.25zM46.65,52.775h14.7v2.45h-14.7zM66.25,52.775h12.25v2.45h-12.25zM24.6,55.225h24.5v2.45h-24.5zM51.55,55.225h4.9v2.45h-4.9zM58.9,55.225h24.5v2.45h-24.5zM22.15,57.675h29.4v2.45h-29.4zM56.45,57.675h29.4v2.45h-29.4zM24.6,60.125h58.8v2.45h-58.8zM31.95,62.575h44.1v2.45h-44.1zM31.95,65.025h44.1v2.45h-44.1zM34.4,67.475h39.2v2.45h-39.2zM39.3,69.925h29.4v2.45h-29.4zM39.3,72.375h7.35v2.45h-7.35zM61.35,72.375h7.35v2.45h-7.35zM39.3,74.825h7.35v2.45h-7.35zM61.35,74.825h7.35v2.45h-7.35z" />
+                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "VectorPath":
+   Using long vector paths is bad for performance. There are several ways to
+   make the pathData shorter:
+   * Using less precision
+   * Removing some minor details
+   * Using the Android Studio vector conversion tool
+   * Rasterizing the image (converting to PNG)
+
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\src\main\res\drawable-nodpi\ic_launcher_anime.png: Warning: The resource R.drawable.ic_launcher_anime appears to be unused [UnusedResources]
+
+   Explanation for issues of type "UnusedResources":
+   Unused resources make applications larger and slow down builds.
+
+
+   The unused resource check can ignore tests. If you want to include
+   resources that are only referenced from tests, consider packaging them in a
+   test source set instead.
+
+   You can include test sources in the unused resource check by setting the
+   system property lint.unused-resources.include-tests =true, and to exclude
+   them (usually for performance reasons), use
+   lint.unused-resources.exclude-tests =true.
+   ,
+
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\src\main\java\cn\embeddedquiz\AiStorageResources.kt:26: Warning: Consider also using StorageManager#getAllocatableBytes and allocateBytes which will consider clearable cached data [UsableSpace]
+        check(work.usableSpace >= 16L*1024*1024) { "本机空间不足，备份或恢复未完成" }
+                   ~~~~~~~~~~~
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\src\main\java\cn\embeddedquiz\AiStorageResources.kt:27: Warning: Consider also using StorageManager#getAllocatableBytes and allocateBytes which will consider clearable cached data [UsableSpace]
+        check(context.filesDir.usableSpace >= 16L*1024*1024) { "数据库空间不足，恢复未完成" }
+                               ~~~~~~~~~~~
+
+   Explanation for issues of type "UsableSpace":
+   When you need to allocate disk space for large files, consider using the
+   new allocateBytes(FileDescriptor, long) API, which will automatically clear
+   cached files belonging to other apps (as needed) to meet your request.
+
+   When deciding if the device has enough disk space to hold your new data,
+   call getAllocatableBytes(UUID) instead of using getUsableSpace(), since the
+   former will consider any cached data that the system is willing to clear on
+   your behalf.
+
+   Note that these methods require API level 26. If your app is running on
+   older devices, you will probably need to use both APIs, conditionally
+   switching on Build.VERSION.SDK_INT. Lint only looks in the same compilation
+   unit to see if you are already using both APIs, so if it warns even though
+   you are already using the new API, consider moving the calls to the same
+   file or suppressing the warning.
+
+C:\Users\woziji\.codex\visualizations\2026\10\23\01a16682-88e2-7921-b22f-1f42e33ecf00\EmbeddedQuiz\app\src\main\res\drawable-nodpi\ic_launcher_anime.png: Warning: Launcher icons should not fill every pixel of their square region; see the design guide for details [IconLauncherShape]
+
+   Explanation for issues of type "IconLauncherShape":
+   According to the Android Design Guide
+   (https://d.android.com/r/studio-ui/designer/material/iconography) your
+   launcher icons should "use a distinct silhouette", a "three-dimensional,
+   front view, with a slight perspective as if viewed from above, so that
+   users perceive some depth."
+
+   The unique silhouette implies that your launcher icon should not be a
+   filled square.
+
+0 errors, 17 warnings

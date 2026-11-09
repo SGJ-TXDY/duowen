@@ -123,7 +123,8 @@ private fun QuizLayout(vm: QuizViewModel) {
                 PagePolicy.showsTabBar(
                     vm.page,
                     quickNotesVisible = notes,
-                    readerOpen = vm.quickNotes.state.reader != null,
+                    // The document page, read or edited, and a new note are focused pages without tabs.
+                    readerOpen = vm.quickNotes.state.reader != null || vm.quickNotes.draftShown(),
                     answering = answering(),
                 )
             // Nothing is emitted when hidden, so the Scaffold pads only the system bars instead.
@@ -185,13 +186,16 @@ private fun QuizLayout(vm: QuizViewModel) {
                 }
             else {
                 val sub = PagePolicy.isSubPage(vm.page)
+                val grouped = PagePolicy.isGrouped(vm.page)
+                // Grouped pages tint the bar and the page alike, so the rounded groups stand out.
+                Column(Modifier.weight(1f).then(if (grouped) Modifier.background(groupPageColor()) else Modifier)) {
                 if (sub) SubPageTopBar(PagePolicy.title(vm.page))
                 Box(
                     Modifier.weight(1f)
                         .then(
                             when {
-                                // 更多 is a grouped list whose blocks run edge to edge.
-                                vm.page == Page.MORE -> Modifier
+                                // 更多 and 设置 are rounded groups that inset themselves.
+                                vm.page == Page.MORE || grouped -> Modifier
                                 sub -> Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp)
                                 else -> Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
                             }
@@ -221,6 +225,10 @@ private fun QuizLayout(vm: QuizViewModel) {
                             Page.EXAM -> ExamScreen(vm)
                             Page.STATISTICS -> History(vm)
                             Page.SETTINGS -> Settings(vm)
+                            Page.SETTINGS_APPEARANCE -> AppearanceSettings(vm)
+                            Page.SETTINGS_AI -> AiModelSettings(vm)
+                            Page.SETTINGS_REVIEW -> ReviewSettings(vm)
+                            Page.SETTINGS_DATA -> DataSettings(vm)
                             Page.NOTES -> StickyNotesScreen(vm, remember(vm) { stickyNoteSources(vm) })
                             Page.MORE -> MoreScreen(vm, today)
                             Page.WORKBENCH -> AnswerWorkbench(vm)
@@ -229,6 +237,7 @@ private fun QuizLayout(vm: QuizViewModel) {
                             Page.ERROR_LOG -> ErrorLogScreen(vm)
                         }
                     }
+                }
                 }
             }
         }

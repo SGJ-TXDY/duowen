@@ -60,3 +60,17 @@ path、circle、rect、line 等元素全部转换为路径；保持 24 单位视
 | `AppIcons.MessagesSquare` | [messages-square](https://lucide.dev/icons/messages-square) | AI 讨论 自由对话 |
 | `AppIcons.Sparkles` | [sparkles](https://lucide.dev/icons/sparkles) | AI 讨论 临时问 AI |
 | `AppIcons.ArrowUpRight` | [arrow-up-right](https://lucide.dev/icons/arrow-up-right) | AI 讨论 打开来源 |
+| `AppIcons.Sun` | [sun](https://lucide.dev/icons/sun) | 设置 外观 |
+| `AppIcons.Bot` | [bot](https://lucide.dev/icons/bot) | 设置 AI 模型 |
+| `AppIcons.Bell` | [bell](https://lucide.dev/icons/bell) | 设置 复习提醒 |
+| `AppIcons.Database` | [database](https://lucide.dev/icons/database) | 设置 题库与备份 |
+| `AppIcons.Stethoscope` | [stethoscope](https://lucide.dev/icons/stethoscope) | 设置 诊断 |
+| `AppIcons.Pin` | [pin](https://lucide.dev/icons/pin) | 速记 置顶 |
+| `AppIcons.KeyRound` | [key-round](https://lucide.dev/icons/key-round) | 设置 API Key |
+| `AppIcons.Palette` | [palette](https://lucide.dev/icons/palette) | 设置 主题色 |
+| `AppIcons.Type` | [type](https://lucide.dev/icons/type) | 设置 字号 |
+| `AppIcons.Heading` | [heading](https://lucide.dev/icons/heading) | 速记编辑 标题 |
+| `AppIcons.ListChecks` | [list-checks](https://lucide.dev/icons/list-checks) | 速记编辑 待办 |
+| `AppIcons.Pilcrow` | [pilcrow](https://lucide.dev/icons/pilcrow) | 速记编辑 段落 |
+| `AppIcons.Eye` | [eye](https://lucide.dev/icons/eye) | 速记编辑 预览 |
+| `AppIcons.Upload` | [upload](https://lucide.dev/icons/upload) | 导出备份 |

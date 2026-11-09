@@ -70,6 +70,20 @@ ICONS = [
     ("MessagesSquare", "messages-square", "AI 讨论 自由对话", False),
     ("Sparkles", "sparkles", "AI 讨论 临时问 AI", False),
     ("ArrowUpRight", "arrow-up-right", "AI 讨论 打开来源", False),
+    ("Sun", "sun", "设置 外观", False),
+    ("Bot", "bot", "设置 AI 模型", False),
+    ("Bell", "bell", "设置 复习提醒", False),
+    ("Database", "database", "设置 题库与备份", False),
+    ("Stethoscope", "stethoscope", "设置 诊断", False),
+    ("Pin", "pin", "速记 置顶", False),
+    ("KeyRound", "key-round", "设置 API Key", False),
+    ("Palette", "palette", "设置 主题色", False),
+    ("Type", "type", "设置 字号", False),
+    ("Heading", "heading", "速记编辑 标题", False),
+    ("ListChecks", "list-checks", "速记编辑 待办", False),
+    ("Pilcrow", "pilcrow", "速记编辑 段落", False),
+    ("Eye", "eye", "速记编辑 预览", False),
+    ("Upload", "upload", "导出备份", False),
 ]
 
 ARGS = {"m": 2, "l": 2, "h": 1, "v": 1, "c": 6, "s": 4, "q": 4, "t": 2, "a": 7, "z": 0}

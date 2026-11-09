@@ -245,14 +245,22 @@ fun Mascot(modifier: Modifier = Modifier) {
             }
             .semantics { contentDescription = "吉祥物" }
     ) {
-        // Whole-pixel cells keep the edges crisp; the leftover is split around the sprite.
-        val fit = minOf(size.width, size.height) / MascotSprite.GRID
-        val cell = if (fit >= 1f) floor(fit) else fit
-        val origin =
-            Offset((size.width - cell * MascotSprite.GRID) / 2, (size.height - cell * MascotSprite.GRID) / 2)
-        val square = Size(cell, cell)
-        MascotSprite.cells(pose).forEach {
-            drawRect(colors.of(it.ink), origin + Offset(it.x * cell, it.y * cell), square)
-        }
+        drawMascot(pose, colors)
     }
+}
+
+/** Whole-pixel cells keep the edges crisp; the leftover is split around the sprite. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawMascot(pose: MascotPose, colors: MascotColors) {
+    val fit = minOf(size.width, size.height) / MascotSprite.GRID
+    val cell = if (fit >= 1f) floor(fit) else fit
+    val origin = Offset((size.width - cell * MascotSprite.GRID) / 2, (size.height - cell * MascotSprite.GRID) / 2)
+    val square = Size(cell, cell)
+    MascotSprite.cells(pose).forEach { drawRect(colors.of(it.ink), origin + Offset(it.x * cell, it.y * cell), square) }
+}
+
+/** The same mascot, standing still, for places that are a button themselves (the question page's AI entry). */
+@Composable
+internal fun MascotStill(modifier: Modifier = Modifier, pose: MascotPose = MascotPose()) {
+    val colors = MaterialTheme.more.mascot
+    Canvas(modifier) { drawMascot(pose, colors) }
 }

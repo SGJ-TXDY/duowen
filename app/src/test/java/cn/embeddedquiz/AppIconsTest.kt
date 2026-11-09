@@ -21,7 +21,7 @@ class AppIconsTest {
 
     @Test
     fun everyIconSharesTheLucideGridAndStroke() {
-        assertEquals(50, icons.size)
+        assertEquals(64, icons.size)
         icons.forEach { (name, icon) ->
             assertEquals(name, 24f, icon.viewportWidth)
             assertEquals(name, 24f, icon.viewportHeight)

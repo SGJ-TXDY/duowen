@@ -222,17 +222,24 @@ class NotesAndScoringUiTest {
         ui.onNodeWithContentDescription("导航到更多").performClick()
         ui.onNodeWithTag("more-list").performScrollToNode(hasText("设置"))
         ui.onNodeWithText("设置").performClick()
-        ui.onNodeWithTag("settings-list").performScrollToNode(hasText("深色模式：跟随系统"))
-        ui.onNodeWithText("深色模式：跟随系统").performClick()
-        ui.onNodeWithText("深色").performClick()
+        // 设置 › 外观 (PLAN-1.7.5): the theme is one tap in its group.
+        ui.onNode(hasText("外观") and hasClickAction()).performClick()
+        await { vm.page == Page.SETTINGS_APPEARANCE }
+        ui.onNode(hasText("深色") and hasAnyAncestor(hasTestTag("theme-choices"))).performClick()
         await { vm.learning.settings.theme == "DARK" && !vm.busy }
-        ui.onNodeWithTag("settings-list").performScrollToNode(hasText("每日目标（1–1000 题）"))
+        val topBack = hasContentDescription("返回") and hasAnyAncestor(hasTestTag("sub-page-bar"))
+        ui.onNode(topBack).performClick()
+        await { vm.page == Page.SETTINGS }
+        ui.onNode(hasText("复习设置") and hasClickAction()).performClick()
+        await { vm.page == Page.SETTINGS_REVIEW }
         ui.onNodeWithText("每日目标（1–1000 题）").performTextReplacement("35")
-        ui.onNodeWithTag("settings-list").performScrollToNode(hasText("保存每日目标"))
         ui.onNodeWithText("保存每日目标").performClick()
         await { vm.learning.settings.dailyGoal == 35 && !vm.busy }
-        // Settings is a 更多 sub-page without tabs: its top-bar back returns to 更多.
-        ui.onNode(hasContentDescription("返回") and hasAnyAncestor(hasTestTag("sub-page-bar"))).performClick()
+        // Sections return to 设置, and 设置 (a 更多 sub-page without tabs) returns to 更多.
+        ui.onNode(topBack).performClick()
+        await { vm.page == Page.SETTINGS }
+        ui.onNode(hasText("每日 35 题 · 提醒关闭", substring = true)).assertExists()
+        ui.onNode(topBack).performClick()
         ui.waitForIdle()
         assertEquals(Page.MORE, vm.page)
         ui.onNodeWithContentDescription("导航到首页").performClick()
